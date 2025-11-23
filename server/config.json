@@ -1,8 +1,8 @@
 {
   "httpPort": 8080,
   "wsPort": 8081,
-  "adminUser": "SuperBackup",
-  "adminPassword": "Password01!",
+  "adminUser": "admin",
+  "adminPassword": "admin",
   "dataDir": "./data",
   "agentsDir": "./data/agents",
   "jobsDir": "./data/jobs",

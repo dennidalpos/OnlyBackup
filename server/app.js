@@ -1,18 +1,36 @@
-// server/app.js
 const express = require('express');
 const http = require('http');
+const https = require('https');
 const path = require('path');
 const fs = require('fs');
 const WebSocket = require('ws');
 const bodyParser = require('body-parser');
+const config = require('./config.json');
 
-const HTTP_PORT = 8080;
-const WS_PORT = 8081;
+function requireAdmin(req, res, next) {
+  const user = req.headers['x-admin-user'];
+  const pass = req.headers['x-admin-pass'];
+  if (user === config.adminUser && pass === config.adminPassword) {
+    return next();
+  }
+  return res.status(401).json({ error: 'Unauthorized' });
+}
 
-const DATA_DIR = path.join(__dirname, 'data');
-const AGENTS_DIR = path.join(DATA_DIR, 'agents');
-const JOBS_DIR = path.join(DATA_DIR, 'jobs');
-const HISTORY_DIR = path.join(DATA_DIR, 'history');
+function resolveDir(key, defaultRelative) {
+  const p = config[key];
+  if (p && typeof p === 'string') {
+    return path.isAbsolute(p) ? p : path.join(__dirname, p);
+  }
+  return path.join(__dirname, defaultRelative);
+}
+
+const HTTP_PORT = config.httpPort || 8080;
+const WS_PORT = config.wsPort || 8081;
+
+const DATA_DIR = resolveDir('dataDir', 'data');
+const AGENTS_DIR = resolveDir('agentsDir', path.join('data', 'agents'));
+const JOBS_DIR = resolveDir('jobsDir', path.join('data', 'jobs'));
+const HISTORY_DIR = resolveDir('historyDir', path.join('data', 'history'));
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -223,11 +241,9 @@ function scheduleOfflineCheck() {
     agents.forEach(agent => {
       const hasSocket = agentSockets.has(agent.agentId);
       const last = agent.lastSeen ? Date.parse(agent.lastSeen) : 0;
-      
-      if (hasSocket && agent.status === 'online' && last && (now - last < 60000)) {
+      if (hasSocket && agent.status === 'online' && last && now - last < 60000) {
         return;
       }
-      
       let newStatus = agent.status || 'offline';
       if (!last) {
         newStatus = hasSocket ? 'online' : 'offline';
@@ -262,6 +278,10 @@ const app = express();
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.get('/api/admin/check', requireAdmin, (req, res) => {
+  res.json({ ok: true });
+});
+
 app.get('/api/agents', (req, res) => {
   res.json(getAgentsArray());
 });
@@ -275,7 +295,7 @@ app.get('/api/agents/:id', (req, res) => {
   res.json(agent);
 });
 
-app.get('/api/agents/:id/browse', (req, res) => {
+app.get('/api/agents/:id/browse', requireAdmin, (req, res) => {
   const agentId = req.params.id;
   const browsePath = req.query.path || '';
   const ws = agentSockets.get(agentId);
@@ -325,13 +345,13 @@ function pushJobsToAgent(agentId) {
   ws.send(JSON.stringify(msg));
 }
 
-app.get('/api/jobs/:agentId', (req, res) => {
+app.get('/api/jobs/:agentId', requireAdmin, (req, res) => {
   const agentId = req.params.agentId;
   const jobs = loadJobs(agentId);
   res.json({ agentId, jobs });
 });
 
-app.post('/api/jobs/:agentId', (req, res) => {
+app.post('/api/jobs/:agentId', requireAdmin, (req, res) => {
   const agentId = req.params.agentId;
   const body = req.body || {};
   const jobs = loadJobs(agentId);
@@ -350,7 +370,7 @@ app.post('/api/jobs/:agentId', (req, res) => {
   res.json(job);
 });
 
-app.put('/api/jobs/:agentId/:jobId', (req, res) => {
+app.put('/api/jobs/:agentId/:jobId', requireAdmin, (req, res) => {
   const agentId = req.params.agentId;
   const jobId = req.params.jobId;
   const body = req.body || {};
@@ -370,7 +390,7 @@ app.put('/api/jobs/:agentId/:jobId', (req, res) => {
   res.json(jobs[idx]);
 });
 
-app.delete('/api/jobs/:agentId/:jobId', (req, res) => {
+app.delete('/api/jobs/:agentId/:jobId', requireAdmin, (req, res) => {
   const agentId = req.params.agentId;
   const jobId = req.params.jobId;
   const jobs = loadJobs(agentId);
@@ -382,7 +402,7 @@ app.delete('/api/jobs/:agentId/:jobId', (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/jobs/:agentId/:jobId/run', (req, res) => {
+app.post('/api/jobs/:agentId/:jobId/run', requireAdmin, (req, res) => {
   const agentId = req.params.agentId;
   const jobId = req.params.jobId;
   const ws = agentSockets.get(agentId);
@@ -398,7 +418,7 @@ app.post('/api/jobs/:agentId/:jobId/run', (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/jobs/:agentId/validate-destinations', (req, res) => {
+app.post('/api/jobs/:agentId/validate-destinations', requireAdmin, (req, res) => {
   const agentId = req.params.agentId;
   const destinations = (req.body && req.body.destinations) || [];
   const ws = agentSockets.get(agentId);
@@ -424,7 +444,7 @@ app.post('/api/jobs/:agentId/validate-destinations', (req, res) => {
   ws.send(JSON.stringify(msg));
 });
 
-app.get('/api/history/:agentId', (req, res) => {
+app.get('/api/history/:agentId', requireAdmin, (req, res) => {
   const agentId = req.params.agentId;
   const history = loadHistory(agentId);
   res.json({ agentId, history });
@@ -434,13 +454,33 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-const server = http.createServer(app);
+let tlsOptions = null;
+if (config.useTls && config.tls && config.tls.keyFile && config.tls.certFile) {
+  const keyPath = path.isAbsolute(config.tls.keyFile) ? config.tls.keyFile : path.join(__dirname, config.tls.keyFile);
+  const certPath = path.isAbsolute(config.tls.certFile) ? config.tls.certFile : path.join(__dirname, config.tls.certFile);
+  tlsOptions = {
+    key: fs.readFileSync(keyPath),
+    cert: fs.readFileSync(certPath)
+  };
+}
+
+const server = tlsOptions ? https.createServer(tlsOptions, app) : http.createServer(app);
+
 server.listen(HTTP_PORT, () => {
-  console.log('HTTP server listening on', HTTP_PORT);
+  console.log((tlsOptions ? 'HTTPS' : 'HTTP') + ' server listening on', HTTP_PORT);
 });
 
-const wss = new WebSocket.Server({ port: WS_PORT });
-console.log('WebSocket server listening on', WS_PORT);
+let wss;
+if (tlsOptions) {
+  const wsServer = https.createServer(tlsOptions);
+  wsServer.listen(WS_PORT, () => {
+    console.log('WebSocket TLS server listening on', WS_PORT);
+  });
+  wss = new WebSocket.Server({ server: wsServer });
+} else {
+  wss = new WebSocket.Server({ port: WS_PORT });
+  console.log('WebSocket server listening on', WS_PORT);
+}
 
 wss.on('connection', ws => {
   ws.isDashboard = false;
