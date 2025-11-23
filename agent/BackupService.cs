@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Concurrent;
 using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.ServiceProcess;
+using System.Threading;
 using System.Timers;
 
 namespace BackupAgentService
@@ -15,10 +17,19 @@ namespace BackupAgentService
         private string _logDir;
         private const long MAX_LOG_SIZE_BYTES = 10 * 1024 * 1024;
         private const int MAX_LOG_FILES = 5;
+        private ConcurrentQueue<string> _logQueue;
+        private Thread _logThread;
+        private volatile bool _logThreadRunning;
+        private long _currentLogSize;
+        private DateTime _lastRotationCheck;
 
         public BackupService()
         {
             ServiceName = "BackupAgentService";
+            _logQueue = new ConcurrentQueue<string>();
+            _logThreadRunning = false;
+            _currentLogSize = 0;
+            _lastRotationCheck = DateTime.MinValue;
         }
 
         protected override void OnStart(string[] args)
@@ -52,6 +63,7 @@ namespace BackupAgentService
                 }
             }
 
+            StartLogThread();
             Log("Service starting");
 
             string serverUrl = null;
@@ -166,22 +178,72 @@ namespace BackupAgentService
             }
 
             Log("Service stopped");
+            StopLogThread();
+        }
+
+        private void StartLogThread()
+        {
+            try
+            {
+                _logThreadRunning = true;
+                _logThread = new Thread(LogThreadWorker);
+                _logThread.IsBackground = true;
+                _logThread.Start();
+            }
+            catch
+            {
+            }
+        }
+
+        private void StopLogThread()
+        {
+            try
+            {
+                _logThreadRunning = false;
+                if (_logThread != null && _logThread.IsAlive)
+                {
+                    _logThread.Join(5000);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private void LogThreadWorker()
+        {
+            while (_logThreadRunning || !_logQueue.IsEmpty)
+            {
+                try
+                {
+                    string line;
+                    if (_logQueue.TryDequeue(out line))
+                    {
+                        if (string.IsNullOrWhiteSpace(_logDir))
+                            _logDir = @"C:\ProgramData\BackupAgent\Logs";
+                        Directory.CreateDirectory(_logDir);
+                        
+                        string file = Path.Combine(_logDir, "agent.log");
+                        RotateLogIfNeeded(file);
+                        File.AppendAllLines(file, new[] { line });
+                    }
+                    else
+                    {
+                        Thread.Sleep(100);
+                    }
+                }
+                catch
+                {
+                }
+            }
         }
 
         private void Log(string message)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(_logDir))
-                    _logDir = @"C:\ProgramData\BackupAgent\Logs";
-                Directory.CreateDirectory(_logDir);
-                
-                string file = Path.Combine(_logDir, "agent.log");
                 string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " " + message;
-                
-                RotateLogIfNeeded(file);
-                
-                File.AppendAllLines(file, new[] { line });
+                _logQueue.Enqueue(line);
             }
             catch
             {
@@ -193,49 +255,53 @@ namespace BackupAgentService
             try
             {
                 if (!File.Exists(logFile))
+                {
+                    _currentLogSize = 0;
                     return;
+                }
 
+                var now = DateTime.Now;
+                if ((now - _lastRotationCheck).TotalSeconds < 60)
+                {
+                    _currentLogSize += 100;
+                    if (_currentLogSize < MAX_LOG_SIZE_BYTES)
+                        return;
+                }
+
+                _lastRotationCheck = now;
                 var fileInfo = new FileInfo(logFile);
-                if (fileInfo.Length < MAX_LOG_SIZE_BYTES)
+                _currentLogSize = fileInfo.Length;
+                
+                if (_currentLogSize < MAX_LOG_SIZE_BYTES)
                     return;
 
                 string logDir = Path.GetDirectoryName(logFile);
                 string baseName = Path.GetFileNameWithoutExtension(logFile);
                 string extension = Path.GetExtension(logFile);
 
-                var existingLogs = Directory.GetFiles(logDir, baseName + "*" + extension)
-                    .Where(f => f != logFile)
-                    .OrderByDescending(f => f)
-                    .ToList();
-
-                foreach (var oldLog in existingLogs.Skip(MAX_LOG_FILES - 2))
+                for (int i = MAX_LOG_FILES - 1; i >= 1; i--)
                 {
+                    string oldFile = Path.Combine(logDir, baseName + "." + i + extension);
+                    string newFile = Path.Combine(logDir, baseName + "." + (i + 1) + extension);
+                    
                     try
                     {
-                        File.Delete(oldLog);
+                        if (File.Exists(oldFile))
+                        {
+                            if (i >= MAX_LOG_FILES - 1)
+                            {
+                                File.Delete(oldFile);
+                            }
+                            else
+                            {
+                                if (File.Exists(newFile))
+                                    File.Delete(newFile);
+                                File.Move(oldFile, newFile);
+                            }
+                        }
                     }
                     catch
                     {
-                    }
-                }
-
-                for (int i = existingLogs.Count - 1; i >= 0; i--)
-                {
-                    string oldFile = existingLogs[i];
-                    string oldNum = Path.GetFileNameWithoutExtension(oldFile).Replace(baseName + ".", "");
-                    int num;
-                    if (int.TryParse(oldNum, out num))
-                    {
-                        string newFile = Path.Combine(logDir, baseName + "." + (num + 1) + extension);
-                        try
-                        {
-                            if (File.Exists(newFile))
-                                File.Delete(newFile);
-                            File.Move(oldFile, newFile);
-                        }
-                        catch
-                        {
-                        }
                     }
                 }
 
@@ -245,6 +311,7 @@ namespace BackupAgentService
                     if (File.Exists(rotatedFile))
                         File.Delete(rotatedFile);
                     File.Move(logFile, rotatedFile);
+                    _currentLogSize = 0;
                 }
                 catch
                 {
