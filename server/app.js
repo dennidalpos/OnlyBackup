@@ -221,8 +221,13 @@ function scheduleOfflineCheck() {
     const now = Date.now();
     let changed = false;
     agents.forEach(agent => {
-      const last = agent.lastSeen ? Date.parse(agent.lastSeen) : 0;
       const hasSocket = agentSockets.has(agent.agentId);
+      const last = agent.lastSeen ? Date.parse(agent.lastSeen) : 0;
+      
+      if (hasSocket && agent.status === 'online' && last && (now - last < 60000)) {
+        return;
+      }
+      
       let newStatus = agent.status || 'offline';
       if (!last) {
         newStatus = hasSocket ? 'online' : 'offline';
