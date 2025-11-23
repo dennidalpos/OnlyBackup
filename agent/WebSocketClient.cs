@@ -22,6 +22,7 @@ namespace BackupAgentService
         private string _hostname;
         private string[] _ipAddresses;
         private string _osVersion;
+        private string _cachedHeartbeatJson;
 
         public WebSocketClient(string serverUrl, JobScheduler scheduler, Action<string> log)
         {
@@ -56,6 +57,23 @@ namespace BackupAgentService
                 _ipAddresses = new[] { "0.0.0.0" };
             }
             _agentId = _hostname;
+            CacheHeartbeatMessage();
+        }
+
+        private void CacheHeartbeatMessage()
+        {
+            var msg = new
+            {
+                type = "heartbeat",
+                payload = new
+                {
+                    agentId = _agentId,
+                    hostname = _hostname,
+                    ipAddresses = _ipAddresses,
+                    osVersion = _osVersion
+                }
+            };
+            _cachedHeartbeatJson = JsonConvert.SerializeObject(msg);
         }
 
         public void Connect()
@@ -232,18 +250,18 @@ namespace BackupAgentService
 
         public void SendHeartbeat()
         {
-            var msg = new
+            try
             {
-                type = "heartbeat",
-                payload = new
+                lock (_sync)
                 {
-                    agentId = _agentId,
-                    hostname = _hostname,
-                    ipAddresses = _ipAddresses,
-                    osVersion = _osVersion
+                    if (_ws != null && _ws.ReadyState == WebSocketState.Open && !string.IsNullOrEmpty(_cachedHeartbeatJson))
+                        _ws.Send(_cachedHeartbeatJson);
                 }
-            };
-            SendObject(msg);
+            }
+            catch (Exception ex)
+            {
+                _log("Error sending heartbeat: " + ex);
+            }
         }
 
         public void SendJobResult(JobResult result)
