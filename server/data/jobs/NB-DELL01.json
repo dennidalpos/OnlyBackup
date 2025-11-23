@@ -1,0 +1,25 @@
+{
+  "agentId": "NB-DELL01",
+  "jobs": [
+    {
+      "id": "job-1763820253809-6834",
+      "name": "test",
+      "sources": [
+        "C:\\BGinfo"
+      ],
+      "destinations": [
+        {
+          "path": "\\\\nb-dell01\\backup",
+          "credentials": null
+        }
+      ],
+      "schedule": {
+        "type": "daily",
+        "time": "15:36"
+      },
+      "options": {
+        "syncMode": "sync"
+      }
+    }
+  ]
+}

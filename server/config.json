@@ -1,0 +1,15 @@
+{
+  "httpPort": 8080,
+  "wsPort": 8081,
+  "adminUser": "SuperBackup",
+  "adminPassword": "Password01!",
+  "dataDir": "./data",
+  "agentsDir": "./data/agents",
+  "jobsDir": "./data/jobs",
+  "historyDir": "./data/history",
+  "useTls": false,
+  "tls": {
+    "keyFile": "",
+    "certFile": ""
+  }
+}

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>SuperBackup Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="brand-text">
+      <h1>SuperBackup Dashboard</h1>
+      <span class="brand-subtitle">Gestione centralizzata backup client Windows</span>
+    </div>
+  </div>
+
+  <div id="topbar-status">
+    <div class="status-group">
+      <span class="status-label">Backup</span>
+      <span class="status-pill status-pill-red" title="Backup falliti (ultimo job per endpoint)">
+        <span class="status-dot-small status-dot-small-red"></span>
+        <span class="status-pill-label">Falliti</span>
+        <span id="top-backup-failed">0</span>
+      </span>
+      <span class="status-pill status-pill-green" title="Backup corretti (ultimo job per endpoint)">
+        <span class="status-dot-small status-dot-small-green"></span>
+        <span class="status-pill-label">OK</span>
+        <span id="top-backup-ok">0</span>
+      </span>
+    </div>
+    <div class="status-group">
+      <span class="status-label">Endpoint</span>
+      <span class="status-pill status-pill-red" title="Endpoint offline / non raggiungibili">
+        <span class="status-dot-small status-dot-small-red"></span>
+        <span class="status-pill-label">Offline</span>
+        <span id="top-endpoints-offline">0</span>
+      </span>
+      <span class="status-pill status-pill-green" title="Endpoint online / connessi">
+        <span class="status-dot-small status-dot-small-green"></span>
+        <span class="status-pill-label">Online</span>
+        <span id="top-endpoints-online">0</span>
+      </span>
+    </div>
+  </div>
+
+  <div id="admin-login">
+    <div id="login-form">
+      <input type="text" id="admin-user" placeholder="Admin user">
+      <input type="password" id="admin-password" placeholder="Admin password">
+      <button id="btn-login">Login</button>
+    </div>
+    <div id="login-info" class="hidden">
+      <span id="login-user-label"></span>
+      <button id="btn-logout">Logout</button>
+    </div>
+    <span id="login-status"></span>
+  </div>
+</header>
+
+<main>
+  <section id="agents-section">
+    <h2>Endpoint registrati</h2>
+    <div id="agents-toolbar">
+      <input type="text" id="agent-search" placeholder="Cerca per hostname, IP o ID">
+    </div>
+    <table id="agents-table">
+      <thead>
+      <tr>
+        <th>Endpoint</th>
+        <th>Backup</th>
+        <th>Hostname</th>
+        <th>IP</th>
+        <th>OS</th>
+        <th>Ultimo contatto</th>
+      </tr>
+      </thead>
+      <tbody id="agents-body"></tbody>
+    </table>
+  </section>
+
+  <section id="agent-details">
+    <div class="agent-header">
+      <h2>Dettagli endpoint</h2>
+      <div id="selected-agent-info">Nessun endpoint selezionato</div>
+    </div>
+
+    <div id="jobs-section" class="hidden card">
+      <div class="section-card" id="jobs-existing-card">
+        <div class="card-header">
+          <h3>Job di backup esistenti</h3>
+          <span class="card-subtitle">Job configurati sull'endpoint selezionato</span>
+        </div>
+        <div id="jobs-list"></div>
+      </div>
+
+      <div class="section-card" id="job-editor-card">
+        <div class="card-header">
+          <div class="form-mode-row">
+            <h3>Editor job</h3>
+            <span id="job-form-mode" class="form-mode-label">Modalità: nuovo job</span>
+          </div>
+          <span class="card-subtitle">Crea un nuovo job o modifica uno esistente selezionandolo sopra</span>
+        </div>
+
+        <form id="job-form">
+          <input type="hidden" id="job-id">
+          <div class="form-row">
+            <label>Nome job</label>
+            <input type="text" id="job-name" required>
+          </div>
+
+          <div class="section-card inner-section" id="paths-section">
+            <div class="form-row">
+              <label>Sorgenti</label>
+              <textarea id="job-sources" placeholder="Una sorgente per riga"></textarea>
+              <div class="inline-actions">
+                <button type="button" id="btn-validate-sources" class="btn-primary">Convalida sorgenti</button>
+                <span id="sources-validation-result"></span>
+              </div>
+            </div>
+
+            <div id="filesystem-browser" class="fs-panel hidden">
+              <div class="card-header">
+                <h4>Aggiungi Elementi</h4>
+                <span class="card-subtitle">Seleziona cartelle o file dall'endpoint remoto</span>
+              </div>
+              <div class="fs-toolbar">
+                <button id="btn-browse" type="button">Esplora Endpoint</button>
+                <button id="btn-add-elements" type="button">Aggiungi Elementi</button>
+              </div>
+              <div id="fs-header" class="fs-header">
+                <div class="fs-col-checkbox"></div>
+                <div class="fs-col-name">Nome</div>
+                <div class="fs-col-type">Tipo</div>
+                <div class="fs-col-size">Dimensione</div>
+                <div class="fs-col-path">Percorso completo</div>
+              </div>
+              <div id="fs-results" class="fs-results"></div>
+              <div id="selected-sources">
+                <h4>Sorgenti selezionate</h4>
+                <ul id="sources-list"></ul>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label>Destinazioni</label>
+              <div id="destinations-list"></div>
+              <button type="button" id="btn-add-destination" class="btn-secondary-small btn-add-destination">Aggiungi destinazione</button>
+              <div class="inline-actions">
+                <button type="button" id="btn-validate-dest" class="btn-primary">
+                  Convalida destinazioni
+                </button>
+                <span id="dest-validation-result"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-card inner-section" id="schedule-section">
+            <div class="form-row two-cols">
+              <div>
+                <label>Tipo pianificazione</label>
+                <select id="schedule-type">
+                  <option value="daily">Giornaliero</option>
+                  <option value="weekly">Settimanale</option>
+                  <option value="monthly">Mensile</option>
+                </select>
+              </div>
+              <div>
+                <label>Ora (HH:MM)</label>
+                <input type="time" id="schedule-time" value="23:00">
+              </div>
+            </div>
+
+            <div id="weekly-options" class="form-row hidden">
+              <label>Giorno (settimanale)</label>
+              <select id="schedule-weekday">
+                <option value="0">Domenica</option>
+                <option value="1">Lunedì</option>
+                <option value="2">Martedì</option>
+                <option value="3">Mercoledì</option>
+                <option value="4">Giovedì</option>
+                <option value="5">Venerdì</option>
+                <option value="6">Sabato</option>
+              </select>
+            </div>
+
+            <div id="monthly-options" class="form-row hidden">
+              <label>Giorno del mese</label>
+              <input type="number" id="schedule-day-of-month" min="1" max="31" value="1">
+            </div>
+
+            <div class="form-row">
+              <label>Tipo backup</label>
+              <select id="sync-mode">
+                <option value="copy">Copia da sorgente a destinazione</option>
+                <option value="sync">Sync da sorgente a destinazione</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row form-actions">
+            <button type="submit" id="btn-save-job" class="btn-primary" disabled>Salva job</button>
+            <button type="button" id="btn-reset-job" class="btn-secondary">Pulisci campi</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="history-section" class="hidden card">
+      <div class="card-header">
+        <h3>Storico esecuzioni</h3>
+        <span class="card-subtitle">Log sintetico delle ultime esecuzioni</span>
+      </div>
+      <div id="history-list"></div>
+    </div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "agentId": "NB-DELL01",
+  "hostname": "NB-DELL01",
+  "osVersion": "Microsoft Windows NT 6.2.9200.0",
+  "ipAddresses": [
+    "127.0.0.1"
+  ],
+  "lastSeen": "2025-11-23T10:23:43.691Z",
+  "status": "online",
+  "lastBackupStatus": "success",
+  "lastBackupAt": "2025-11-22T23:14:23.5104359Z",
+  "lastBackupMessage": null,
+  "lastBackupFiles": 0,
+  "lastBackupBytes": 0
+}

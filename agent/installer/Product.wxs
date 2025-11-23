@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="BackupAgentService" Language="1033" Version="1.0.0.0" Manufacturer="YourCompany" UpgradeCode="A1234567-B890-4CDE-ABCD-1234567890AB">
+    <Package InstallerVersion="500" InstallPrivileges="elevated" InstallScope="perMachine" Compressed="yes" />
+    <MediaTemplate />
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="BackupAgentService" />
+      </Directory>
+    </Directory>
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="cmpBackupAgentFiles" Guid="B1234567-B890-4CDE-ABCD-1234567890AB">
+        <File Id="filExe" Source="$(var.BinDir)\BackupAgentService.exe" KeyPath="yes" />
+        <File Id="filCfg" Source="$(var.BinDir)\BackupAgentService.exe.config" />
+        <File Id="filNewtonsoft" Source="$(var.BinDir)\Newtonsoft.Json.dll" />
+        <File Id="filWs" Source="$(var.BinDir)\websocket-sharp.dll" />
+        <ServiceInstall Id="BackupAgentServiceInstall" Type="ownProcess" Name="BackupAgentService" DisplayName="Backup Agent Service" Description="Backup Agent Service" Start="auto" ErrorControl="normal" Account="LocalSystem" />
+        <ServiceControl Id="BackupAgentServiceControl" Name="BackupAgentService" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+      </Component>
+    </DirectoryRef>
+    <Feature Id="ProductFeature" Title="BackupAgentService" Level="1">
+      <ComponentRef Id="cmpBackupAgentFiles" />
+    </Feature>
+  </Product>
+</Wix>
