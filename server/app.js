@@ -28,6 +28,9 @@ const agentSockets = new Map();
 const dashboardSockets = new Set();
 const pendingBrowse = new Map();
 const pendingValidateDest = new Map();
+const dirtyAgents = new Set();
+let broadcastPending = false;
+let broadcastTimeout = null;
 
 function loadJsonFile(file, def) {
   if (!fs.existsSync(file)) return def;
@@ -98,10 +101,17 @@ function broadcastToDashboards(obj) {
 }
 
 function broadcastAgentsSnapshot() {
-  broadcastToDashboards({
-    type: 'agents_snapshot',
-    payload: getAgentsArray()
-  });
+  if (broadcastPending) return;
+  broadcastPending = true;
+  if (broadcastTimeout) clearTimeout(broadcastTimeout);
+  broadcastTimeout = setTimeout(() => {
+    broadcastPending = false;
+    broadcastTimeout = null;
+    broadcastToDashboards({
+      type: 'agents_snapshot',
+      payload: getAgentsArray()
+    });
+  }, 1000);
 }
 
 function appendHistory(agentId, entry) {
@@ -203,7 +213,7 @@ function touchAgentHeartbeat(agentId, heartbeatPayload) {
     agent.ipAddresses = heartbeatPayload.ipAddresses;
   }
   agents.set(agentId, agent);
-  saveAgent(agent);
+  dirtyAgents.add(agentId);
 }
 
 function scheduleOfflineCheck() {
@@ -223,12 +233,24 @@ function scheduleOfflineCheck() {
       if (newStatus !== agent.status) {
         agent.status = newStatus;
         agents.set(agent.agentId, agent);
-        saveAgent(agent);
+        dirtyAgents.add(agent.agentId);
         changed = true;
       }
     });
     if (changed) broadcastAgentsSnapshot();
   }, 30000);
+}
+
+function scheduleAgentPersistence() {
+  setInterval(() => {
+    if (dirtyAgents.size === 0) return;
+    const toSave = Array.from(dirtyAgents);
+    dirtyAgents.clear();
+    toSave.forEach(agentId => {
+      const agent = agents.get(agentId);
+      if (agent) saveAgent(agent);
+    });
+  }, 300000);
 }
 
 const app = express();
@@ -523,4 +545,5 @@ wss.on('connection', ws => {
 
 loadPersistedAgents();
 scheduleOfflineCheck();
+scheduleAgentPersistence();
 broadcastAgentsSnapshot();

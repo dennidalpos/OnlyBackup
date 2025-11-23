@@ -124,7 +124,7 @@ namespace BackupAgentService
         {
             if (string.IsNullOrEmpty(networkPath))
                 throw new ArgumentNullException("networkPath");
-            var unc = GetShareRoot(networkPath);
+            var unc = GetShareRootStatic(networkPath);
             _networkName = unc;
             var netResource = new NETRESOURCE
             {
@@ -137,16 +137,6 @@ namespace BackupAgentService
             int result = WNetAddConnection2(ref netResource, credentials.password, userName, 0);
             if (result != 0)
                 throw new InvalidOperationException("Error connecting to remote share (code " + result + "): " + GetErrorMessage(result));
-        }
-
-        private string GetShareRoot(string path)
-        {
-            if (!path.StartsWith(@"\\"))
-                return path;
-            var parts = path.TrimStart('\\').Split('\\');
-            if (parts.Length < 2)
-                return path;
-            return @"\\" + parts[0] + "\\" + parts[1];
         }
 
         public void Dispose()
