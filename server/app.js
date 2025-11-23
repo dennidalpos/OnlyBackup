@@ -28,6 +28,7 @@ const agentSockets = new Map();
 const dashboardSockets = new Set();
 const pendingBrowse = new Map();
 const pendingValidateDest = new Map();
+const dirtyAgents = new Set();
 
 function loadJsonFile(file, def) {
   if (!fs.existsSync(file)) return def;
@@ -203,7 +204,7 @@ function touchAgentHeartbeat(agentId, heartbeatPayload) {
     agent.ipAddresses = heartbeatPayload.ipAddresses;
   }
   agents.set(agentId, agent);
-  saveAgent(agent);
+  dirtyAgents.add(agentId);
 }
 
 function scheduleOfflineCheck() {
@@ -223,12 +224,24 @@ function scheduleOfflineCheck() {
       if (newStatus !== agent.status) {
         agent.status = newStatus;
         agents.set(agent.agentId, agent);
-        saveAgent(agent);
+        dirtyAgents.add(agent.agentId);
         changed = true;
       }
     });
     if (changed) broadcastAgentsSnapshot();
   }, 30000);
+}
+
+function scheduleAgentPersistence() {
+  setInterval(() => {
+    if (dirtyAgents.size === 0) return;
+    const toSave = Array.from(dirtyAgents);
+    dirtyAgents.clear();
+    toSave.forEach(agentId => {
+      const agent = agents.get(agentId);
+      if (agent) saveAgent(agent);
+    });
+  }, 300000);
 }
 
 const app = express();
@@ -523,4 +536,5 @@ wss.on('connection', ws => {
 
 loadPersistedAgents();
 scheduleOfflineCheck();
+scheduleAgentPersistence();
 broadcastAgentsSnapshot();
