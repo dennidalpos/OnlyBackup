@@ -44,14 +44,11 @@ function formatTimestamp(ts) {
 
 function formatBytesHuman(bytes) {
   const b = Number(bytes) || 0;
-  const kb = b / 1024;
-  if (kb < 1024) return kb.toFixed(2) + ' KB';
-  const mb = kb / 1024;
-  if (mb < 1000) return mb.toFixed(2) + ' MB';
-  const gb = mb / 1024;
-  if (gb < 1000) return gb.toFixed(2) + ' GB';
-  const tb = gb / 1024;
-  return tb.toFixed(2) + ' TB';
+  if (b < 1024) return b.toFixed(2) + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(2) + ' KB';
+  if (b < 1073741824) return (b / 1048576).toFixed(2) + ' MB';
+  if (b < 1099511627776) return (b / 1073741824).toFixed(2) + ' GB';
+  return (b / 1099511627776).toFixed(2) + ' TB';
 }
 
 function deriveBackupStatus(agent) {
