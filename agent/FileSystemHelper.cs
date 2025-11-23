@@ -130,7 +130,7 @@ namespace BackupAgentService
             var ctx = new CopyContext();
             Directory.CreateDirectory(destDir);
             var sourceFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
+            foreach (var file in Directory.EnumerateFiles(sourceDir, "*", SearchOption.AllDirectories))
             {
                 var rel = file.Substring(sourceDir.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 sourceFiles.Add(rel);
@@ -149,7 +149,7 @@ namespace BackupAgentService
             }
             if (mirror)
             {
-                foreach (var file in Directory.GetFiles(destDir, "*", SearchOption.AllDirectories))
+                foreach (var file in Directory.EnumerateFiles(destDir, "*", SearchOption.AllDirectories))
                 {
                     var rel = file.Substring(destDir.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                     if (!sourceFiles.Contains(rel))
