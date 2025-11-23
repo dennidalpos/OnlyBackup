@@ -90,39 +90,87 @@ namespace BackupAgentService
         private DateTime CalculateNextRun(JobConfig job)
         {
             var s = job.schedule ?? new ScheduleConfig { type = "daily", time = "23:00" };
-            TimeSpan time;
-            if (!TimeSpan.TryParse(s.time ?? "23:00", out time))
-                time = new TimeSpan(23, 0, 0);
-            var now = DateTime.Now;
-            if (string.Equals(s.type, "weekly", StringComparison.OrdinalIgnoreCase))
+            var times = new List<TimeSpan>();
+            TimeSpan mainTime;
+            if (TimeSpan.TryParse(s.time ?? "23:00", out mainTime))
             {
-                int dow = s.dayOfWeek ?? 1;
-                var target = new DateTime(now.Year, now.Month, now.Day, time.Hours, time.Minutes, 0);
-                while ((int)target.DayOfWeek != dow || target <= now)
-                    target = target.AddDays(1);
-                return target;
+                times.Add(mainTime);
             }
-            if (string.Equals(s.type, "monthly", StringComparison.OrdinalIgnoreCase))
+            if (s.extraTimes != null)
             {
-                int dom = s.dayOfMonth ?? 1;
-                int daysInMonth = DateTime.DaysInMonth(now.Year, now.Month);
-                if (dom > daysInMonth)
-                    dom = daysInMonth;
-                var target = new DateTime(now.Year, now.Month, dom, time.Hours, time.Minutes, 0);
-                if (target <= now)
+                foreach (var t in s.extraTimes)
                 {
-                    var nextMonth = now.AddMonths(1);
-                    daysInMonth = DateTime.DaysInMonth(nextMonth.Year, nextMonth.Month);
-                    if (dom > daysInMonth)
-                        dom = daysInMonth;
-                    target = new DateTime(nextMonth.Year, nextMonth.Month, dom, time.Hours, time.Minutes, 0);
+                    if (string.IsNullOrWhiteSpace(t))
+                        continue;
+                    TimeSpan ts;
+                    if (TimeSpan.TryParse(t, out ts))
+                        times.Add(ts);
                 }
-                return target;
             }
+            if (times.Count == 0)
+            {
+                times.Add(new TimeSpan(23, 0, 0));
+            }
+
+            var now = DateTime.Now;
+            DateTime? best = null;
+
+            foreach (var time in times)
+            {
+                DateTime candidate;
+                if (string.Equals(s.type, "weekly", StringComparison.OrdinalIgnoreCase))
+                {
+                    candidate = CalculateNextWeekly(now, time, s.dayOfWeek ?? 1);
+                }
+                else if (string.Equals(s.type, "monthly", StringComparison.OrdinalIgnoreCase))
+                {
+                    candidate = CalculateNextMonthly(now, time, s.dayOfMonth ?? 1);
+                }
+                else
+                {
+                    candidate = CalculateNextDaily(now, time);
+                }
+                if (best == null || candidate < best.Value)
+                    best = candidate;
+            }
+
+            return best ?? now.AddMinutes(5);
+        }
+
+        private DateTime CalculateNextDaily(DateTime now, TimeSpan time)
+        {
             var t = new DateTime(now.Year, now.Month, now.Day, time.Hours, time.Minutes, 0);
             if (t <= now)
                 t = t.AddDays(1);
             return t;
+        }
+
+        private DateTime CalculateNextWeekly(DateTime now, TimeSpan time, int dayOfWeek)
+        {
+            if (dayOfWeek < 0 || dayOfWeek > 6)
+                dayOfWeek = 1;
+            var target = new DateTime(now.Year, now.Month, now.Day, time.Hours, time.Minutes, 0);
+            while ((int)target.DayOfWeek != dayOfWeek || target <= now)
+                target = target.AddDays(1);
+            return target;
+        }
+
+        private DateTime CalculateNextMonthly(DateTime now, TimeSpan time, int dayOfMonth)
+        {
+            if (dayOfMonth < 1) dayOfMonth = 1;
+            int daysInMonth = DateTime.DaysInMonth(now.Year, now.Month);
+            if (dayOfMonth > daysInMonth)
+                dayOfMonth = daysInMonth;
+            var target = new DateTime(now.Year, now.Month, dayOfMonth, time.Hours, time.Minutes, 0);
+            if (target <= now)
+            {
+                var nextMonth = now.AddMonths(1);
+                daysInMonth = DateTime.DaysInMonth(nextMonth.Year, nextMonth.Month);
+                if (dayOfMonth > daysInMonth)
+                    dayOfMonth = daysInMonth;
+                target = new DateTime(nextMonth.Year, nextMonth.Month, dayOfMonth, time.Hours, time.Minutes, 0);
+            }
+            return target;
         }
 
         private void RunJob(JobConfig job, string trigger)
@@ -245,15 +293,14 @@ namespace BackupAgentService
                                 }
                                 finally
                                 {
-                                    if (netConn != null)
-                                        netConn.Dispose();
+                                  if (netConn != null)
+                                      netConn.Dispose();
                                 }
                             }
 
                             if (!success)
                             {
-                                var msg = "Failed after " + MAX_RETRIES + " attempts: source=" + sourcePath + 
-                                         " dest=" + dest.path + " error=" + lastError;
+                                var msg = "Failed to copy " + sourcePath + " to " + dest.path + ". Last error: " + lastError;
                                 _log(msg);
                                 errors.Add(msg);
                                 result.status = "failed";
@@ -264,22 +311,22 @@ namespace BackupAgentService
                 catch (Exception ex)
                 {
                     result.status = "failed";
-                    var msg = "Error running job " + job.id + ": " + ex;
-                    result.errorMessage = msg;
-                    _log(msg);
+                    errors.Add("Unhandled exception: " + ex.Message);
+                    _log("Job error: " + ex);
                 }
                 finally
                 {
-                    if (errors.Count > 0)
-                    {
-                        var errText = string.Join(" | ", errors);
-                        if (string.IsNullOrEmpty(result.errorMessage))
-                            result.errorMessage = errText;
-                        else
-                            result.errorMessage += " | " + errText;
-                    }
                     result.finishedAt = DateTime.UtcNow.ToString("o");
-                    _sendResult(result);
+                    if (errors.Count > 0 && string.IsNullOrEmpty(result.errorMessage))
+                        result.errorMessage = string.Join(" | ", errors);
+                    try
+                    {
+                        _sendResult(result);
+                    }
+                    catch (Exception exSend)
+                    {
+                        _log("Error sending job result: " + exSend);
+                    }
                 }
             });
         }
@@ -287,30 +334,40 @@ namespace BackupAgentService
         private List<string> ValidateJobPaths(JobConfig job)
         {
             var errors = new List<string>();
-
-            foreach (var src in job.sources ?? new List<string>())
+            if (job.sources == null || job.sources.Count == 0)
             {
-                if (string.IsNullOrWhiteSpace(src))
-                    continue;
-
-                var sourcePath = src.Trim();
-                if (sourcePath.Length > MAX_PATH_LENGTH)
+                errors.Add("Nessuna sorgente configurata");
+            }
+            if (job.destinations == null || job.destinations.Count == 0)
+            {
+                errors.Add("Nessuna destinazione configurata");
+            }
+            if (job.sources != null)
+            {
+                foreach (var src in job.sources)
                 {
-                    errors.Add("Source path exceeds " + MAX_PATH_LENGTH + " characters: " + sourcePath.Substring(0, Math.Min(50, sourcePath.Length)) + "...");
+                    if (string.IsNullOrWhiteSpace(src))
+                        continue;
+                    var trimmed = src.Trim();
+                    if (trimmed.Length > MAX_PATH_LENGTH)
+                    {
+                        errors.Add("Sorgente troppo lunga: " + trimmed);
+                    }
                 }
             }
-
-            foreach (var dest in job.destinations ?? new List<DestinationConfig>())
+            if (job.destinations != null)
             {
-                if (dest == null || string.IsNullOrEmpty(dest.path))
-                    continue;
-
-                if (dest.path.Length > MAX_PATH_LENGTH)
+                foreach (var dest in job.destinations)
                 {
-                    errors.Add("Destination path exceeds " + MAX_PATH_LENGTH + " characters: " + dest.path.Substring(0, Math.Min(50, dest.path.Length)) + "...");
+                    if (dest == null || string.IsNullOrWhiteSpace(dest.path))
+                        continue;
+                    var trimmed = dest.path.Trim();
+                    if (trimmed.Length > MAX_PATH_LENGTH)
+                    {
+                        errors.Add("Destinazione troppo lunga: " + trimmed);
+                    }
                 }
             }
-
             return errors;
         }
     }

@@ -13,7 +13,7 @@ namespace BackupAgentService
     {
         private WebSocketClient _client;
         private JobScheduler _scheduler;
-        private Timer _heartbeatTimer;
+        private System.Timers.Timer _heartbeatTimer;
         private string _logDir;
         private const long MAX_LOG_SIZE_BYTES = 10 * 1024 * 1024;
         private const int MAX_LOG_FILES = 5;
@@ -114,7 +114,7 @@ namespace BackupAgentService
 
             try
             {
-                _heartbeatTimer = new Timer(heartbeatSeconds * 1000);
+                _heartbeatTimer = new System.Timers.Timer(heartbeatSeconds * 1000);
                 _heartbeatTimer.Elapsed += (s, e) =>
                 {
                     try

@@ -29,6 +29,7 @@ namespace BackupAgentService
     {
         public string type { get; set; }
         public string time { get; set; }
+        public List<string> extraTimes { get; set; }
         public int? dayOfWeek { get; set; }
         public int? dayOfMonth { get; set; }
     }

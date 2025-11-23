@@ -94,22 +94,41 @@ function renderAgents(agents) {
       tr.classList.add('agent-selected');
     }
 
+    const epStatus = (agent.status || '').toLowerCase();
+    const backupStatus = deriveBackupStatus(agent);
+
     const endpointTd = document.createElement('td');
+    const endpointWrapper = document.createElement('div');
+    endpointWrapper.classList.add('status-cell');
+    const endpointLabel = document.createElement('div');
+    endpointLabel.classList.add('status-cell-label');
+    endpointLabel.textContent = epStatus === 'online' ? 'Online' : 'Offline';
     const endpointDot = document.createElement('span');
     endpointDot.classList.add('status-dot');
-    const epStatus = (agent.status || '').toLowerCase();
     if (epStatus === 'online') endpointDot.classList.add('status-online');
     else endpointDot.classList.add('status-offline');
-    endpointTd.appendChild(endpointDot);
+    endpointWrapper.appendChild(endpointLabel);
+    endpointWrapper.appendChild(endpointDot);
+    endpointTd.appendChild(endpointWrapper);
 
     const backupTd = document.createElement('td');
+    const backupWrapper = document.createElement('div');
+    backupWrapper.classList.add('status-cell');
+    const backupLabel = document.createElement('div');
+    backupLabel.classList.add('status-cell-label');
+    let backupText;
+    if (backupStatus === 'success') backupText = 'OK';
+    else if (backupStatus === 'failed') backupText = 'Fallito';
+    else backupText = 'Mai';
+    backupLabel.textContent = backupText;
     const backupDot = document.createElement('span');
     backupDot.classList.add('status-dot');
-    const backupStatus = deriveBackupStatus(agent);
     if (backupStatus === 'success') backupDot.classList.add('status-online');
     else if (backupStatus === 'failed') backupDot.classList.add('status-offline');
     else backupDot.classList.add('status-warning');
-    backupTd.appendChild(backupDot);
+    backupWrapper.appendChild(backupLabel);
+    backupWrapper.appendChild(backupDot);
+    backupTd.appendChild(backupWrapper);
 
     const hostTd = document.createElement('td');
     hostTd.textContent = agent.hostname || agent.agentId;
@@ -134,7 +153,7 @@ function renderAgents(agents) {
       selectedAgentId = agent.agentId;
       try {
         localStorage.setItem('sbSelectedAgentId', selectedAgentId);
-      } catch {}
+      } catch { }
       highlightSelectedAgent();
       loadAgentDetails();
     });
@@ -209,18 +228,16 @@ async function loadAgentDetails() {
         <span class="agent-status-badge ${epStatus === 'online' ? 'agent-status-badge-endpoint-online' : 'agent-status-badge-endpoint-offline'}">
           Endpoint: ${epStatus === 'online' ? 'Online' : 'Offline'}
         </span>
-        <span class="agent-status-badge ${
-          backupStatus === 'success'
-            ? 'agent-status-badge-backup-ok'
-            : backupStatus === 'failed'
-            ? 'agent-status-badge-backup-failed'
-            : 'agent-status-badge-backup-never'
-        }">
+        <span class="agent-status-badge ${backupStatus === 'success'
+        ? 'agent-status-badge-backup-ok'
+        : backupStatus === 'failed'
+          ? 'agent-status-badge-backup-failed'
+          : 'agent-status-badge-backup-never'
+      }">
           ${backupText}
         </span>
       </div>
     `;
-    
     if (!fsBrowserActive) {
       selectedSources = [];
       const sourcesList = document.getElementById('sources-list');
@@ -229,7 +246,6 @@ async function loadAgentDetails() {
       const fsResults = document.getElementById('fs-results');
       if (fsResults) fsResults.innerHTML = '';
     }
-    
     if (isAdminLogged()) {
       await loadJobs();
       await loadHistory();
@@ -242,6 +258,54 @@ async function loadAgentDetails() {
   } catch (e) {
     console.error(e);
   }
+}
+
+function renderFsItem(container, item, type) {
+  const row = document.createElement('div');
+  row.classList.add('fs-item');
+  if (type === 'dir') row.classList.add('fs-dir');
+  if (type === 'file') row.classList.add('fs-file');
+  if (type === 'drive') row.classList.add('fs-dir-root');
+
+  const cbCol = document.createElement('div');
+  cbCol.classList.add('fs-col-checkbox');
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.dataset.fullPath = item.fullPath;
+  cbCol.appendChild(cb);
+
+  const nameCol = document.createElement('div');
+  nameCol.classList.add('fs-col-name');
+  nameCol.classList.add(type === 'file' ? 'fs-name' : type === 'drive' ? 'fs-drive' : 'fs-name');
+  nameCol.textContent = item.name;
+  nameCol.addEventListener('click', () => {
+    if (type === 'file') {
+      cb.checked = !cb.checked;
+    } else {
+      currentBrowsePath = item.fullPath;
+      browseFs();
+    }
+  });
+
+  const typeCol = document.createElement('div');
+  typeCol.classList.add('fs-col-type');
+  typeCol.textContent = type === 'file' ? 'File' : 'Cartella';
+
+  const sizeCol = document.createElement('div');
+  sizeCol.classList.add('fs-col-size');
+  sizeCol.textContent = item.size ? formatBytesHuman(item.size) : '';
+
+  const pathCol = document.createElement('div');
+  pathCol.classList.add('fs-col-path');
+  pathCol.textContent = item.fullPath;
+
+  row.appendChild(cbCol);
+  row.appendChild(nameCol);
+  row.appendChild(typeCol);
+  row.appendChild(sizeCol);
+  row.appendChild(pathCol);
+
+  container.appendChild(row);
 }
 
 function openPath(p) {
@@ -267,236 +331,98 @@ async function browseFs() {
     alert('Seleziona prima un endpoint');
     return;
   }
-  
   fsBrowserActive = true;
-  
   const browsePath = currentBrowsePath || '';
   const encodedPath = encodeURIComponent(browsePath);
   const container = document.getElementById('fs-results');
-  container.textContent = 'Caricamento...';
-
+  container.textContent = 'Caricamento.';
   try {
     const res = await fetchJson(apiBase + '/api/agents/' + selectedAgentId + '/browse?path=' + encodedPath);
-    currentBrowsePath = res.path || browsePath || '';
     container.innerHTML = '';
 
-    if (currentBrowsePath) {
-      const upRow = document.createElement('div');
-      upRow.classList.add('fs-item');
-      const cbCell = document.createElement('div');
-      const nameCell = document.createElement('div');
-      nameCell.classList.add('fs-col-name', 'fs-up');
-      nameCell.textContent = '.. (su)';
-      nameCell.addEventListener('click', () => goUp());
-      const typeCell = document.createElement('div');
-      const sizeCell = document.createElement('div');
-      const pathCell = document.createElement('div');
-      upRow.appendChild(cbCell);
-      upRow.appendChild(nameCell);
-      upRow.appendChild(typeCell);
-      upRow.appendChild(sizeCell);
-      upRow.appendChild(pathCell);
-      container.appendChild(upRow);
-    }
+    const upRow = document.createElement('div');
+    upRow.classList.add('fs-item', 'fs-up');
+    const upSpan = document.createElement('div');
+    upSpan.classList.add('fs-col-name');
+    upSpan.textContent = '.. (su)';
+    upRow.appendChild(document.createElement('div'));
+    upRow.appendChild(upSpan);
+    upRow.appendChild(document.createElement('div'));
+    upRow.appendChild(document.createElement('div'));
+    upRow.appendChild(document.createElement('div'));
+    upRow.addEventListener('click', () => goUp());
+    container.appendChild(upRow);
 
-    if (!currentBrowsePath) {
-      (res.directories || []).forEach(dir => {
-        const row = document.createElement('div');
-        row.classList.add('fs-item', 'fs-dir-root');
-        const cbCell = document.createElement('div');
-        const nameCell = document.createElement('div');
-        nameCell.classList.add('fs-col-name');
-        const typeCell = document.createElement('div');
-        typeCell.classList.add('fs-type');
-        typeCell.textContent = 'Unità';
-        const sizeCell = document.createElement('div');
-        sizeCell.classList.add('fs-size');
-        const pathCell = document.createElement('div');
-        pathCell.classList.add('fs-path');
+    const dirs = res.directories || [];
+    const files = res.files || [];
 
-        const label = document.createElement('span');
-        label.textContent = dir.name;
-        label.classList.add('fs-drive');
-        label.addEventListener('click', () => openPath(dir.fullPath));
-
-        nameCell.appendChild(label);
-        pathCell.textContent = dir.fullPath;
-
-        row.appendChild(cbCell);
-        row.appendChild(nameCell);
-        row.appendChild(typeCell);
-        row.appendChild(sizeCell);
-        row.appendChild(pathCell);
-
-        container.appendChild(row);
-      });
-      return;
-    }
-
-    (res.directories || []).forEach(dir => {
-      const row = document.createElement('div');
-      row.classList.add('fs-item', 'fs-dir');
-
-      const cbCell = document.createElement('div');
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.dataset.fullpath = dir.fullPath;
-      if (selectedSources.includes(dir.fullPath)) cb.checked = true;
-      cb.addEventListener('change', () => handleSourceCheckbox(cb.checked, dir.fullPath));
-      cbCell.appendChild(cb);
-
-      const nameCell = document.createElement('div');
-      nameCell.classList.add('fs-col-name');
-      const label = document.createElement('span');
-      label.textContent = dir.name;
-      label.classList.add('fs-name');
-      label.addEventListener('click', () => openPath(dir.fullPath));
-      nameCell.appendChild(label);
-
-      const typeCell = document.createElement('div');
-      typeCell.classList.add('fs-type');
-      typeCell.textContent = 'Cartella';
-
-      const sizeCell = document.createElement('div');
-      sizeCell.classList.add('fs-size');
-      sizeCell.textContent = '';
-
-      const pathCell = document.createElement('div');
-      pathCell.classList.add('fs-path');
-      pathCell.textContent = dir.fullPath;
-
-      row.appendChild(cbCell);
-      row.appendChild(nameCell);
-      row.appendChild(typeCell);
-      row.appendChild(sizeCell);
-      row.appendChild(pathCell);
-
-      container.appendChild(row);
+    dirs.forEach(d => {
+      renderFsItem(container, d, 'dir');
+    });
+    files.forEach(f => {
+      renderFsItem(container, f, 'file');
     });
 
-    (res.files || []).forEach(file => {
-      const row = document.createElement('div');
-      row.classList.add('fs-item', 'fs-file');
-
-      const cbCell = document.createElement('div');
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.dataset.fullpath = file.fullPath;
-      if (selectedSources.includes(file.fullPath)) cb.checked = true;
-      cb.addEventListener('change', () => handleSourceCheckbox(cb.checked, file.fullPath));
-      cbCell.appendChild(cb);
-
-      const nameCell = document.createElement('div');
-      nameCell.classList.add('fs-col-name');
-      const label = document.createElement('span');
-      label.textContent = file.name;
-      label.classList.add('fs-name');
-      nameCell.appendChild(label);
-
-      const typeCell = document.createElement('div');
-      typeCell.classList.add('fs-type');
-      typeCell.textContent = 'File';
-
-      const sizeCell = document.createElement('div');
-      sizeCell.classList.add('fs-size');
-      sizeCell.textContent = file.size != null ? file.size.toString() : '';
-
-      const pathCell = document.createElement('div');
-      pathCell.classList.add('fs-path');
-      pathCell.textContent = file.fullPath;
-
-      row.appendChild(cbCell);
-      row.appendChild(nameCell);
-      row.appendChild(typeCell);
-      row.appendChild(sizeCell);
-      row.appendChild(pathCell);
-
-      container.appendChild(row);
+    const sourcesList = document.getElementById('sources-list');
+    sourcesList.innerHTML = '';
+    selectedSources.forEach(p => {
+      const li = document.createElement('li');
+      li.textContent = p;
+      const btn = document.createElement('button');
+      btn.textContent = 'Rimuovi';
+      btn.classList.add('btn-remove-source');
+      btn.addEventListener('click', () => {
+        selectedSources = selectedSources.filter(x => x !== p);
+        li.remove();
+      });
+      li.appendChild(btn);
+      sourcesList.appendChild(li);
     });
   } catch (e) {
-    console.error(e);
-    container.textContent = 'Errore nel browse filesystem';
+    container.textContent = 'Errore caricamento filesystem: ' + e.message;
   }
-}
-
-function handleSourceCheckbox(checked, fullPath) {
-  if (checked) {
-    if (!selectedSources.includes(fullPath)) selectedSources.push(fullPath);
-  } else {
-    selectedSources = selectedSources.filter(p => p !== fullPath);
-  }
-  renderSelectedSources();
-}
-
-function removeSource(path) {
-  selectedSources = selectedSources.filter(p => p !== path);
-  const cbs = document.querySelectorAll('#fs-results input[type="checkbox"]');
-  cbs.forEach(cb => {
-    if (cb.dataset.fullpath === path) cb.checked = false;
-  });
-  renderSelectedSources();
-}
-
-function renderSelectedSources() {
-  const ul = document.getElementById('sources-list');
-  if (!ul) return;
-  ul.innerHTML = '';
-  selectedSources.forEach(p => {
-    const li = document.createElement('li');
-    const span = document.createElement('span');
-    span.textContent = p;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = 'Rimuovi';
-    btn.classList.add('btn-remove-source');
-    btn.addEventListener('click', () => removeSource(p));
-    li.appendChild(span);
-    li.appendChild(btn);
-    ul.appendChild(li);
-  });
 }
 
 function addDestinationRow(dest) {
   const container = document.getElementById('destinations-list');
-  if (!container) return;
   const row = document.createElement('div');
   row.classList.add('destination-row');
 
-  const inputPath = document.createElement('input');
-  inputPath.type = 'text';
-  inputPath.classList.add('dest-path-input');
-  inputPath.placeholder = 'Percorso destinazione (es. \\\\NAS\\Share o D:\\Backup)';
-  if (dest && dest.path) inputPath.value = dest.path;
+  const pathInput = document.createElement('input');
+  pathInput.type = 'text';
+  pathInput.placeholder = '\\\\server\\share o cartella locale';
+  pathInput.classList.add('dest-path-input');
+  pathInput.value = dest && dest.path ? dest.path : '';
 
-  const inputAccount = document.createElement('input');
-  inputAccount.type = 'text';
-  inputAccount.classList.add('dest-account-input');
-  inputAccount.placeholder = 'DOMINIO\\utente';
+  const accountInput = document.createElement('input');
+  accountInput.type = 'text';
+  accountInput.placeholder = 'DOMINIO\\utente o utente';
+  accountInput.classList.add('dest-account-input');
   if (dest && dest.credentials) {
-    const c = dest.credentials;
-    if (c.username) {
-      if (c.domain) inputAccount.value = c.domain + '\\' + c.username;
-      else inputAccount.value = c.username;
-    }
+    const dom = dest.credentials.domain || '';
+    const usr = dest.credentials.username || '';
+    accountInput.value = dom ? dom + '\\' + usr : usr;
   }
 
-  const inputPassword = document.createElement('input');
-  inputPassword.type = 'password';
-  inputPassword.classList.add('dest-password-input');
-  inputPassword.placeholder = 'Password';
-  if (dest && dest.credentials && dest.credentials.password) inputPassword.value = dest.credentials.password;
+  const pwdInput = document.createElement('input');
+  pwdInput.type = 'password';
+  pwdInput.placeholder = 'Password (facoltativa)';
+  pwdInput.classList.add('dest-password-input');
+  if (dest && dest.credentials && dest.credentials.password) {
+    pwdInput.value = dest.credentials.password;
+  }
 
   const btnRemove = document.createElement('button');
   btnRemove.type = 'button';
   btnRemove.textContent = 'Rimuovi';
   btnRemove.classList.add('btn-dest-remove');
   btnRemove.addEventListener('click', () => {
-    container.removeChild(row);
+    row.remove();
   });
 
-  row.appendChild(inputPath);
-  row.appendChild(inputAccount);
-  row.appendChild(inputPassword);
+  row.appendChild(pathInput);
+  row.appendChild(accountInput);
+  row.appendChild(pwdInput);
   row.appendChild(btnRemove);
   container.appendChild(row);
 }
@@ -507,6 +433,21 @@ function setDestinationsInForm(destinations) {
   container.innerHTML = '';
   let list = destinations && destinations.length ? destinations : [{ path: '', credentials: {} }];
   list.forEach(d => addDestinationRow(d));
+}
+
+function parseAccount(value) {
+  const text = value || '';
+  const idx = text.indexOf('\\');
+  if (idx > 0) {
+    return {
+      domain: text.substring(0, idx),
+      username: text.substring(idx + 1)
+    };
+  }
+  return {
+    domain: null,
+    username: text
+  };
 }
 
 function getDestinationsFromForm() {
@@ -535,10 +476,23 @@ function getDestinationsFromForm() {
   return result;
 }
 
+function buildScheduleTimesText(schedule) {
+  const s = schedule || {};
+  const times = [];
+  if (s.time) times.push(s.time);
+  if (Array.isArray(s.extraTimes)) {
+    s.extraTimes.forEach(t => {
+      if (t) times.push(t);
+    });
+  }
+  if (!times.length) return 'n.d.';
+  return times.join(', ');
+}
+
 async function loadJobs() {
   if (!selectedAgentId) return;
   const listDiv = document.getElementById('jobs-list');
-  listDiv.textContent = 'Caricamento...';
+  listDiv.textContent = 'Caricamento.';
   try {
     const data = await fetchJson(apiBase + '/api/jobs/' + selectedAgentId);
     listDiv.innerHTML = '';
@@ -551,19 +505,61 @@ async function loadJobs() {
       title.classList.add('job-entry-title');
       title.textContent = job.name + ' (' + job.id + ')';
 
-      const src = document.createElement('div');
-      src.classList.add('job-entry-meta');
-      src.textContent = 'Sorgenti: ' + (job.sources || []).join(', ');
+      const sections = document.createElement('div');
+      sections.classList.add('job-entry-sections');
 
-      const dests = document.createElement('div');
-      dests.classList.add('job-entry-meta');
-      dests.textContent = 'Destinazioni: ' + (job.destinations || []).map(d => d.path).join(', ');
+      const srcSection = document.createElement('div');
+      srcSection.classList.add('job-entry-section');
+      const srcLabel = document.createElement('div');
+      srcLabel.classList.add('job-entry-section-label');
+      srcLabel.textContent = 'Sorgenti';
+      const srcContent = document.createElement('div');
+      srcContent.classList.add('job-entry-section-content');
+      srcContent.textContent = (job.sources || []).join(', ') || 'Nessuna sorgente';
+      srcSection.appendChild(srcLabel);
+      srcSection.appendChild(srcContent);
 
-      const sched = document.createElement('div');
+      const destSection = document.createElement('div');
+      destSection.classList.add('job-entry-section');
+      const destLabel = document.createElement('div');
+      destLabel.classList.add('job-entry-section-label');
+      destLabel.textContent = 'Destinazioni';
+      const destContent = document.createElement('div');
+      destContent.classList.add('job-entry-section-content');
+      destContent.textContent = (job.destinations || []).map(d => d.path).join(', ') || 'Nessuna destinazione';
+      destSection.appendChild(destLabel);
+      destSection.appendChild(destContent);
+
+      const schedSection = document.createElement('div');
+      schedSection.classList.add('job-entry-section');
+      const schedLabel = document.createElement('div');
+      schedLabel.classList.add('job-entry-section-label');
+      schedLabel.textContent = 'Pianificazione';
+      const schedContent = document.createElement('div');
+      schedContent.classList.add('job-entry-section-content');
       const s = job.schedule || {};
       const modeLabel = job.options && job.options.syncMode === 'sync' ? 'Sync' : 'Copia';
-      sched.classList.add('job-entry-meta');
-      sched.textContent = 'Sched: ' + (s.type || '') + ' ' + (s.time || '') + ' • Tipo: ' + modeLabel;
+      const timesText = buildScheduleTimesText(s);
+      let schedText = '';
+      if (s.type === 'weekly') {
+        const dow = typeof s.dayOfWeek === 'number' ? s.dayOfWeek : null;
+        schedText = 'Settimanale';
+        if (dow !== null) schedText += ' (giorno ' + dow + ')';
+      } else if (s.type === 'monthly') {
+        const dom = typeof s.dayOfMonth === 'number' ? s.dayOfMonth : null;
+        schedText = 'Mensile';
+        if (dom !== null) schedText += ' (giorno ' + dom + ')';
+      } else {
+        schedText = 'Giornaliero';
+      }
+      schedText += ' • Orari: ' + timesText + ' • Tipo backup: ' + modeLabel;
+      schedContent.textContent = schedText;
+      schedSection.appendChild(schedLabel);
+      schedSection.appendChild(schedContent);
+
+      sections.appendChild(srcSection);
+      sections.appendChild(destSection);
+      sections.appendChild(schedSection);
 
       const actions = document.createElement('div');
       actions.classList.add('job-entry-actions');
@@ -589,9 +585,7 @@ async function loadJobs() {
       actions.appendChild(btnDelete);
 
       div.appendChild(title);
-      div.appendChild(src);
-      div.appendChild(dests);
-      div.appendChild(sched);
+      div.appendChild(sections);
       div.appendChild(actions);
 
       listDiv.appendChild(div);
@@ -632,8 +626,8 @@ function setFormMode(isEdit, jobName) {
   const label = document.getElementById('job-form-mode');
   const resetBtn = document.getElementById('btn-reset-job');
   if (isEdit) {
-    label.textContent = 'Modalità: modifica job "' + jobName + '"';
-    resetBtn.textContent = 'Annulla';
+    label.textContent = 'Modalità: modifica job ' + jobName;
+    resetBtn.textContent = 'Nuovo job';
   } else {
     label.textContent = 'Modalità: nuovo job';
     resetBtn.textContent = 'Pulisci campi';
@@ -641,26 +635,32 @@ function setFormMode(isEdit, jobName) {
 }
 
 function fillJobForm(job) {
-  document.getElementById('job-id').value = job.id;
+  document.getElementById('job-id').value = job.id || '';
   document.getElementById('job-name').value = job.name || '';
   document.getElementById('job-sources').value = (job.sources || []).join('\n');
   setDestinationsInForm(job.destinations || []);
   const s = job.schedule || {};
-  document.getElementById('schedule-type').value = s.type || 'daily';
+  const type = s.type || 'daily';
+  document.getElementById('schedule-type').value = type;
   document.getElementById('schedule-time').value = s.time || '23:00';
-  if (s.type === 'weekly') {
+  document.getElementById('schedule-extra-times').value = Array.isArray(s.extraTimes) ? s.extraTimes.join(', ') : '';
+  if (type === 'weekly') {
     document.getElementById('weekly-options').classList.remove('hidden');
     document.getElementById('monthly-options').classList.add('hidden');
-    document.getElementById('schedule-weekday').value = s.dayOfWeek != null ? s.dayOfWeek.toString() : '1';
-  } else if (s.type === 'monthly') {
+    if (typeof s.dayOfWeek === 'number') {
+      document.getElementById('schedule-weekday').value = String(s.dayOfWeek);
+    }
+  } else if (type === 'monthly') {
     document.getElementById('weekly-options').classList.add('hidden');
     document.getElementById('monthly-options').classList.remove('hidden');
-    document.getElementById('schedule-day-of-month').value = s.dayOfMonth || 1;
+    if (typeof s.dayOfMonth === 'number') {
+      document.getElementById('schedule-day-of-month').value = String(s.dayOfMonth);
+    }
   } else {
     document.getElementById('weekly-options').classList.add('hidden');
     document.getElementById('monthly-options').classList.add('hidden');
   }
-  document.getElementById('sync-mode').value = (job.options && job.options.syncMode) || 'copy';
+  document.getElementById('sync-mode').value = job.options && job.options.syncMode === 'sync' ? 'sync' : 'copy';
   setFormMode(true, job.name || job.id);
 }
 
@@ -668,34 +668,27 @@ function resetJobForm() {
   document.getElementById('job-id').value = '';
   document.getElementById('job-name').value = '';
   document.getElementById('job-sources').value = '';
+  setDestinationsInForm([]);
   document.getElementById('schedule-type').value = 'daily';
   document.getElementById('schedule-time').value = '23:00';
+  document.getElementById('schedule-extra-times').value = '';
+  document.getElementById('schedule-weekday').value = '1';
+  document.getElementById('schedule-day-of-month').value = '1';
   document.getElementById('weekly-options').classList.add('hidden');
   document.getElementById('monthly-options').classList.add('hidden');
   document.getElementById('sync-mode').value = 'copy';
-  document.getElementById('dest-validation-result').textContent = '';
-  const srcRes = document.getElementById('sources-validation-result');
-  if (srcRes) srcRes.textContent = '';
-  selectedSources = [];
-  currentBrowsePath = '';
-  fsBrowserActive = false;
-  const fsResults = document.getElementById('fs-results');
-  if (fsResults) fsResults.innerHTML = '';
-  const sourcesList = document.getElementById('sources-list');
-  if (sourcesList) sourcesList.innerHTML = '';
-  setDestinationsInForm([]);
-  setFormMode(false, '');
+  setFormMode(false, null);
 }
 
 function hasLocalDestinations(destPaths) {
-  return destPaths.filter(p => /^[A-Za-z]:\\/.test(p));
-}
-
-function parseAccount(account) {
-  if (!account) return { domain: null, username: null };
-  const idx = account.indexOf('\\');
-  if (idx > 0) return { domain: account.substring(0, idx), username: account.substring(idx + 1) };
-  return { domain: null, username: account };
+  const local = [];
+  destPaths.forEach(p => {
+    const trimmed = (p || '').trim();
+    if (!trimmed) return;
+    const isUnc = /^\\\\/.test(trimmed);
+    if (!isUnc) local.push(trimmed);
+  });
+  return local;
 }
 
 async function saveJob(ev) {
@@ -716,6 +709,8 @@ async function saveJob(ev) {
   const destinations = destinationsAll.filter(d => d.path);
   const scheduleType = document.getElementById('schedule-type').value;
   const scheduleTime = document.getElementById('schedule-time').value || '23:00';
+  const extraRaw = document.getElementById('schedule-extra-times').value || '';
+  const extraTimes = extraRaw.split(',').map(t => t.trim()).filter(Boolean);
   const syncMode = document.getElementById('sync-mode').value;
 
   if (!name) {
@@ -742,6 +737,9 @@ async function saveJob(ev) {
   }
 
   const schedule = { type: scheduleType, time: scheduleTime };
+  if (extraTimes.length) {
+    schedule.extraTimes = extraTimes;
+  }
   if (scheduleType === 'weekly') {
     schedule.dayOfWeek = parseInt(document.getElementById('schedule-weekday').value, 10);
   } else if (scheduleType === 'monthly') {
@@ -798,14 +796,14 @@ async function validateDestinations() {
   } else {
     resultSpan.textContent = '';
   }
-  resultSpan.textContent += 'Verifica in corso...';
+  resultSpan.textContent += 'Verifica in corso.';
   try {
     const res = await fetchJson(apiBase + '/api/jobs/' + selectedAgentId + '/validate-destinations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ destinations })
     });
-    const results = (res.results || res.payload?.results || []);
+    const results = (res.results || res.payload && res.payload.results || []);
     const failed = results.filter(r => !r.ok);
     if (!failed.length) {
       resultSpan.textContent = 'Tutte le destinazioni sono accessibili dal client remoto';
@@ -845,7 +843,7 @@ async function validateSources() {
     alert('Inserisci almeno una sorgente');
     return;
   }
-  span.textContent = 'Verifica in corso...';
+  span.textContent = 'Verifica in corso.';
   span.style.color = '#0f172a';
 
   let firstError = null;
@@ -886,7 +884,7 @@ async function validateSources() {
 async function loadHistory() {
   if (!selectedAgentId) return;
   const container = document.getElementById('history-list');
-  container.textContent = 'Caricamento...';
+  container.textContent = 'Caricamento.';
   try {
     const data = await fetchJson(apiBase + '/api/history/' + selectedAgentId);
     container.innerHTML = '';
@@ -959,7 +957,6 @@ function setLoggedInUi(user) {
   const loginStatus = document.getElementById('login-status');
   const btnSave = document.getElementById('btn-save-job');
   const userLabel = document.getElementById('login-user-label');
-
   userLabel.textContent = 'Loggato come ' + user;
   loginForm.classList.add('hidden');
   loginInfo.classList.remove('hidden');
@@ -1006,7 +1003,7 @@ function initLogin() {
     try {
       localStorage.setItem('sbAdminLogged', '1');
       localStorage.setItem('sbAdminUser', user);
-    } catch {}
+    } catch { }
     document.getElementById('admin-user').value = '';
     document.getElementById('admin-password').value = '';
     setLoggedInUi(user);
@@ -1017,7 +1014,7 @@ function initLogin() {
     try {
       localStorage.removeItem('sbAdminLogged');
       localStorage.removeItem('sbAdminUser');
-    } catch {}
+    } catch { }
     setLoggedOutUi();
   });
 
@@ -1038,23 +1035,42 @@ function initLogin() {
 function initEvents() {
   const btnBrowse = document.getElementById('btn-browse');
   const btnAddElements = document.getElementById('btn-add-elements');
+
   if (btnBrowse) {
     btnBrowse.addEventListener('click', () => {
       currentBrowsePath = '';
       browseFs();
     });
   }
+
   if (btnAddElements) {
     btnAddElements.addEventListener('click', () => {
       const textarea = document.getElementById('job-sources');
-      const existing = textarea.value.split('\n').map(s => s.trim()).filter(Boolean);
+
+      // 👇 NUOVO: prendo i percorsi dei checkbox selezionati
+      selectedSources = Array.from(
+        document.querySelectorAll('#fs-results input[type="checkbox"]:checked')
+      )
+        .map(cb => cb.dataset.fullPath)
+        .filter(Boolean);
+
+      const existing = textarea.value
+        .split('\n')
+        .map(s => s.trim())
+        .filter(Boolean);
+
       const merged = Array.from(new Set([...existing, ...selectedSources]));
+
       textarea.value = merged.join('\n');
+
+      // il resto può rimanere uguale
       selectedSources = [];
       currentBrowsePath = '';
       fsBrowserActive = false;
+
       const fsResults = document.getElementById('fs-results');
       if (fsResults) fsResults.innerHTML = '';
+
       const sourcesList = document.getElementById('sources-list');
       if (sourcesList) sourcesList.innerHTML = '';
     });
@@ -1096,7 +1112,7 @@ window.addEventListener('load', () => {
   let savedAgent = null;
   try {
     savedAgent = localStorage.getItem('sbSelectedAgentId');
-  } catch {}
+  } catch { }
   if (savedAgent) selectedAgentId = savedAgent;
 
   initLogin();
