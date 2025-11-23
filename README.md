@@ -1,123 +1,88 @@
-# SuperBackup - Sistema di Backup Client/Server per Windows
+# Backup Control Server & Agent
 
-SuperBackup è un sistema centralizzato di gestione backup per ambienti Windows (Windows 7-11). Il sistema è diviso in due parti principali: un **server web** che gestisce l'interfaccia utente e la configurazione, e un **agent** che gira sui client Windows, eseguendo i backup e comunicando con il server tramite WebSocket.
+Sistema composto da:
 
-## Architettura del Sistema
+- **Server di controllo** (Node.js)
+- **Agent Windows** (.NET Framework, servizio di sistema)
 
-1. **Server (WebApp Node.js)**: 
-   - Tecnologie: Node.js (Express + WebSocket)
-   - Porta Dashboard: `8080` (HTTP)
-   - Porta WebSocket: `8081` (WebSocket)
-   - File di configurazione: JSON (archiviazione agenti, job, storico esecuzioni)
-   
-2. **Agent (Servizio Windows)**:
-   - Tecnologie: .NET Framework 4.7.2
-   - Installazione tramite MSI (WiX Toolset)
-   - Comunicazione tramite WebSocket per il monitoraggio in tempo reale e invio configurazioni di backup
+Permette di:
 
-## Come Configurare il Sistema
+- visualizzare gli agent registrati (stato, info di base)
+- configurare job di backup per ogni agent
+- sfogliare il filesystem remoto per scegliere sorgenti/destinazioni
+- avviare backup manuali e vedere l’esito delle esecuzioni
 
-### Parametri da Modificare prima della Produzione
+---
 
-#### **1. Configurazione Server**
-Nel file `server/app.js`, modificherai i seguenti parametri essenziali per l’ambiente di produzione:
+## Architettura
 
-- **Porta del server HTTP e WebSocket**: Se desideri cambiare le porte predefinite per il server HTTP o WebSocket, modifica le costanti `HTTP_PORT` e `WS_PORT` all'inizio del file.
-    ```javascript
-    const HTTP_PORT = 8080; // Porta Dashboard HTTP
-    const WS_PORT = 8081;   // Porta WebSocket
-    ```
+### Server
 
-- **Percorso di Archiviazione Dati (agents, jobs, history)**: Cambia il percorso in cui vengono salvati i dati degli agenti, i job e la cronologia degli esecuzioni. Modifica le variabili seguenti se necessario:
-    ```javascript
-    const DATA_DIR = path.join(__dirname, 'data');  // Percorso principale per i dati
-    const AGENTS_DIR = path.join(DATA_DIR, 'agents');
-    const JOBS_DIR = path.join(DATA_DIR, 'jobs');
-    const HISTORY_DIR = path.join(DATA_DIR, 'history');
-    ```
+- Applicazione Node.js (`app.js`)
+- Configurazione in `config.json`:
+  - `httpPort`: porta interfaccia web / API
+  - `wsPort`: porta WebSocket per agent e dashboard
+  - `adminUser` / `adminPassword`: accesso all’interfaccia
+  - `dataDir`, `agentsDir`, `jobsDir`, `historyDir`: cartelle dati
+  - `useTls`, `tls.keyFile`, `tls.certFile`: eventuale TLS
 
-- **Persistenza degli Agent**: La persistenza dei dati degli agenti viene gestita tramite il salvataggio in file JSON. Se desideri utilizzare un altro sistema di persistenza, dovrai sostituire la logica di lettura/scrittura dei file con un database.
+Funzioni principali:
 
-#### **2. Configurazione Agent**
-Nel progetto **Agent** (C#), prima di generare l'MSI, assicurati di configurare i seguenti parametri:
+- espone l’interfaccia web (`index.html`, `styles.css`, `app.js`)
+- espone API REST per gestione agent, job e storico
+- gestisce un server WebSocket per:
+  - ricevere heartbeat e messaggi dagli agent
+  - inviare job e richieste (browse, test destinazioni)
+  - aggiornare in tempo reale la dashboard
 
-- **Path di Installazione dell'Agent**: Modifica il percorso di destinazione dell'agent, se necessario, nel file `installer/Product.wxs`:
-    ```xml
-    <Directory Id="ProgramFilesFolder">
-        <Directory Id="INSTALLFOLDER" Name="BackupAgent">
-            <Component Id="MainExecutable" Guid="YOUR_GUID">
-                <File Id="AgentExecutable" Name="BackupAgentService.exe" DiskId="1" Source="path_to_agent_executable\BackupAgentService.exe" />
-            </Component>
-        </Directory>
-    </Directory>
-    ```
+### Agent
 
-- **Credenziali di Rete**: Se il tuo sistema di backup ha bisogno di credenziali di rete per accedere alle destinazioni, puoi specificarle nel codice C# utilizzando il formato `DOMINIO\utente`. Modifica la gestione delle credenziali nel codice dell'agent come segue:
-    ```csharp
-    NetworkConnection netConn = new NetworkConnection(dest.path, dest.credentials);
-    ```
+- Progetto C# (`BackupAgentService`)
+- Installato come **Windows Service**
+- Configurazione in `App.config`:
+  - `ServerUrl`: URL WebSocket del server (es. `ws://server:8081`)
+  - `HeartbeatSeconds`: intervallo heartbeat
+  - `LogDirectory`: cartella log
 
-#### **3. Modifica dei Parametri di Configurazione dei Job**
-Nel **job configuration** gestito tramite l’interfaccia web, è possibile configurare le sorgenti e le destinazioni del backup. I percorsi di backup sono specificati nei job attraverso l'interfaccia web, ma se desideri preconfigurarli o modificarli direttamente, puoi farlo nel file di configurazione `jobs.json`:
+Funzioni principali:
 
-- **Sorgenti**: Definisci un array di percorsi delle cartelle o file da includere nei backup. Esempio:
-    ```json
-    "sources": ["C:\\Data\\Documents", "D:\\Backup"]
-    ```
+- stabilisce una connessione WebSocket al server
+- si registra e invia heartbeat periodici
+- riceve job di backup e li esegue:
+  - copia file/cartelle locali verso destinazioni (anche share di rete UNC)
+  - usa credenziali dedicate per accedere alle share (se previsto)
+- restituisce al server l’esito del job (successo/errore, file/byte copiati, messaggi)
+- espone operazioni ausiliarie:
+  - sfogliare il filesystem (`browse`)
+  - validare percorsi e destinazioni (`validate`)
 
-- **Destinazioni**: Definisci l'array delle destinazioni (locali o UNC path). Esempio:
-    ```json
-    "destinations": [
-        {
-            "path": "\\\\NAS\\BackupShare",
-            "credentials": {
-                "domain": "WORKGROUP",
-                "username": "user",
-                "password": "password123"
-            }
-        }
-    ]
-    ```
+I log vengono scritti in `LogDirectory`, con rotazione oltre una certa dimensione.
 
-### Funzionalità
+---
 
-- **Dashboard**:
-    - **Monitoraggio in tempo reale**: Visualizza lo stato degli agenti (online/offline) e lo stato dell'ultimo backup (successo/fallito).
-    - **Gestione dei Job di Backup**: Crea, modifica ed esegui job di backup manuali. Pianifica backup giornalieri, settimanali o mensili.
-    - **Visualizzazione File System Remoto**: Naviga il file system remoto per selezionare file e cartelle da includere nei backup.
+## Utilizzo di base
 
-- **Agent**:
-    - **Registrazione Automatica**: Al primo avvio, l'agent si registra automaticamente con il server.
-    - **Backup Pianificati**: Gli agenti eseguono backup secondo la pianificazione definita dal server.
-    - **Gestione Credenziali di Rete**: Gestisce le credenziali di rete per l'accesso a condivisioni di rete UNC.
-    - **Heartbeat**: Invia segnali periodici al server per indicare che l'agent è attivo.
+1. **Server**
+   - configurare `config.json`
+   - installare le dipendenze Node.js (`npm install`)
+   - avviare il server (`npm start`)
+   - accedere alla dashboard via browser sulla porta `httpPort`
 
-- **Logs**:
-    - **Storico Backup**: Viene mantenuto uno storico di tutte le esecuzioni dei job di backup, con dettagli come la data e l'ora di inizio/fine, i file copiati, le dimensioni, e gli eventuali errori.
+2. **Agent**
+   - configurare `App.config` con `ServerUrl`, `HeartbeatSeconds`, `LogDirectory`
+   - compilare il progetto e/o installare il pacchetto MSI
+   - avviare il servizio Windows `BackupAgentService`
 
-### Sicurezza
+3. **Job di backup**
+   - dalla dashboard:
+     - selezionare un agent
+     - definire sorgenti e destinazioni
+     - impostare pianificazione (esecuzione periodica) o lanciare il job manualmente
+   - monitorare lo stato e lo storico delle esecuzioni dalla stessa interfaccia
 
-- **Autenticazione**: Per la protezione dei job e delle configurazioni, è implementata l'autenticazione amministrativa tramite un sistema di login basato su user/password.
-- **Connessione Sicura**: Le comunicazioni tra il server e gli agenti sono protette tramite WebSocket (WSS) e il traffico HTTP è disponibile su una porta configurabile.
-  
-## Come Utilizzare
+---
 
-1. **Avvio Server**:
-    - Installa le dipendenze Node.js: `npm install`
-    - Avvia il server: `node app.js`
-    - Accedi alla dashboard dal browser all'indirizzo `http://localhost:8080`
+## Disclaimer
 
-2. **Configurazione Agent**:
-    - Compila l'agent in Visual Studio e crea l'MSI con WiX Toolset.
-    - Installa l'agent sui client Windows.
-    - Assicurati che gli agenti possano comunicare correttamente con il server tramite WebSocket.
-
-3. **Gestione Job**:
-    - Accedi alla dashboard per creare, modificare e monitorare i job di backup.
-    - I job possono essere eseguiti manualmente o automaticamente secondo la pianificazione definita.
-
-## Riferimenti
-
-- **WebSocket**: per la comunicazione in tempo reale tra server e agenti.
-- **.NET Framework 4.7.2**: per la compatibilità dell'agent sui sistemi Windows.
-- **WiX Toolset**: per la creazione del pacchetto MSI per l'installazione dell'agent.
+Questo software è fornito **“così com’è”**, senza alcun tipo di garanzia espressa o implicita, incluse ma non limitate alle garanzie di commerciabilità, idoneità per uno scopo particolare e assenza di difetti.  
+L’utilizzo è interamente a rischio dell’utente. Gli autori e i manutentori del progetto non sono responsabili per eventuali danni, perdita di dati o altri problemi derivanti dall’uso, dalla configurazione o da malfunzionamenti del software.
