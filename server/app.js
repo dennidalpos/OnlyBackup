@@ -29,6 +29,8 @@ const dashboardSockets = new Set();
 const pendingBrowse = new Map();
 const pendingValidateDest = new Map();
 const dirtyAgents = new Set();
+let broadcastPending = false;
+let broadcastTimeout = null;
 
 function loadJsonFile(file, def) {
   if (!fs.existsSync(file)) return def;
@@ -99,10 +101,17 @@ function broadcastToDashboards(obj) {
 }
 
 function broadcastAgentsSnapshot() {
-  broadcastToDashboards({
-    type: 'agents_snapshot',
-    payload: getAgentsArray()
-  });
+  if (broadcastPending) return;
+  broadcastPending = true;
+  if (broadcastTimeout) clearTimeout(broadcastTimeout);
+  broadcastTimeout = setTimeout(() => {
+    broadcastPending = false;
+    broadcastTimeout = null;
+    broadcastToDashboards({
+      type: 'agents_snapshot',
+      payload: getAgentsArray()
+    });
+  }, 1000);
 }
 
 function appendHistory(agentId, entry) {
