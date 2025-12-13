@@ -1,0 +1,27 @@
+{
+  "name": "onlybackup-server",
+  "version": "1.0.0",
+  "description": "OnlyBackup - Sistema di backup/restore centralizzato per client Windows",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "NODE_ENV=development node src/server.js",
+    "test": "NODE_ENV=test node src/server.js"
+  },
+  "keywords": ["backup", "restore", "windows", "centralizzato"],
+  "author": "OnlyBackup Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2",
+    "body-parser": "^1.20.3",
+    "cookie-parser": "^1.4.7",
+    "bcryptjs": "^2.4.3",
+    "uuid": "^11.0.3",
+    "chokidar": "^4.0.1",
+    "winston": "^3.17.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

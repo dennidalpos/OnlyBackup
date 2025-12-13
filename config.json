@@ -1,0 +1,23 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "environment": "production"
+  },
+  "dataRoot": "./data",
+  "logging": {
+    "level": "info",
+    "console": true,
+    "file": true,
+    "maxFiles": 180,
+    "maxSize": "10m"
+  },
+  "auth": {
+    "sessionTimeout": 3600000,
+    "passwordMinLength": 8
+  },
+  "scheduler": {
+    "checkInterval": 60000,
+    "enableFileWatcher": true
+  }
+}
