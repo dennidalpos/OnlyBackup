@@ -379,8 +379,8 @@ class JobExecutor {
         stats: result.stats || null,
         retention_index: result.retention_index || null,
         timestamp: result.timestamp || null,
-        log_path: savedLogPath || result.log_path || null,
-        run_log_index: result.run_log_index || null,
+        log_path: result.log_path || run.log_path || null,
+        run_log_index: result.run_log_index || run.run_log_index || null,
         errors: result.errors || []
       };
 
