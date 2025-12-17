@@ -379,7 +379,7 @@ class JobExecutor {
         stats: result.stats || null,
         retention_index: result.retention_index || null,
         timestamp: result.timestamp || null,
-        log_path: result.log_path || null,
+        log_path: savedLogPath || result.log_path || null,
         run_log_index: result.run_log_index || null,
         errors: result.errors || []
       };
@@ -521,7 +521,11 @@ class JobExecutor {
       const computedBytes = result?.BytesProcessed || result?.bytesProcessed || result?.bytes_processed || 0;
 
       const savedLogPath = this.saveAgentLog(job.client_hostname, job.job_id, run.run_id, logContent, mapping);
-      run.log_path = savedLogPath || result?.LogPath || result?.log_path || run.log_path;
+      if (savedLogPath && !run.log_path) {
+        run.log_path = savedLogPath;
+      } else {
+        run.log_path = run.log_path || result?.LogPath || result?.log_path || null;
+      }
       run.run_log_index = result?.RunLogIndexPath || result?.run_log_index || run.run_log_index;
       const warningMessages = [...(warnings || [])];
 
