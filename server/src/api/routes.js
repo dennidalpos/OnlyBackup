@@ -8,56 +8,6 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
   const HEARTBEAT_TTL_MS = 2 * 60 * 1000;
   const VALID_MODES = ['copy', 'sync'];
 
-  // Agent API Key authentication middleware
-  const requireAgentAuth = (req, res, next) => {
-    const apiKey = req.headers['x-agent-api-key'] || req.body?.api_key;
-    const configuredKey = process.env.AGENT_API_KEY || authManager?.config?.security?.agentApiKey;
-    const requireApiKey = process.env.REQUIRE_AGENT_API_KEY === 'true' || process.env.NODE_ENV === 'production';
-
-    // If no agent API key is configured
-    if (!configuredKey) {
-      if (requireApiKey) {
-        logger.error('Agent API key not configured but required in production', {
-          path: req.path,
-          ip: req.ip,
-          environment: process.env.NODE_ENV
-        });
-        return res.status(503).json({
-          error: 'Server configuration error: API key not configured. Contact administrator.'
-        });
-      }
-      logger.warn('⚠️  SECURITY WARNING: Agent API key not configured - endpoints unprotected', {
-        path: req.path,
-        ip: req.ip,
-        message: 'Set AGENT_API_KEY environment variable or configure security.agentApiKey in config.json'
-      });
-      return next();
-    }
-
-    if (!apiKey) {
-      logger.logAuthAttempt(req.ip || 'unknown', false, 'missing_agent_api_key');
-      return res.status(401).json({ error: 'API key richiesta per gli agenti' });
-    }
-
-    // Constant-time comparison to prevent timing attacks
-    const keyBuffer = Buffer.from(apiKey);
-    const configBuffer = Buffer.from(configuredKey);
-
-    if (keyBuffer.length !== configBuffer.length || !require('crypto').timingSafeEqual(keyBuffer, configBuffer)) {
-      logger.logAuthAttempt(req.ip || 'unknown', false, 'invalid_agent_api_key');
-      return res.status(401).json({ error: 'API key non valida' });
-    }
-
-    next();
-  };
-
-  // Path traversal protection helper
-  const isPathWithinBase = (basePath, targetPath) => {
-    const resolvedBase = path.resolve(basePath);
-    const resolvedTarget = path.resolve(targetPath);
-    return resolvedTarget.startsWith(resolvedBase + path.sep) || resolvedTarget === resolvedBase;
-  };
-
   const normalizeWindowsPath = (pathStr) => {
     if (!pathStr) return '';
 
@@ -177,15 +127,14 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       };
 
       const req = http.request(options, (res) => {
-        const chunks = [];
+        let data = '';
 
         res.on('data', (chunk) => {
-          chunks.push(chunk);
+          data += chunk;
         });
 
         res.on('end', () => {
           try {
-            const data = Buffer.concat(chunks).toString('utf8');
             const parsed = JSON.parse(data);
             resolve(parsed.backups || []);
           } catch (e) {
@@ -230,15 +179,14 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       };
 
       const req = http.request(options, (res) => {
-        const chunks = [];
+        let data = '';
 
         res.on('data', (chunk) => {
-          chunks.push(chunk);
+          data += chunk;
         });
 
         res.on('end', () => {
           try {
-            const data = Buffer.concat(chunks).toString('utf8');
             const parsed = JSON.parse(data || '{}');
             if (res.statusCode >= 200 && res.statusCode < 300) {
               resolve(parsed.mappings || []);
@@ -282,15 +230,14 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       };
 
       const req = http.request(options, (res) => {
-        const chunks = [];
+        let data = '';
 
         res.on('data', (chunk) => {
-          chunks.push(chunk);
+          data += chunk;
         });
 
         res.on('end', () => {
           try {
-            const data = Buffer.concat(chunks).toString('utf8');
             const parsed = JSON.parse(data);
             const entries = (parsed.items || []).map(item => ({
               name: item.name,
@@ -337,15 +284,14 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       };
 
       const req = http.request(options, (res) => {
-        const chunks = [];
+        let data = '';
 
         res.on('data', (chunk) => {
-          chunks.push(chunk);
+          data += chunk;
         });
 
         res.on('end', () => {
           try {
-            const data = Buffer.concat(chunks).toString('utf8');
             const parsed = JSON.parse(data || '{}');
             if (res.statusCode >= 200 && res.statusCode < 300) {
               resolve(parsed);
@@ -493,18 +439,14 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
   };
 
   const buildSessionCookieOptions = () => {
-    const isProduction = authManager?.config?.server?.environment === 'production' ||
-                         process.env.NODE_ENV === 'production';
     const secureSetting = authManager?.config?.auth?.secureCookies;
-
-    // In production, default to secure cookies unless explicitly disabled
     const secure = typeof secureSetting === 'boolean'
       ? secureSetting
-      : isProduction;
+      : process.env.NODE_ENV === 'production';
 
     return {
       httpOnly: true,
-      sameSite: 'strict', // Changed from 'lax' to 'strict' for better CSRF protection
+      sameSite: 'lax',
       secure,
       path: '/',
       maxAge: 24 * 60 * 60 * 1000
@@ -651,7 +593,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     next();
   };
 
-  router.post('/api/agent/heartbeat', requireAgentAuth, (req, res) => {
+  router.post('/api/agent/heartbeat', (req, res) => {
     const { hostname, timestamp, status, agent_ip, agent_port, backup_status, backup_job_id } = req.body || {};
 
     if (!hostname) {
@@ -772,24 +714,8 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     });
   });
 
-  // Public stats endpoint - can be configured to require authentication
-  // Set security.publicStatsEnabled: false in config to require auth
   router.get('/api/public/stats', (req, res) => {
     try {
-      const publicStatsEnabled = authManager?.config?.security?.publicStatsEnabled !== false;
-
-      // If public stats are disabled, require authentication
-      if (!publicStatsEnabled) {
-        const sessionId = req.cookies.sessionId;
-        if (!sessionId) {
-          return res.status(401).json({ error: 'Non autenticato' });
-        }
-        const validation = authManager.validateSession(sessionId);
-        if (!validation.valid) {
-          return res.status(401).json({ error: 'Sessione non valida' });
-        }
-      }
-
       const runs = storage.loadAllRuns();
       const agentStatus = buildAgentStatusMap();
       const now = Date.now();
@@ -818,51 +744,43 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         }
       });
 
-      // Limit exposed information for public endpoint (only counts, no hostnames)
-      const limitedInfo = authManager?.config?.security?.limitPublicStatsInfo !== false;
+      const recentBackups = Array.from(recentByJob.values()).map(run => ({
+        hostname: run.client_hostname,
+        job_id: run.job_id,
+        status: run.status,
+        start: run.start,
+        end: run.end
+      }));
 
-      let responseData = {
+      const jobs = storage.loadAllJobs();
+      const heartbeats = storage.loadAllAgentHeartbeats();
+      const clientHostnames = new Set();
+
+      jobs.forEach(job => clientHostnames.add(job.client_hostname));
+      heartbeats.forEach(hb => clientHostnames.add(hb.hostname));
+
+      const onlineClients = [...clientHostnames].filter(h => agentStatus.get(h)?.online).length;
+      const offlineClients = Math.max(clientHostnames.size - onlineClients, 0);
+
+      const clientStatuses = [...clientHostnames].map(hostname => {
+        const heartbeat = agentStatus.get(hostname);
+        const latestRun = latestByHost.get(hostname);
+
+        return {
+          hostname,
+          online: heartbeat?.online || false,
+          status: latestRun?.status || null
+        };
+      });
+
+      res.json({
         backups_ok_24h: successCount,
-        backups_failed_24h: failureCount
-      };
-
-      if (!limitedInfo) {
-        const jobs = storage.loadAllJobs();
-        const heartbeats = storage.loadAllAgentHeartbeats();
-        const clientHostnames = new Set();
-
-        jobs.forEach(job => clientHostnames.add(job.client_hostname));
-        heartbeats.forEach(hb => clientHostnames.add(hb.hostname));
-
-        const onlineClients = [...clientHostnames].filter(h => agentStatus.get(h)?.online).length;
-        const offlineClients = Math.max(clientHostnames.size - onlineClients, 0);
-
-        const recentBackups = Array.from(recentByJob.values()).map(run => ({
-          hostname: run.client_hostname,
-          job_id: run.job_id,
-          status: run.status,
-          start: run.start,
-          end: run.end
-        }));
-
-        const clientStatuses = [...clientHostnames].map(hostname => {
-          const heartbeat = agentStatus.get(hostname);
-          const latestRun = latestByHost.get(hostname);
-
-          return {
-            hostname,
-            online: heartbeat?.online || false,
-            status: latestRun?.status || null
-          };
-        });
-
-        responseData.clients_online = onlineClients;
-        responseData.clients_offline = offlineClients;
-        responseData.recent_backups = recentBackups;
-        responseData.client_statuses = clientStatuses;
-      }
-
-      res.json(responseData);
+        backups_failed_24h: failureCount,
+        clients_online: onlineClients,
+        clients_offline: offlineClients,
+        recent_backups: recentBackups,
+        client_statuses: clientStatuses
+      });
     } catch (error) {
       logger.error('Errore stats pubbliche', { error: error.message });
       res.status(500).json({ error: 'Errore interno' });
@@ -1555,7 +1473,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     }
   });
 
-  router.post('/api/logs/upload', requireAgentAuth, (req, res) => {
+  router.post('/api/logs/upload', (req, res) => {
     try {
       const { hostname, jobId, runId, logContent } = req.body || {};
 
@@ -1563,29 +1481,16 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         return res.status(400).json({ error: 'Parametri mancanti' });
       }
 
-      // Validate log content size (max 5MB)
-      if (logContent.length > 5 * 1024 * 1024) {
-        return res.status(400).json({ error: 'Log content troppo grande (max 5MB)' });
-      }
-
       const safeHost = (hostname || '').replace(/[^a-zA-Z0-9._-]/g, '_');
       const safeJob = (jobId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
       const safeRun = (runId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
 
-      const logsBaseDir = path.join(storage.dataRoot, 'logs');
-      const logDir = path.join(logsBaseDir, safeHost, safeJob);
-      const logPath = path.join(logDir, `${safeRun}.log`);
-
-      // Path traversal protection
-      if (!isPathWithinBase(logsBaseDir, logPath)) {
-        logger.warn('Path traversal attempt detected', { hostname, jobId, runId });
-        return res.status(400).json({ error: 'Percorso non valido' });
-      }
-
+      const logDir = path.join(storage.dataRoot, 'logs', safeHost, safeJob);
       if (!fs.existsSync(logDir)) {
         fs.mkdirSync(logDir, { recursive: true });
       }
 
+      const logPath = path.join(logDir, `${safeRun}.log`);
       fs.writeFileSync(logPath, logContent, 'utf8');
 
       logger.logApiCall('POST', '/api/logs/upload', hostname, 200);
@@ -1606,14 +1511,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
 
       const safeHost = (clientId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
       const safeJob = (jobId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
-      const logsBaseDir = path.join(storage.dataRoot, 'logs');
-      const logDir = path.join(logsBaseDir, safeHost, safeJob);
-
-      // Path traversal protection
-      if (!isPathWithinBase(logsBaseDir, logDir)) {
-        logger.warn('Path traversal attempt detected in logs', { clientId, jobId });
-        return res.status(400).json({ error: 'Percorso non valido' });
-      }
+      const logDir = path.join(storage.dataRoot, 'logs', safeHost, safeJob);
 
       if (!fs.existsSync(logDir)) {
         return res.status(404).json({ error: 'Nessun log disponibile' });
@@ -1622,12 +1520,6 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       if (runId) {
         const safeRun = (runId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
         const logPath = path.join(logDir, `${safeRun}.log`);
-
-        // Path traversal protection for specific log file
-        if (!isPathWithinBase(logDir, logPath)) {
-          logger.warn('Path traversal attempt detected in log file', { clientId, jobId, runId });
-          return res.status(400).json({ error: 'Percorso non valido' });
-        }
 
         if (!fs.existsSync(logPath)) {
           return res.status(404).json({ error: 'Log non trovato' });
@@ -1658,14 +1550,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       const safeHost = (clientId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
       const safeJob = (jobId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
       const safeRun = (runId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
-      const logsBaseDir = path.join(storage.dataRoot, 'logs');
-      const logPath = path.join(logsBaseDir, safeHost, safeJob, `${safeRun}.log`);
-
-      // Path traversal protection
-      if (!isPathWithinBase(logsBaseDir, logPath)) {
-        logger.warn('Path traversal attempt detected in log download', { clientId, jobId, runId });
-        return res.status(400).json({ error: 'Percorso non valido' });
-      }
+      const logPath = path.join(storage.dataRoot, 'logs', safeHost, safeJob, `${safeRun}.log`);
 
       if (!fs.existsSync(logPath)) {
         return res.status(404).json({ error: 'Log non trovato' });

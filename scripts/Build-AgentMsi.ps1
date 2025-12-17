@@ -6,15 +6,6 @@ param(
     [string]$ServerHost,
 
     [Parameter()]
-    [int]$ServerPort = 8080,
-
-    [Parameter()]
-    [int]$AgentPort = 8081,
-
-    [Parameter()]
-    [string]$AgentApiKey,
-
-    [Parameter()]
     [switch]$UseLocalhost,
 
     [Parameter()]
@@ -53,201 +44,6 @@ function Write-Info {
 function Write-ErrorMessage {
     param([string]$Message)
     Write-Host "[ERROR] $Message" -ForegroundColor Red
-}
-
-function Show-Menu {
-    param([string]$Title)
-    Write-Host ""
-    Write-Host "================================================================================" -ForegroundColor Cyan
-    Write-Host " $Title" -ForegroundColor Cyan
-    Write-Host "================================================================================`n" -ForegroundColor Cyan
-}
-
-function Read-ValidatedPort {
-    param(
-        [string]$Prompt,
-        [int]$Default
-    )
-
-    while ($true) {
-        $input = Read-Host "$Prompt [default: $Default]"
-
-        if ([string]::IsNullOrWhiteSpace($input)) {
-            return $Default
-        }
-
-        $port = 0
-        if ([int]::TryParse($input, [ref]$port)) {
-            if ($port -ge 1 -and $port -le 65535) {
-                return $port
-            }
-            else {
-                Write-Host "  [!] Porta non valida. Deve essere tra 1 e 65535." -ForegroundColor Red
-            }
-        }
-        else {
-            Write-Host "  [!] Input non valido. Inserisci un numero." -ForegroundColor Red
-        }
-    }
-}
-
-function Read-NonEmptyString {
-    param(
-        [string]$Prompt,
-        [string]$ErrorMessage = "Valore richiesto. Riprova."
-    )
-
-    while ($true) {
-        $input = Read-Host $Prompt
-
-        if (-not [string]::IsNullOrWhiteSpace($input)) {
-            return $input.Trim()
-        }
-
-        Write-Host "  [!] $ErrorMessage" -ForegroundColor Red
-    }
-}
-
-function Read-OptionalString {
-    param(
-        [string]$Prompt,
-        [string]$Default = ""
-    )
-
-    $input = Read-Host "$Prompt [opzionale, premi INVIO per saltare]"
-
-    if ([string]::IsNullOrWhiteSpace($input)) {
-        return $Default
-    }
-
-    return $input.Trim()
-}
-
-function Show-ConfigurationSummary {
-    param(
-        [string]$ServerHost,
-        [int]$ServerPort,
-        [int]$AgentPort,
-        [string]$AgentApiKey
-    )
-
-    Write-Host ""
-    Write-Host "================================================================================" -ForegroundColor Green
-    Write-Host " RIEPILOGO CONFIGURAZIONE" -ForegroundColor Green
-    Write-Host "================================================================================`n" -ForegroundColor Green
-
-    Write-Host "  Server OnlyBackup:" -ForegroundColor White
-    Write-Host "    - Host:     $ServerHost" -ForegroundColor Cyan
-    Write-Host "    - Porta:    $ServerPort" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "  Agent:" -ForegroundColor White
-    Write-Host "    - Porta:    $AgentPort" -ForegroundColor Cyan
-
-    if ($AgentApiKey) {
-        $maskedKey = $AgentApiKey.Substring(0, [Math]::Min(8, $AgentApiKey.Length)) + "..." + $AgentApiKey.Substring([Math]::Max(0, $AgentApiKey.Length - 4))
-        Write-Host "    - API Key:  $maskedKey (configurata)" -ForegroundColor Cyan
-    }
-    else {
-        Write-Host "    - API Key:  Non configurata" -ForegroundColor Yellow
-    }
-
-    Write-Host ""
-    Write-Host "  Pacchetto MSI configurerà automaticamente:" -ForegroundColor White
-    Write-Host "    - File:     C:\Program Files\OnlyBackup\Agent\OnlyBackupAgent.exe.config" -ForegroundColor Gray
-    Write-Host "    - Servizio: OnlyBackup Agent (avvio automatico)" -ForegroundColor Gray
-    Write-Host "    - Firewall: Regola per porta $AgentPort/TCP" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "================================================================================`n" -ForegroundColor Green
-}
-
-function Confirm-Proceed {
-    param([string]$Message = "Procedere con il build?")
-
-    Write-Host "$Message [S/n]: " -ForegroundColor Yellow -NoNewline
-    $response = Read-Host
-
-    return ($response -eq "" -or $response -eq "S" -or $response -eq "s" -or $response -eq "Y" -or $response -eq "y")
-}
-
-function Invoke-InteractiveConfiguration {
-    Show-Menu "CONFIGURAZIONE INTERATTIVA MSI AGENT"
-
-    Write-Host "Configureremo i seguenti parametri:" -ForegroundColor White
-    Write-Host "  1. Hostname/IP del server OnlyBackup"
-    Write-Host "  2. Porta del server (default: 8080)"
-    Write-Host "  3. Porta dell'agent (default: 8081)"
-    Write-Host "  4. API Key per autenticazione (opzionale)"
-    Write-Host ""
-
-    # Modalità server
-    Write-Host "Modalità build:" -ForegroundColor Yellow
-    Write-Host "  [1] Test locale (localhost)"
-    Write-Host "  [2] Produzione (hostname/IP personalizzato)"
-    Write-Host ""
-
-    $mode = Read-Host "Scegli modalità [1 o 2, default: 1]"
-    Write-Host ""
-
-    if ($mode -eq "2") {
-        Write-Host "=== CONFIGURAZIONE PRODUZIONE ===" -ForegroundColor Green
-        Write-Host ""
-        $serverHost = Read-NonEmptyString -Prompt "Hostname o IP del server OnlyBackup" -ErrorMessage "Hostname obbligatorio per configurazione produzione"
-    }
-    else {
-        Write-Host "=== CONFIGURAZIONE TEST ===" -ForegroundColor Yellow
-        Write-Host ""
-        $serverHost = "localhost"
-        Write-Host "Server impostato a: localhost" -ForegroundColor Cyan
-    }
-
-    Write-Host ""
-
-    # Porta server
-    Write-Host "Configurazione porte:" -ForegroundColor Yellow
-    $serverPort = Read-ValidatedPort -Prompt "Porta server OnlyBackup" -Default 8080
-
-    # Porta agent
-    $agentPort = Read-ValidatedPort -Prompt "Porta agent (listener)" -Default 8081
-
-    Write-Host ""
-
-    # API Key
-    Write-Host "Autenticazione:" -ForegroundColor Yellow
-    Write-Host "L'API Key è opzionale ma FORTEMENTE CONSIGLIATA per ambienti di produzione." -ForegroundColor Gray
-    Write-Host "Puoi generarla con: [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Minimum 0 -Maximum 256 }))" -ForegroundColor Gray
-    Write-Host ""
-
-    $agentApiKey = Read-OptionalString -Prompt "API Key per autenticazione"
-
-    # Validazione API Key (se fornita, controlla che abbia una lunghezza minima)
-    if ($agentApiKey -and $agentApiKey.Length -lt 16) {
-        Write-Host ""
-        Write-Host "  [!] ATTENZIONE: API Key molto corta (< 16 caratteri). Non sicura!" -ForegroundColor Red
-        Write-Host "      Consigliata lunghezza minima: 32 caratteri" -ForegroundColor Yellow
-        Write-Host ""
-
-        if (-not (Confirm-Proceed -Message "Continuare comunque con questa API Key?")) {
-            Write-Host ""
-            $agentApiKey = Read-OptionalString -Prompt "Inserisci una nuova API Key (o premi INVIO per nessuna API Key)"
-        }
-    }
-
-    # Mostra riepilogo
-    Show-ConfigurationSummary -ServerHost $serverHost -ServerPort $serverPort -AgentPort $agentPort -AgentApiKey $agentApiKey
-
-    # Conferma
-    if (-not (Confirm-Proceed)) {
-        Write-Host ""
-        Write-ErrorMessage "Build annullato dall'utente."
-        exit 0
-    }
-
-    return @{
-        ServerHost = $serverHost
-        ServerPort = $serverPort
-        AgentPort = $agentPort
-        AgentApiKey = $agentApiKey
-    }
 }
 
 Write-Header "OnlyBackup Agent - Build MSI Script"
@@ -378,70 +174,44 @@ Write-Success "Installer .NET Framework 4.6.2 disponibile e verificato"
 
 Write-Header "Configurazione Server"
 
-# Determina se i parametri sono stati forniti da riga di comando
 $serverHostProvided = $PSBoundParameters.ContainsKey('ServerHost')
-$serverPortProvided = $PSBoundParameters.ContainsKey('ServerPort')
-$agentPortProvided = $PSBoundParameters.ContainsKey('AgentPort')
-$agentApiKeyProvided = $PSBoundParameters.ContainsKey('AgentApiKey')
 
-# Calcola quanti parametri sono stati forniti
-$providedParamsCount = @($serverHostProvided, $serverPortProvided, $agentPortProvided, $agentApiKeyProvided) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
-
-# Se UseLocalhost è specificato, configura e salta il menu
 if ($UseLocalhost) {
     $ServerHost = "localhost"
     Write-Info "Modalità TEST: usando localhost"
-    Write-Info "Porta server: $ServerPort"
-    Write-Info "Porta agent: $AgentPort"
-
-    if ($AgentApiKey) {
-        $maskedKey = $AgentApiKey.Substring(0, [Math]::Min(8, $AgentApiKey.Length)) + "..." + $AgentApiKey.Substring([Math]::Max(0, $AgentApiKey.Length - 4))
-        Write-Info "API Key configurata: $maskedKey"
-    } else {
-        Write-Info "API Key: non configurata"
-    }
 }
-# Se tutti i parametri essenziali sono forniti, usa quelli (modalità non-interattiva)
 elseif ($serverHostProvided) {
     if (-not $ServerHost) {
         Write-ErrorMessage "Parametro -ServerHost vuoto: interruzione build"
         exit 1
     }
 
-    Write-Info "Modalità non-interattiva: parametri da riga di comando"
-    Write-Info "ServerHost: $ServerHost"
-    Write-Info "ServerPort: $ServerPort"
-    Write-Info "AgentPort: $AgentPort"
-
-    if ($AgentApiKey) {
-        $maskedKey = $AgentApiKey.Substring(0, [Math]::Min(8, $AgentApiKey.Length)) + "..." + $AgentApiKey.Substring([Math]::Max(0, $AgentApiKey.Length - 4))
-        Write-Info "API Key configurata: $maskedKey"
-    } else {
-        Write-Info "API Key: non configurata"
-    }
+    Write-Info "ServerHost impostato manualmente: $ServerHost"
 }
-# Nessun parametro fornito o parametri parziali: modalità interattiva
 else {
-    if ($providedParamsCount -gt 0) {
-        Write-Info "Alcuni parametri forniti, ma ServerHost mancante. Avvio modalità interattiva..."
-        Write-Host ""
+    Write-Host "Scegli configurazione server:" -ForegroundColor Yellow
+    Write-Host "  1) localhost (test)"
+    Write-Host "  2) Hostname/IP personalizzato (produzione)"
+    Write-Host ""
+
+    $choice = Read-Host "Scelta (1 o 2) [default: 1]"
+
+    if ($choice -eq "2") {
+        $ServerHost = Read-Host "Inserisci hostname o IP del server OnlyBackup"
+        Write-Info "Configurazione PRODUZIONE: $ServerHost"
     }
-
-    $config = Invoke-InteractiveConfiguration
-
-    $ServerHost = $config.ServerHost
-    $ServerPort = $config.ServerPort
-    $AgentPort = $config.AgentPort
-    $AgentApiKey = $config.AgentApiKey
+    else {
+        $ServerHost = "localhost"
+        Write-Info "Configurazione TEST: localhost"
+    }
 }
 
-# Validazione finale
 if (-not $ServerHost) {
     Write-ErrorMessage "ServerHost non impostato: interruzione build"
     exit 1
 }
 
-Write-Success "Configurazione completata!"
+Write-Success "Server configurato: $ServerHost"
 
 Write-Header "Compilazione OnlyBackup Agent"
 
@@ -488,16 +258,10 @@ $candleArgs = @(
     "-dProjectDir=$ProjectDir",
     "-dNetFxInstaller=$NetFxInstaller",
     "-dServerHost=$ServerHost",
-    "-dServerPort=$ServerPort",
-    "-dAgentPort=$AgentPort",
     "-ext", "WixUtilExtension",
     "-ext", "WixFirewallExtension",
     "-nologo"
 )
-
-if ($AgentApiKey) {
-    $candleArgs += "-dAgentApiKey=$AgentApiKey"
-}
 
 & $CandleExe $candleArgs
 
@@ -538,20 +302,8 @@ $MsiSize = (Get-Item $MsiFile).Length / 1MB
 Write-Header "Build Completato con Successo!"
 Write-Success "MSI creato: $MsiFile"
 Write-Success "Dimensione: $($MsiSize.ToString('F2')) MB"
-Write-Success "Server configurato: $ServerHost`:$ServerPort"
-Write-Success "Porta agent: $AgentPort"
-if ($AgentApiKey) {
-    Write-Success "API Key: configurata nel pacchetto MSI"
-} else {
-    Write-Info "API Key: non configurata (richiesta durante installazione)"
-}
+Write-Success "Server configurato: $ServerHost"
 Write-Host ""
 Write-Info "Per installare l'agent su un client Windows:"
 Write-Host "  msiexec /i OnlyBackupAgent.msi /qn" -ForegroundColor Cyan
-Write-Host ""
-Write-Info "Parametri usati per questo build:"
-Write-Host "  .\Build-AgentMsi.ps1 -ServerHost `"$ServerHost`" -ServerPort $ServerPort -AgentPort $AgentPort" -ForegroundColor Cyan
-if ($AgentApiKey) {
-    Write-Host "    -AgentApiKey `"<your-api-key>`"" -ForegroundColor Cyan
-}
 Write-Host ""

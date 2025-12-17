@@ -1,8 +1,5 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
-const helmet = require('helmet');
-const cors = require('cors');
-const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
 
@@ -23,7 +20,6 @@ class OnlyBackupServer {
     this.scheduler = null;
     this.app = null;
     this.server = null;
-    this.sessionCleanupInterval = null;
   }
 
   async start() {
@@ -49,7 +45,7 @@ class OnlyBackupServer {
 
       this.printStartupInfo();
 
-      this.sessionCleanupInterval = setInterval(() => {
+      setInterval(() => {
         this.authManager.cleanupExpiredSessions();
       }, 60000);
 
@@ -96,51 +92,8 @@ class OnlyBackupServer {
   setupExpress() {
     this.app = express();
 
-    // Security headers with Helmet
-    this.app.use(helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", "data:"],
-          connectSrc: ["'self'"]
-        }
-      },
-      crossOriginEmbedderPolicy: false
-    }));
-
-    // CORS configuration
-    const corsOptions = {
-      origin: this.config.security?.allowedOrigins || true,
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
-    };
-    this.app.use(cors(corsOptions));
-
-    // Rate limiting for authentication endpoints
-    const authLimiter = rateLimit({
-      windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 10, // limit each IP to 10 requests per windowMs
-      message: { error: 'Troppi tentativi di login, riprova tra 15 minuti' },
-      standardHeaders: true,
-      legacyHeaders: false
-    });
-    this.app.use('/api/auth/login', authLimiter);
-
-    // General rate limiting
-    const generalLimiter = rateLimit({
-      windowMs: 1 * 60 * 1000, // 1 minute
-      max: 200, // limit each IP to 200 requests per minute
-      standardHeaders: true,
-      legacyHeaders: false
-    });
-    this.app.use('/api/', generalLimiter);
-
-    // JSON payload size limit (10MB max)
-    this.app.use(express.json({ limit: '10mb' }));
-    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    this.app.use(express.json());
+    this.app.use(express.urlencoded({ extended: true }));
     this.app.use(cookieParser());
 
     this.app.use((err, req, res, next) => {
@@ -213,10 +166,6 @@ class OnlyBackupServer {
       this.logger.info(`Ricevuto segnale ${signal}, arresto in corso...`);
 
       try {
-        if (this.sessionCleanupInterval) {
-          clearInterval(this.sessionCleanupInterval);
-        }
-
         if (this.scheduler) {
           this.scheduler.stop();
         }

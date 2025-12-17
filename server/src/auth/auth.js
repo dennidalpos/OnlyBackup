@@ -1,5 +1,4 @@
 const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 
 class AuthManager {
@@ -15,33 +14,16 @@ class AuthManager {
     const users = this.storage.loadUsers();
 
     if (users.length === 0) {
-      // Generate a cryptographically secure random password
-      const randomPassword = crypto.randomBytes(16).toString('base64').slice(0, 16);
-
       const defaultAdmin = {
         username: 'admin',
-        passwordHash: bcrypt.hashSync(randomPassword, 10),
+        passwordHash: bcrypt.hashSync('admin', 10),
         mustChangePassword: true,
         createdAt: new Date().toISOString(),
         role: 'admin'
       };
 
       this.storage.saveUsers([defaultAdmin]);
-
-      // Log the generated password securely (only shown once at first startup)
-      console.log('');
-      console.log('='.repeat(70));
-      console.log('  ATTENZIONE: Password amministratore generata automaticamente');
-      console.log('='.repeat(70));
-      console.log(`  Username: admin`);
-      console.log(`  Password: ${randomPassword}`);
-      console.log('');
-      console.log('  IMPORTANTE: Cambia questa password al primo accesso!');
-      console.log('  Questa password non sarà più visualizzata.');
-      console.log('='.repeat(70));
-      console.log('');
-
-      this.logger.info('Utente admin di default creato con password casuale', { username: 'admin' });
+      this.logger.info('Utente admin di default creato', { username: 'admin' });
     }
   }
 

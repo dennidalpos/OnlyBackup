@@ -45,13 +45,6 @@
     <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectDir)\License.rtf" Overridable="yes" />
 
     <Property Id="SERVERHOST" Value="$(var.ServerHost)" />
-    <Property Id="SERVERPORT" Value="$(var.ServerPort)" />
-    <Property Id="AGENTPORT" Value="$(var.AgentPort)" />
-    <?ifdef AgentApiKey ?>
-    <Property Id="AGENTAPIKEY" Value="$(var.AgentApiKey)" />
-    <?else?>
-    <Property Id="AGENTAPIKEY" Value="" />
-    <?endif ?>
 
     <Binary Id="NetFx462Installer" SourceFile="$(var.NetFxInstaller)" />
     <CustomAction Id="InstallNetFx462"
@@ -95,34 +88,6 @@
                       ElementPath="/configuration/appSettings/add[\[]@key='ServerHost'[\]]/@value"
                       Value="[SERVERHOST]"
                       File="[INSTALLFOLDER]OnlyBackupAgent.exe.config" />
-
-        <util:XmlFile Id="UpdateServerPort"
-                      Action="setValue"
-                      ElementPath="/configuration/appSettings/add[\[]@key='ServerPort'[\]]/@value"
-                      Value="[SERVERPORT]"
-                      File="[INSTALLFOLDER]OnlyBackupAgent.exe.config" />
-
-        <util:XmlFile Id="UpdateAgentPort"
-                      Action="setValue"
-                      ElementPath="/configuration/appSettings/add[\[]@key='AgentPort'[\]]/@value"
-                      Value="[AGENTPORT]"
-                      File="[INSTALLFOLDER]OnlyBackupAgent.exe.config" />
-      </Component>
-
-      <Component Id="AgentConfigApiKey" Guid="33333333-3333-3333-3333-333333333333">
-        <Condition>AGENTAPIKEY AND AGENTAPIKEY &lt;&gt; ""</Condition>
-        <RegistryValue Root="HKLM"
-                       Key="Software\OnlyBackup\Agent"
-                       Name="ApiKeyConfigured"
-                       Type="string"
-                       Value="1"
-                       KeyPath="yes" />
-
-        <util:XmlFile Id="UpdateAgentApiKey"
-                      Action="setValue"
-                      ElementPath="/configuration/appSettings/add[\[]@key='AgentApiKey'[\]]/@value"
-                      Value="[AGENTAPIKEY]"
-                      File="[INSTALLFOLDER]OnlyBackupAgent.exe.config" />
       </Component>
 
     </ComponentGroup>
@@ -151,7 +116,7 @@
 
         <fire:FirewallException Id="AgentFirewall"
                                 Name="OnlyBackup Agent"
-                                Port="[AGENTPORT]"
+                                Port="8081"
                                 Protocol="tcp"
                                 Scope="any"
                                 IgnoreFailure="yes" />

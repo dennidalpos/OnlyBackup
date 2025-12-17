@@ -17,13 +17,7 @@
   "auth": {
     "sessionTimeout": 3600000,
     "passwordMinLength": 8,
-    "secureCookies": true
-  },
-  "security": {
-    "agentApiKey": null,
-    "publicStatsEnabled": true,
-    "limitPublicStatsInfo": true,
-    "allowedOrigins": null
+    "secureCookies": false
   },
   "scheduler": {
     "checkInterval": 60000,

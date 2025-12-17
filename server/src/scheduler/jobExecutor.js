@@ -764,19 +764,10 @@ class JobExecutor {
                   });
                 }
               } catch (err) {
-                this.logger.debug('Impossibile leggere backup info file', {
-                  path: infoPath,
-                  error: err.message
-                });
               }
             }
           }
         } catch (err) {
-          this.logger.debug('Errore durante elaborazione backup item', {
-            item: item,
-            path: fullPath,
-            error: err.message
-          });
         }
       }
     } catch (err) {
@@ -1377,36 +1368,28 @@ class JobExecutor {
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postData)
-        },
-        timeout: 60000 // 60 second timeout
+        }
       };
 
       const req = http.request(options, (res) => {
-        const chunks = [];
+        let responseData = '';
 
         res.on('data', (chunk) => {
-          chunks.push(chunk);
+          responseData += chunk;
         });
 
         res.on('end', () => {
           try {
-            const responseData = Buffer.concat(chunks).toString('utf8');
             const result = JSON.parse(responseData);
             resolve(result);
           } catch (parseError) {
             if (res.statusCode >= 200 && res.statusCode < 300) {
               reject(new Error(`Risposta agent non valida: ${parseError.message}`));
             } else {
-              const responseData = Buffer.concat(chunks).toString('utf8');
               reject(new Error(`Agent ha risposto con status ${res.statusCode}: ${responseData}`));
             }
           }
         });
-      });
-
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error(`Timeout comunicazione con agent dopo 60 secondi: ${url.hostname}:${url.port}`));
       });
 
       req.on('error', (error) => {

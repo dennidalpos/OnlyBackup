@@ -1,5 +1,4 @@
 using System;
-using System.Configuration;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -12,7 +11,6 @@ namespace OnlyBackupAgent.Communication
     {
         private readonly string serverHost;
         private readonly int serverPort;
-        private readonly string apiKey;
         private readonly JavaScriptSerializer jsonSerializer;
         private int agentPort;
 
@@ -20,16 +18,6 @@ namespace OnlyBackupAgent.Communication
         {
             this.serverHost = serverHost;
             this.serverPort = serverPort;
-            this.apiKey = ConfigurationManager.AppSettings["AgentApiKey"] ?? "";
-            this.jsonSerializer = new JavaScriptSerializer();
-            this.agentPort = 8081;
-        }
-
-        public ServerCommunication(string serverHost, int serverPort, string apiKey)
-        {
-            this.serverHost = serverHost;
-            this.serverPort = serverPort;
-            this.apiKey = apiKey ?? "";
             this.jsonSerializer = new JavaScriptSerializer();
             this.agentPort = 8081;
         }
@@ -103,12 +91,6 @@ namespace OnlyBackupAgent.Communication
             request.ContentType = "application/json";
             request.Timeout = 10000;
 
-            // Add API Key header if configured
-            if (!string.IsNullOrEmpty(apiKey))
-            {
-                request.Headers.Add("X-Agent-API-Key", apiKey);
-            }
-
             string json = jsonSerializer.Serialize(data);
             byte[] buffer = Encoding.UTF8.GetBytes(json);
 
@@ -126,14 +108,6 @@ namespace OnlyBackupAgent.Communication
                     throw new Exception(String.Format("Server ha risposto con status {0}", response.StatusCode));
                 }
             }
-        }
-
-        /// <summary>
-        /// Checks if the API key is configured
-        /// </summary>
-        public bool HasApiKey
-        {
-            get { return !string.IsNullOrEmpty(apiKey); }
         }
     }
 }
