@@ -87,6 +87,17 @@ class OnlyBackupServer {
     if (this.config.dataRoot && !path.isAbsolute(this.config.dataRoot)) {
       this.config.dataRoot = path.join(configDir, this.config.dataRoot);
     }
+
+    this.config.server = {
+      host: '0.0.0.0',
+      port: 8080,
+      environment: 'production',
+      ...(this.config.server || {})
+    };
+
+    if (!this.config.dataRoot) {
+      this.config.dataRoot = path.join(configDir, 'data');
+    }
   }
 
   setupExpress() {
