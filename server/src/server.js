@@ -1,0 +1,258 @@
+const express = require('express');
+const cookieParser = require('cookie-parser');
+const helmet = require('helmet');
+const cors = require('cors');
+const rateLimit = require('express-rate-limit');
+const path = require('path');
+const fs = require('fs');
+
+const Logger = require('./logging/logger');
+const Storage = require('./storage/storage');
+const AuthManager = require('./auth/auth');
+const JobExecutor = require('./scheduler/jobExecutor');
+const Scheduler = require('./scheduler/scheduler');
+const setupRoutes = require('./api/routes');
+
+class OnlyBackupServer {
+  constructor() {
+    this.config = null;
+    this.logger = null;
+    this.storage = null;
+    this.authManager = null;
+    this.jobExecutor = null;
+    this.scheduler = null;
+    this.app = null;
+    this.server = null;
+    this.sessionCleanupInterval = null;
+  }
+
+  async start() {
+    try {
+      this.loadConfig();
+
+      this.logger = new Logger(this.config);
+      this.logger.logServerStart(this.config);
+
+      this.storage = new Storage(this.config.dataRoot, this.logger);
+
+      this.authManager = new AuthManager(this.storage, this.logger, this.config);
+
+      this.jobExecutor = new JobExecutor(this.storage, this.logger, this.config);
+
+      this.scheduler = new Scheduler(this.storage, this.logger, this.config, this.jobExecutor);
+
+      this.setupExpress();
+
+      await this.scheduler.start();
+
+      await this.startHttpServer();
+
+      this.printStartupInfo();
+
+      this.sessionCleanupInterval = setInterval(() => {
+        this.authManager.cleanupExpiredSessions();
+      }, 60000);
+
+      this.setupShutdownHandlers();
+
+    } catch (error) {
+      console.error('Errore fatale durante avvio server:', error);
+      process.exit(1);
+    }
+  }
+
+  loadConfig() {
+    const possiblePaths = [
+      process.env.CONFIG_PATH,
+      path.join(process.cwd(), 'config.json'),
+      path.join(process.cwd(), '..', 'config.json'),
+      path.join(__dirname, '..', '..', 'config.json')
+    ].filter(Boolean);
+
+    let configPath = null;
+    for (const testPath of possiblePaths) {
+      if (fs.existsSync(testPath)) {
+        configPath = testPath;
+        break;
+      }
+    }
+
+    if (!configPath) {
+      throw new Error(
+        `File di configurazione non trovato. Cercato in:\n` +
+        possiblePaths.map(p => `  - ${p}`).join('\n')
+      );
+    }
+
+    const configData = fs.readFileSync(configPath, 'utf8');
+    this.config = JSON.parse(configData);
+
+    const configDir = path.dirname(configPath);
+    if (this.config.dataRoot && !path.isAbsolute(this.config.dataRoot)) {
+      this.config.dataRoot = path.join(configDir, this.config.dataRoot);
+    }
+  }
+
+  setupExpress() {
+    this.app = express();
+
+    // Security headers with Helmet
+    this.app.use(helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:"],
+          connectSrc: ["'self'"]
+        }
+      },
+      crossOriginEmbedderPolicy: false
+    }));
+
+    // CORS configuration
+    const corsOptions = {
+      origin: this.config.security?.allowedOrigins || true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+    };
+    this.app.use(cors(corsOptions));
+
+    // Rate limiting for authentication endpoints
+    const authLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 10, // limit each IP to 10 requests per windowMs
+      message: { error: 'Troppi tentativi di login, riprova tra 15 minuti' },
+      standardHeaders: true,
+      legacyHeaders: false
+    });
+    this.app.use('/api/auth/login', authLimiter);
+
+    // General rate limiting
+    const generalLimiter = rateLimit({
+      windowMs: 1 * 60 * 1000, // 1 minute
+      max: 200, // limit each IP to 200 requests per minute
+      standardHeaders: true,
+      legacyHeaders: false
+    });
+    this.app.use('/api/', generalLimiter);
+
+    // JSON payload size limit (10MB max)
+    this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    this.app.use(cookieParser());
+
+    this.app.use((err, req, res, next) => {
+      if (err instanceof SyntaxError && 'body' in err) {
+        this.logger.warn('Payload JSON non valido', { path: req.path });
+        return res.status(400).json({ error: 'JSON non valido' });
+      }
+      return next(err);
+    });
+
+    this.app.use(express.static(path.join(__dirname, '../public')));
+
+    setupRoutes(this.app, this.authManager, this.storage, this.scheduler, this.logger);
+
+    this.app.use((req, res, next) => {
+      if (!req.path.startsWith('/api/')) {
+        return res.sendFile(path.join(__dirname, '../public/index.html'));
+      }
+      return res.status(404).json({ error: 'Endpoint non trovato' });
+    });
+
+    this.app.use((err, req, res, next) => {
+      this.logger.error('Errore Express', { error: err.message });
+      res.status(500).json({ error: 'Errore interno del server' });
+    });
+  }
+
+  startHttpServer() {
+    return new Promise((resolve, reject) => {
+      this.server = this.app.listen(
+        this.config.server.port,
+        this.config.server.host,
+        () => {
+          resolve();
+        }
+      );
+
+      this.server.on('error', (error) => {
+        reject(error);
+      });
+    });
+  }
+
+  printStartupInfo() {
+    const jobs = this.storage.loadAllJobs().filter(j => j.enabled);
+    const scheduledJobs = this.scheduler.getScheduledJobs();
+
+    const host = this.config.server.host === '0.0.0.0' ? '127.0.0.1' : this.config.server.host;
+    const dashboardUrl = `http://${host}:${this.config.server.port}/`;
+
+    console.log('');
+    console.log('='.repeat(70));
+    console.log('  OnlyBackup Server');
+    console.log('='.repeat(70));
+    console.log('');
+    console.log(`  Server HTTP:      ${this.config.server.host}:${this.config.server.port}`);
+    console.log(`  Dashboard URL:    ${dashboardUrl}`);
+    console.log(`  Ambiente:         ${this.config.server.environment}`);
+    console.log('');
+    console.log(`  Job abilitati:    ${jobs.length}`);
+    console.log(`  Job schedulati:   ${scheduledJobs.length}`);
+    console.log('');
+    console.log('='.repeat(70));
+    console.log('');
+  }
+
+  setupShutdownHandlers() {
+    const shutdown = async (signal) => {
+      console.log('');
+      this.logger.info(`Ricevuto segnale ${signal}, arresto in corso...`);
+
+      try {
+        if (this.sessionCleanupInterval) {
+          clearInterval(this.sessionCleanupInterval);
+        }
+
+        if (this.scheduler) {
+          this.scheduler.stop();
+        }
+
+        if (this.server) {
+          await new Promise((resolve) => {
+            this.server.close(resolve);
+          });
+        }
+
+        this.logger.logServerStop();
+        process.exit(0);
+      } catch (error) {
+        console.error('Errore durante shutdown:', error);
+        process.exit(1);
+      }
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+
+    process.on('uncaughtException', (error) => {
+      this.logger.error('Uncaught Exception', { error: error.message });
+      process.exit(1);
+    });
+
+    process.on('unhandledRejection', (reason, promise) => {
+      this.logger.error('Unhandled Rejection', { reason: reason?.message || reason });
+    });
+  }
+}
+
+const server = new OnlyBackupServer();
+server.start().catch((error) => {
+  console.error('Errore avvio server:', error);
+  process.exit(1);
+});
+
+module.exports = OnlyBackupServer;
