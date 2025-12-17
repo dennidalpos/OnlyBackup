@@ -477,7 +477,8 @@ class OnlyBackupApp {
                             title="Deregistra PC">×</button>
                 </div>
             </div>
-        `;}).join('');
+        `;
+        }).join('');
     }
 
     updateClientHeader() {
@@ -960,7 +961,7 @@ class OnlyBackupApp {
                             <input type="checkbox" onchange="app.toggleSelectAllBackups(${mappingIndex}, this.checked)">
                             <span>Seleziona tutti</span>
                         </label>
-                        <button class="btn btn-outline btn-small" onclick="app.deleteSelectedBackups(${mappingIndex})">Elimina selezionati</button>
+                        <button type="button" class="btn btn-outline btn-small" onclick="app.deleteSelectedBackups(${mappingIndex})">Elimina selezionati</button>
                     </div>`;
 
                 const rows = backups.map(backup => {
@@ -991,7 +992,7 @@ class OnlyBackupApp {
                             </div>
                             <div class="backup-actions">
                                 <div class="backup-meta">${this.escapeHtml(modified)}</div>
-                                <button class="btn btn-outline btn-small" onclick="app.deleteBackup('${this.escapeForAttribute(targetPath)}')">Elimina</button>
+                                <button type="button" class="btn btn-outline btn-small" onclick="app.deleteBackup('${this.escapeForAttribute(targetPath)}')">Elimina</button>
                             </div>
                         </div>
                     `;
@@ -1104,7 +1105,11 @@ class OnlyBackupApp {
             this.showToast('error', 'Errore', 'Nessun backup eliminato');
         }
 
-        await this.openBackupsList();
+        try {
+            await this.openBackupsList();
+        } catch (err) {
+            console.error('Errore aggiornamento lista backup dopo cancellazione multipla:', err);
+        }
     }
 
     renderHeaderBackupStatus(statuses = []) {
@@ -1274,8 +1279,8 @@ class OnlyBackupApp {
 
         const mappingsContainer = document.getElementById('mappingsContainer');
         mappingsContainer.innerHTML = this.editingJob.mappings.map((mapping, index) => {
-                const isCopy = (mapping.mode || this.editingJob.mode_default || 'copy') === 'copy';
-                return `
+            const isCopy = (mapping.mode || this.editingJob.mode_default || 'copy') === 'copy';
+            return `
                     <div class="mapping-card">
                         <div class="mapping-header">
                             <div class="mapping-title">Mappatura ${index + 1}${mapping.label ? ` - ${this.escapeHtml(mapping.label)}` : ''}</div>
@@ -2042,7 +2047,7 @@ class OnlyBackupApp {
 
             fsEntries.innerHTML = entries.map(entry => {
                 const icon = entry.type === 'drive' ? '\uD83D\uDCBD' :
-                             entry.type === 'file' ? '\uD83D\uDCC4' : '\uD83D\uDCC1';
+                    entry.type === 'file' ? '\uD83D\uDCC4' : '\uD83D\uDCC1';
                 const isSelected = this.selectedFsEntry === entry.path;
 
                 return `

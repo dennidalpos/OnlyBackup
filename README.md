@@ -73,7 +73,7 @@ Sistema di backup centralizzato per ambienti Windows con architettura server/age
 
 ## 6. Concetti fondamentali
 - **Job:** unità logica schedulata, con uno o più mapping; definisce credenziali, pianificazione e retention (max backup per COPY).
-- **Mappatura:** coppia sorgente/destinazione più modalità (COPY/SYNC); un job può avere mappature multiple anche verso destinazioni diverse.
+- **Mappatura:** coppia sorgente/destinazione più modalità (COPY/SYNC); un job può avere mappature multiple anche verso destinazioni diverse o condivise (i backup vengono isolati tramite manifest).
 - **Run:** esecuzione di un job (manuale o schedulata) identificata da `runId`, produce log e, in COPY, una cartella timestamp.
 - **Destinazione:** percorso locale o UNC con credenziali opzionali; usata per copia o sincronizzazione.
 - **Retention:** per modalità COPY mantiene i N snapshot più recenti cancellando gli altri in ordine deterministico; usa le stesse credenziali del job.
@@ -109,8 +109,8 @@ Sistema di backup centralizzato per ambienti Windows con architettura server/age
 ## 11. Dashboard e API
 - **Autenticazione:** login utente, cookie di sessione; endpoint `/api/auth/login`.
 - **Editor job:** creazione/modifica job con mappature multiple, credenziali e pianificazioni.
-- **Backup presenti (on-demand):** richiesta UI inoltrata all'agent che esegue scansione live di tutte le destinazioni configurate senza cache.
-- **Riconoscimento snapshot legacy:** la scansione considera anche cartelle con manifest oppure con nome timestamp `YYYY_MM_DD_HH_mm_ss`, così le copie storiche meno recenti risultano visibili dalla dashboard.
+- **Backup presenti (on-demand):** richiesta UI inoltrata all'agent che esegue scansione live di tutte le destinazioni configurate. I backup vengono filtrati in base al `manifest` per mostrare solo quelli pertinenti alla mappatura specifica, supportando destinazioni condivise.
+- **Riconoscimento snapshot legacy:** la scansione considera anche cartelle con manifest oppure con nome timestamp `YYYY_MM_DD_HH_mm_ss` (fallback per vecchi backup).
 - **Log completi:** visualizzazione di `run.json`, `robocopy.log` ed eventi sincronizzati; eliminazioni UI propagano la cancellazione al client.
 - **Monitoraggio agent:** heartbeat via `/api/agent/heartbeat`, stato agent su `/api/status` (locale), panoramica `clients`/`runs` via API REST.
 

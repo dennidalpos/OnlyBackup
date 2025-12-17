@@ -1,0 +1,6 @@
+D:\GITHUB\OnlyBackup - Copia\agent\OnlyBackupAgent\bin\Release\OnlyBackupAgent.exe.config
+D:\GITHUB\OnlyBackup - Copia\agent\OnlyBackupAgent\bin\Release\OnlyBackupAgent.exe
+D:\GITHUB\OnlyBackup - Copia\agent\OnlyBackupAgent\bin\Release\OnlyBackupAgent.pdb
+D:\GITHUB\OnlyBackup - Copia\agent\OnlyBackupAgent\obj\Release\OnlyBackupAgent.csprojResolveAssemblyReference.cache
+D:\GITHUB\OnlyBackup - Copia\agent\OnlyBackupAgent\obj\Release\OnlyBackupAgent.exe
+D:\GITHUB\OnlyBackup - Copia\agent\OnlyBackupAgent\obj\Release\OnlyBackupAgent.pdb

@@ -267,9 +267,10 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     });
   };
 
-  const callAgentDelete = (agentIp, agentPort, paths = []) => {
+  const callAgentDelete = (agentIp, agentPort, items = []) => {
     return new Promise((resolve, reject) => {
-      const postData = JSON.stringify({ paths });
+      // items can be strings (legacy) or objects { path, credentials }
+      const postData = JSON.stringify({ paths: items });
 
       const options = {
         hostname: agentIp,
@@ -1065,9 +1066,8 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
                 logCandidates.push(mapping.log_path);
               }
 
-              if (mapping.run_log_index) {
-                logCandidates.push(mapping.run_log_index);
-              }
+              // run_log_index rimosso dalla visualizzazione utente per evitare JSON raw
+              // if (mapping.run_log_index) { ... }
 
               if (logCandidates.length === 0 && run.log_path) {
                 logCandidates.push(run.log_path);
@@ -1124,6 +1124,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       const mappings = await callAgentJobBackups(agent.agent_ip, agent.agent_port, jobLabel, job.mappings || []);
 
       logger.logApiCall('GET', `/api/clients/${hostname}/jobs/${jobId}/backups`, req.username, 200);
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.json({ hostname, job_id: jobId, mappings });
     } catch (error) {
       logger.error('Errore recupero lista backup', { error: error.message, params: req.params });
@@ -1153,12 +1154,27 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         return res.status(400).json({ error: 'Percorso non appartenente al job selezionato' });
       }
 
+      // Extract credentials for this path
+      const normalize = (p) => (p || '').replace(/\\/g, '/').replace(/\/$/, '').toLowerCase();
+      const targetPath = normalize(backupPath);
+
+      const mapping = (job.mappings || []).find(m => {
+        if (!m.destination_path) return false;
+        const dest = normalize(m.destination_path);
+        return targetPath.startsWith(dest);
+      });
+
+      const credentials = mapping ? mapping.credentials : null;
+
       const { agent, error, status } = getOnlineAgentInfo(hostname);
       if (error) {
         return res.status(status || 503).json({ error });
       }
 
-      const response = await callAgentDelete(agent.agent_ip, agent.agent_port, [backupPath]);
+      const response = await callAgentDelete(agent.agent_ip, agent.agent_port, [{
+        path: backupPath,
+        credentials
+      }]);
       logger.logApiCall('POST', `/api/clients/${hostname}/jobs/${jobId}/backups/delete`, req.username, 200);
       res.json(response);
     } catch (error) {
@@ -1481,6 +1497,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       });
 
       logger.logApiCall('GET', `/api/clients/${hostname}/jobs/${jobId}/backups/analyze`, req.username, 200);
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.json({ hostname, job_id: jobId, mappings });
     } catch (error) {
       logger.error('Errore analisi backup fisici', { error: error.message, params: req.params });

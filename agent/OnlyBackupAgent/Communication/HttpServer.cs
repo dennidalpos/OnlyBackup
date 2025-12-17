@@ -270,10 +270,41 @@ namespace OnlyBackupAgent.Communication
                 var robocopy = new RobocopyEngine();
                 var results = new System.Collections.Generic.List<object>();
 
-                foreach (var rawPath in (object[])requestData["paths"])
+                foreach (var item in (object[])requestData["paths"])
                 {
-                    var target = rawPath != null ? rawPath.ToString() : null;
-                    var deleteResult = robocopy.DeleteDirectory(target);
+                    string target = null;
+                    System.Collections.Generic.Dictionary<string, object> credentialsDict = null;
+
+                    if (item is string)
+                    {
+                        target = item as string;
+                    }
+                    else if (item is System.Collections.Generic.Dictionary<string, object>)
+                    {
+                         var itemDict = item as System.Collections.Generic.Dictionary<string, object>;
+                         target = itemDict.ContainsKey("path") ? itemDict["path"].ToString() : null;
+                         if (itemDict.ContainsKey("credentials"))
+                         {
+                             credentialsDict = itemDict["credentials"] as System.Collections.Generic.Dictionary<string, object>;
+                         }
+                    }
+
+                    var credentials = NetworkCredentials.FromDictionary(credentialsDict);
+                    
+                    RobocopyResult deleteResult;
+                    
+                    if (credentials != null && credentials.HasCredentials)
+                    {
+                        using (var netManager = new NetworkShareManager())
+                        {
+                            netManager.Connect(target, credentials);
+                            deleteResult = robocopy.DeleteDirectory(target);
+                        }
+                    }
+                    else
+                    {
+                        deleteResult = robocopy.DeleteDirectory(target);
+                    }
 
                     results.Add(new
                     {
@@ -426,8 +457,14 @@ namespace OnlyBackupAgent.Communication
                     {
                         var mapDict = rawMapping as System.Collections.Generic.Dictionary<string, object>;
                         string destinationPath = mapDict != null && mapDict.ContainsKey("destination_path") ? mapDict["destination_path"].ToString() : null;
+                        string sourcePath = mapDict != null && mapDict.ContainsKey("source_path") ? mapDict["source_path"].ToString() : null;
                         string label = mapDict != null && mapDict.ContainsKey("label") ? mapDict["label"].ToString() : null;
                         string mode = mapDict != null && mapDict.ContainsKey("mode") ? mapDict["mode"].ToString().ToLowerInvariant() : "copy";
+                        
+                        var credentialsDict = mapDict != null && mapDict.ContainsKey("credentials") ? mapDict["credentials"] as System.Collections.Generic.Dictionary<string, object> : null;
+                        var credentials = NetworkCredentials.FromDictionary(credentialsDict);
+                        
+
 
                         var mappingResult = new System.Collections.Generic.Dictionary<string, object>();
                         mappingResult["index"] = index;
@@ -444,7 +481,7 @@ namespace OnlyBackupAgent.Communication
                             continue;
                         }
 
-                        var listing = ListBackupsForMapping(destinationPath, jobLabel, mode);
+                        var listing = ListBackupsForMapping(destinationPath, sourcePath, jobLabel, mode, credentials);
                         mappingResult["backups"] = listing;
                         mappings.Add(mappingResult);
                     }
@@ -471,104 +508,165 @@ namespace OnlyBackupAgent.Communication
             }
         }
 
-        private System.Collections.Generic.List<object> ListBackupsForMapping(string destinationPath, string jobLabel, string mode)
+        private System.Collections.Generic.List<object> ListBackupsForMapping(string destinationPath, string sourcePath, string jobLabel, string mode, NetworkCredentials credentials = null)
         {
             var backups = new System.Collections.Generic.List<object>();
             var normalizedPath = FileSystemOperations.NormalizePath(destinationPath);
             var longPath = FileSystemOperations.NormalizeLongPath(normalizedPath);
+            var normalizedSource = !String.IsNullOrWhiteSpace(sourcePath) ? FileSystemOperations.NormalizePath(sourcePath) : null;
 
-            if (String.IsNullOrWhiteSpace(normalizedPath) || !Directory.Exists(longPath))
+            NetworkShareManager netManager = null;
+            try
             {
-                return backups;
-            }
-
-            if (!String.IsNullOrWhiteSpace(mode) && mode.ToLowerInvariant() == "sync")
-            {
-                try
+                if (credentials != null && credentials.HasCredentials)
                 {
-                    var info = new DirectoryInfo(longPath);
-                    backups.Add(new
-                    {
-                        name = info.Name,
-                        path = NormalizeOutputPath(info.FullName),
-                        retention_index = (int?)null,
-                        created = info.CreationTimeUtc.ToString("o"),
-                        modified = info.LastWriteTimeUtc.ToString("o"),
-                        has_manifest = File.Exists(Path.Combine(info.FullName, "backup.manifest.json")),
-                        legacy = false
-                    });
+                    netManager = new NetworkShareManager();
+                    netManager.Connect(destinationPath, credentials);
                 }
-                catch { }
 
-                return backups;
-            }
-
-            var directories = Directory.GetDirectories(longPath);
-            foreach (var dir in directories)
-            {
-                try
+                if (String.IsNullOrWhiteSpace(normalizedPath) || !Directory.Exists(longPath))
                 {
-                    var dirInfo = new DirectoryInfo(dir);
-                    var dirName = dirInfo.Name;
+                    return backups;
+                }
 
-                    bool isBackup = false;
-                    bool isTimestamp = false;
-                    int retentionIndex = 0;
-
-                    if (!String.IsNullOrWhiteSpace(jobLabel))
+                if (!String.IsNullOrWhiteSpace(mode) && mode.ToLowerInvariant() == "sync")
+                {
+                    try
                     {
-                        var slotMatch = System.Text.RegularExpressions.Regex.Match(
-                            dirName,
-                            String.Format(@"^{0}_.+_s(\d+)$", System.Text.RegularExpressions.Regex.Escape(jobLabel))
-                        );
-                        if (slotMatch.Success)
-                        {
-                            isBackup = true;
-                            int.TryParse(slotMatch.Groups[1].Value, out retentionIndex);
-                        }
-                    }
-
-                    if (!isBackup)
-                    {
-                        var genericMatch = System.Text.RegularExpressions.Regex.Match(dirName, @"_s(\d+)$");
-                        if (genericMatch.Success)
-                        {
-                            isBackup = true;
-                            int.TryParse(genericMatch.Groups[1].Value, out retentionIndex);
-                        }
-                        else
-                        {
-                            isTimestamp = System.Text.RegularExpressions.Regex.IsMatch(
-                                dirName,
-                                @"^\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}$"
-                            );
-                        }
-                    }
-
-                    var manifestPath = Path.Combine(dir, "backup.manifest.json");
-                    bool hasManifest = File.Exists(manifestPath);
-
-                    if (isBackup || hasManifest || isTimestamp)
-                    {
+                        var info = new DirectoryInfo(longPath);
                         backups.Add(new
                         {
-                            name = dirName,
-                            path = NormalizeOutputPath(dir),
-                            retention_index = retentionIndex,
-                            created = dirInfo.CreationTimeUtc.ToString("o"),
-                            modified = dirInfo.LastWriteTimeUtc.ToString("o"),
-                            has_manifest = hasManifest,
-                            legacy = !hasManifest
+                            name = info.Name,
+                            path = NormalizeOutputPath(info.FullName),
+                            retention_index = (int?)null,
+                            created = info.CreationTimeUtc.ToString("o"),
+                            modified = info.LastWriteTimeUtc.ToString("o"),
+                            has_manifest = File.Exists(Path.Combine(info.FullName, "backup.manifest.json")),
+                            legacy = false
                         });
                     }
+                    catch { }
+
+                    return backups;
                 }
-                catch
+
+                var directories = Directory.GetDirectories(longPath);
+                foreach (var dir in directories)
                 {
+                    try
+                    {
+                        var dirInfo = new DirectoryInfo(dir);
+                        var dirName = dirInfo.Name;
+
+                        bool isBackup = false;
+                        bool isTimestamp = false;
+                        int retentionIndex = 0;
+
+                        if (!String.IsNullOrWhiteSpace(jobLabel))
+                        {
+                            var slotMatch = System.Text.RegularExpressions.Regex.Match(
+                                dirName,
+                                String.Format("^{0}_.+_s(\\d+)$", System.Text.RegularExpressions.Regex.Escape(jobLabel))
+                            );
+                            if (slotMatch.Success)
+                            {
+                                isBackup = true;
+                                int.TryParse(slotMatch.Groups[1].Value, out retentionIndex);
+                            }
+                        }
+
+                        if (!isBackup)
+                        {
+                            var genericMatch = System.Text.RegularExpressions.Regex.Match(dirName, "_s(\\d+)$");
+                            if (genericMatch.Success)
+                            {
+                                isBackup = true;
+                                int.TryParse(genericMatch.Groups[1].Value, out retentionIndex);
+                            }
+                            else
+                            {
+                                isTimestamp = System.Text.RegularExpressions.Regex.IsMatch(
+                                    dirName,
+                                    @"^\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}$"
+                                );
+                            }
+                        }
+
+                        var manifestPath = Path.Combine(dir, "backup.manifest.json");
+                        bool hasManifest = File.Exists(manifestPath);
+
+                        if (isBackup || hasManifest || isTimestamp)
+                        {
+                             // Filtering Logic by Source
+                             if (hasManifest && !String.IsNullOrWhiteSpace(normalizedSource))
+                             {
+                                 try
+                                 {
+                                     string manifestContent = File.ReadAllText(manifestPath);
+                                     var manifest = jsonSerializer.Deserialize<System.Collections.Generic.Dictionary<string, object>>(manifestContent);
+                                     
+                                     bool sourceMatch = false;
+                                     if (manifest.ContainsKey("sources"))
+                                     {
+                                         var sourcesList = manifest["sources"] as System.Collections.IEnumerable;
+                                         if (sourcesList != null && !(manifest["sources"] is string))
+                                         {
+                                             foreach (object s in sourcesList)
+                                             {
+                                                 if (s != null && FileSystemOperations.PathsAreEqual(s.ToString(), normalizedSource))
+                                                 {
+                                                     sourceMatch = true;
+                                                     break;
+                                                 }
+                                             }
+                                         }
+                                         else if (manifest["sources"] is string)
+                                         {
+                                             if (FileSystemOperations.PathsAreEqual(manifest["sources"].ToString(), normalizedSource))
+                                             {
+                                                 sourceMatch = true;
+                                             }
+                                         }
+                                     }
+
+                                     if (!sourceMatch)
+                                     {
+                                         continue; // Skip this backup as it belongs to another source
+                                     }
+                                 }
+                                 catch { } 
+                             }
+
+                            backups.Add(new
+                            {
+                                name = dirName,
+                                path = NormalizeOutputPath(dir),
+                                retention_index = retentionIndex,
+                                created = dirInfo.CreationTimeUtc.ToString("o"),
+                                modified = dirInfo.LastWriteTimeUtc.ToString("o"),
+                                has_manifest = hasManifest,
+                                legacy = !hasManifest
+                            });
+                        }
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+            finally
+            {
+                if (netManager != null)
+                {
+                    netManager.Dispose();
                 }
             }
 
             return backups;
         }
+
+
+
 
         private string NormalizeOutputPath(string path)
         {
