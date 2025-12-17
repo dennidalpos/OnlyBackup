@@ -146,6 +146,16 @@ class OnlyBackupApp {
         return this.normalizeRunStatus(run?.status);
     }
 
+    statusLabelFor(state) {
+        if (!state) return 'Sconosciuto';
+        const normalized = this.normalizeRunStatus(state);
+        if (normalized === 'success') return 'Successo';
+        if (normalized === 'partial') return 'Parziale';
+        if (normalized === 'running') return 'In corso';
+        if (normalized === 'failure' || normalized === 'failed') return 'Fallito';
+        return normalized;
+    }
+
     getButtonByText(text) {
         const buttons = document.querySelectorAll('.btn');
         for (const btn of buttons) {
@@ -439,16 +449,21 @@ class OnlyBackupApp {
             }
 
             const showResetBackup = client.backup_status === 'in_progress';
+            const statusDotClass = client.online ? 'online' : 'offline';
+            const lastSeen = client.lastSeen ? new Date(client.lastSeen).toLocaleString() : 'Mai';
+            const ipInfo = client.agent_ip ? `${client.agent_ip}:${client.agent_port || 8081}` : 'IP non disponibile';
 
             return `
             <div class="client-item ${this.selectedClient === client.hostname ? 'active' : ''}"
                  onclick="app.selectClient('${this.escapeForAttribute(client.hostname)}')">
-                <div>
-                    <div class="client-name">
-                        ${backupIcon}${this.escapeHtml(client.hostname)}
+                <div class="client-meta-wrapper">
+                    <div class="client-name-row">
+                        <span class="status-dot ${statusDotClass}"></span>
+                        <div class="client-name">${backupIcon}${this.escapeHtml(client.hostname)}</div>
                     </div>
-                    <div class="client-status ${client.online ? 'online' : ''}">
-                        ${client.online ? 'Online' : 'Offline'}
+                    <div class="client-meta">
+                        <span class="client-ip" title="Indirizzo agent">${this.escapeHtml(ipInfo)}</span>
+                        <span class="client-lastseen" title="Ultimo contatto">Ultimo contatto: ${this.escapeHtml(lastSeen)}</span>
                     </div>
                 </div>
                 <div class="client-item-actions">
@@ -792,7 +807,7 @@ class OnlyBackupApp {
         this.renderJobsList();
     }
 
-    async openLogViewer() {
+    async openLogViewer(mappingIndex = null) {
         const modal = document.getElementById('logViewerModal');
         const content = document.getElementById('logViewerContent');
         const logConsole = document.getElementById('jobLogConsole');
@@ -817,42 +832,61 @@ class OnlyBackupApp {
 
         try {
             const hostname = this.selectedClient.hostname || this.selectedClient;
-            const response = await fetch(`/api/clients/${encodeURIComponent(hostname)}/jobs/${encodeURIComponent(this.editingJob.job_id)}/logs/full`);
+            const query = Number.isInteger(mappingIndex) ? `?mapping=${mappingIndex}` : '';
+            const response = await fetch(`/api/clients/${encodeURIComponent(hostname)}/jobs/${encodeURIComponent(this.editingJob.job_id)}/logs/full${query}`);
             if (!response.ok) {
                 const errorPayload = await response.json().catch(() => ({}));
                 throw new Error(errorPayload.error || 'Risposta non valida dal server');
             }
 
             const data = await response.json();
-            const latestRun = Array.isArray(data?.runs) && data.runs.length > 0 ? data.runs[0] : null;
+            const runs = Array.isArray(data?.runs) ? data.runs : [];
 
-            if (!latestRun) {
+            if (runs.length === 0) {
                 const fallback = logConsole?.innerHTML?.trim();
                 content.innerHTML = fallback
                     ? fallback
-                    : '<p class="log-empty">Nessun log disponibile per questo job.</p>';
+                    : '<p class="log-empty">Nessun log disponibile per questa mappatura.</p>';
                 return;
             }
 
-            const runHeader = `Client: ${this.escapeHtml(hostname)} · Job: ${this.escapeHtml(this.editingJob.job_id)} · Run: ${this.escapeHtml(latestRun.run_id)}`;
-            const mappingSections = (latestRun.mappings || []).map(mapping => {
+            const sections = runs.map(run => {
+                const runMappings = Array.isArray(run.mappings) ? run.mappings : [];
+                const mapping = mappingIndex === null
+                    ? runMappings[0]
+                    : runMappings.find(m => Number.isInteger(mappingIndex) && Number(m.index) === mappingIndex);
+
+                if (!mapping) {
+                    return '';
+                }
+
                 const logs = Array.isArray(mapping.logs) ? mapping.logs : [];
                 const entries = logs.length > 0
                     ? logs.map(log => `<pre class="log-block">${this.escapeHtml(log.content || '')}</pre>`).join('')
                     : '<p class="log-empty">Nessun log disponibile per questa mappatura.</p>';
 
+                const runTime = run.start
+                    ? new Date(run.start).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                    : 'Data non disponibile';
+                const statusClass = this.normalizeRunStatus(mapping.status || run.status || '');
+                const destination = mapping.destination_path ? `<span class="log-run-destination">Dest: ${this.escapeHtml(mapping.destination_path)}</span>` : '';
+
                 return `
-                    <div class="log-mapping">
-                        <div class="log-meta">${this.escapeHtml(mapping.label || `Mappatura ${mapping.index + 1}`)} · Modality: ${this.escapeHtml((mapping.mode || 'copy').toUpperCase())}</div>
+                    <div class="log-run">
+                        <div class="log-run-header">
+                            <div>
+                                <div class="log-run-title">Run ${this.escapeHtml(run.run_id || '')}</div>
+                                <div class="log-run-meta">${this.escapeHtml(runTime)}${destination ? ` · ${destination}` : ''}</div>
+                            </div>
+                            <div class="log-run-status ${statusClass || 'unknown'}">${this.statusLabelFor(statusClass)}</div>
+                        </div>
+                        <div class="log-run-meta">${this.escapeHtml(mapping.label || `Mappatura ${(Number(mapping.index) || 0) + 1}`)} · ${this.escapeHtml((mapping.mode || 'copy').toUpperCase())}</div>
                         ${entries}
                     </div>
                 `;
-            }).join('');
+            }).filter(Boolean).join('');
 
-            content.innerHTML = `
-                <div class="log-meta">${runHeader}</div>
-                ${mappingSections}
-            `;
+            content.innerHTML = sections || '<p class="log-empty">Nessun log disponibile per questa mappatura.</p>';
         } catch (error) {
             console.error('Errore caricamento log viewer:', error);
             const fallback = logConsole?.innerHTML?.trim();
@@ -909,16 +943,27 @@ class OnlyBackupApp {
             return;
         }
 
-        const sections = mappings.map(mapping => {
+        const sections = mappings.map((mapping, idx) => {
             const backups = Array.isArray(mapping.backups) ? mapping.backups : [];
             let body = '';
+            const mappingIndex = Number.isFinite(Number(mapping.index)) ? Number(mapping.index) : idx;
+            const cardId = `backup-card-${mappingIndex}`;
 
             if (mapping.error) {
                 body = `<p class="error-message">${this.escapeHtml(mapping.error)}</p>`;
             } else if (backups.length === 0) {
                 body = '<p class="pill-label">Nessun backup trovato in destinazione.</p>';
             } else {
-                body = backups.map(backup => {
+                const toolbar = `
+                    <div class="backup-toolbar">
+                        <label class="backup-select-all">
+                            <input type="checkbox" onchange="app.toggleSelectAllBackups(${mappingIndex}, this.checked)">
+                            <span>Seleziona tutti</span>
+                        </label>
+                        <button class="btn btn-outline btn-small" onclick="app.deleteSelectedBackups(${mappingIndex})">Elimina selezionati</button>
+                    </div>`;
+
+                const rows = backups.map(backup => {
                     const modified = backup.modified
                         ? new Date(backup.modified).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
                         : 'Data non disponibile';
@@ -931,6 +976,10 @@ class OnlyBackupApp {
 
                     return `
                         <div class="backup-row">
+                            <label class="backup-select">
+                                <input type="checkbox" class="backup-checkbox" data-path="${this.escapeForAttribute(targetPath)}" data-mapping-index="${mappingIndex}">
+                                <span class="checkbox-faux"></span>
+                            </label>
                             <div class="backup-main">
                                 <div class="backup-name">
                                     ${this.escapeHtml(backup.name || 'Backup')}
@@ -947,13 +996,15 @@ class OnlyBackupApp {
                         </div>
                     `;
                 }).join('');
+
+                body = toolbar + rows;
             }
 
             return `
-                <div class="backup-card">
+                <div class="backup-card" id="${cardId}" data-mapping-index="${mappingIndex}">
                     <header>
                         <div>
-                            <div class="mapping-title">${this.escapeHtml(mapping.label || `Mappatura ${mapping.index + 1 || ''}`)}</div>
+                            <div class="mapping-title">${this.escapeHtml(mapping.label || `Mappatura ${(mappingIndex ?? idx) + 1}`)}</div>
                             <div class="backup-destination">${this.escapeHtml(mapping.destination_path || 'Destinazione non configurata')}</div>
                         </div>
                         <span class="badge">${this.escapeHtml(mapping.mode || '-')}</span>
@@ -973,11 +1024,11 @@ class OnlyBackupApp {
         }
     }
 
-    async deleteBackup(path) {
-        if (!path || !this.selectedClient || !this.editingJob?.job_id) return;
+    async deleteBackup(path, { skipConfirm = false, skipReload = false, silent = false } = {}) {
+        if (!path || !this.selectedClient || !this.editingJob?.job_id) return false;
 
-        if (!confirm('Eliminare definitivamente questa cartella di backup?')) {
-            return;
+        if (!skipConfirm && !confirm('Eliminare definitivamente questa cartella di backup?')) {
+            return false;
         }
 
         try {
@@ -991,15 +1042,69 @@ class OnlyBackupApp {
             const data = await response.json();
 
             if (response.ok) {
-                this.showToast('success', 'Backup eliminato', `Cartella rimossa: ${this.escapeHtml(path)}`);
-                await this.openBackupsList();
-            } else {
+                if (!silent) {
+                    this.showToast('success', 'Backup eliminato', `Cartella rimossa: ${this.escapeHtml(path)}`);
+                }
+                if (!skipReload) {
+                    await this.openBackupsList();
+                }
+                return true;
+            }
+
+            if (!silent) {
                 this.showToast('error', 'Errore', data.error || 'Impossibile eliminare il backup');
             }
+            return false;
         } catch (error) {
             console.error('Errore eliminazione backup:', error);
-            this.showToast('error', 'Errore', 'Impossibile eliminare il backup selezionato');
+            if (!silent) {
+                this.showToast('error', 'Errore', 'Impossibile eliminare il backup selezionato');
+            }
+            return false;
         }
+    }
+
+    toggleSelectAllBackups(mappingIndex, checked) {
+        const container = document.getElementById(`backup-card-${mappingIndex}`);
+        if (!container) return;
+
+        container.querySelectorAll('input.backup-checkbox').forEach(cb => {
+            cb.checked = checked;
+        });
+    }
+
+    async deleteSelectedBackups(mappingIndex) {
+        const container = document.getElementById(`backup-card-${mappingIndex}`);
+        if (!container) return;
+
+        const selected = Array.from(container.querySelectorAll('input.backup-checkbox:checked'))
+            .map(cb => cb.getAttribute('data-path'))
+            .filter(Boolean);
+
+        if (selected.length === 0) {
+            this.showToast('warning', 'Attenzione', 'Seleziona almeno un backup da eliminare');
+            return;
+        }
+
+        if (!confirm(`Eliminare definitivamente ${selected.length} backup selezionati?`)) {
+            return;
+        }
+
+        let success = 0;
+        for (const path of selected) {
+            const deleted = await this.deleteBackup(path, { skipConfirm: true, skipReload: true, silent: true });
+            if (deleted) {
+                success += 1;
+            }
+        }
+
+        if (success > 0) {
+            this.showToast('success', 'Backup eliminati', `${success} backup rimossi`);
+        } else {
+            this.showToast('error', 'Errore', 'Nessun backup eliminato');
+        }
+
+        await this.openBackupsList();
     }
 
     renderHeaderBackupStatus(statuses = []) {
@@ -1222,6 +1327,9 @@ class OnlyBackupApp {
                                        value="${this.escapeForAttribute(mapping.credentials?.domain || '')}"
                                        oninput="app.updateMappingCredential(${index}, 'domain', this.value)">
                             </div>
+                        </div>
+                        <div class="mapping-actions-row">
+                            <button type="button" class="btn btn-outline btn-small" onclick="app.openLogViewer(${index})">Log completi</button>
                         </div>
                     </div>
                 `;
