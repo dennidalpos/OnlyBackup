@@ -379,8 +379,8 @@ class JobExecutor {
         stats: result.stats || null,
         retention_index: result.retention_index || null,
         timestamp: result.timestamp || null,
-        log_path: result.log_path || null,
-        run_log_index: result.run_log_index || null,
+        log_path: result.log_path || run.log_path || null,
+        run_log_index: result.run_log_index || run.run_log_index || null,
         errors: result.errors || []
       };
 
@@ -477,6 +477,13 @@ class JobExecutor {
 
       const stats = result?.Stats || result?.stats || null;
       const logContent = result?.LogContent || result?.log_content || null;
+      const savedLogPath = this.saveAgentLog(job.client_hostname, job.job_id, run.run_id, logContent, mapping);
+      if (savedLogPath && !run.log_path) {
+        run.log_path = savedLogPath;
+      } else {
+        run.log_path = run.log_path || result?.LogPath || result?.log_path || null;
+      }
+      run.run_log_index = result?.RunLogIndexPath || result?.run_log_index || run.run_log_index;
       const warnings = result?.Warnings || result?.warnings || [];
       const errors = result?.Errors || result?.errors || [];
       const skippedFiles = result?.SkippedFiles || result?.skipped_files || [];
@@ -519,10 +526,6 @@ class JobExecutor {
       statsSummary.blocked_files = statsSummary.blocked_files_count || blockedFiles.length || statsSummary.skipped_files;
 
       const computedBytes = result?.BytesProcessed || result?.bytesProcessed || result?.bytes_processed || 0;
-
-      const savedLogPath = this.saveAgentLog(job.client_hostname, job.job_id, run.run_id, logContent, mapping);
-      run.log_path = savedLogPath || result?.LogPath || result?.log_path || run.log_path;
-      run.run_log_index = result?.RunLogIndexPath || result?.run_log_index || run.run_log_index;
       const warningMessages = [...(warnings || [])];
 
       if (statsSummary.skipped_files > 0) {

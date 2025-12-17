@@ -567,7 +567,10 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         online,
         lastSeen: hb.timestamp,
         backup_status: hb.backup_status || null,
-        backup_job_id: hb.backup_job_id || null
+        backup_job_id: hb.backup_job_id || null,
+        agent_ip: hb.agent_ip || null,
+        agent_port: hb.agent_port || null,
+        backup_status_timestamp: hb.backup_status_timestamp || hb.timestamp
       };
 
       statusMap.set(hb.hostname, statusData);
@@ -1043,48 +1046,57 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
   router.get('/api/clients/:hostname/jobs/:jobId/logs/full', requireAuth, (req, res) => {
     try {
       const { hostname, jobId } = req.params;
+      const mappingIndexParam = req.query.mapping;
+      const mappingIndex = Number.isFinite(Number(mappingIndexParam)) ? Number(mappingIndexParam) : null;
+
       const runs = storage
         .loadRunsForJob(jobId)
         .filter(r => r.client_hostname === hostname)
         .sort((a, b) => new Date(b.start || 0) - new Date(a.start || 0));
 
-      const payload = runs.map(run => {
-        const mappings = (run.mappings || []).map((mapping, index) => {
-          const logCandidates = [];
+      const payload = runs
+        .map(run => {
+          const mappings = (run.mappings || [])
+            .map((mapping, index) => {
+              const normalizedIndex = Number.isFinite(Number(mapping.index)) ? Number(mapping.index) : index;
+              const logCandidates = [];
 
-          if (mapping.log_path) {
-            logCandidates.push(mapping.log_path);
-          }
+              if (mapping.log_path) {
+                logCandidates.push(mapping.log_path);
+              }
 
-          if (mapping.run_log_index) {
-            logCandidates.push(mapping.run_log_index);
-          }
+              if (mapping.run_log_index) {
+                logCandidates.push(mapping.run_log_index);
+              }
 
-          if (logCandidates.length === 0 && run.log_path) {
-            logCandidates.push(run.log_path);
-          }
+              if (logCandidates.length === 0 && run.log_path) {
+                logCandidates.push(run.log_path);
+              }
 
-          const logs = logCandidates
-            .map(candidate => readLogFile(candidate, run.run_id))
-            .filter(Boolean);
+              const logs = logCandidates
+                .map(candidate => readLogFile(candidate, run.run_id))
+                .filter(Boolean);
+
+              return {
+                index: normalizedIndex,
+                label: mapping.label || `Mappatura ${index + 1}`,
+                status: mapping.status || run.status,
+                mode: mapping.mode || run.mode_default || 'copy',
+                destination_path: mapping.destination_path || run.target_path,
+                logs
+              };
+            })
+            .filter(mapping => mappingIndex === null || mapping.index === mappingIndex);
 
           return {
-            index,
-            label: mapping.label || `Mappatura ${index + 1}`,
-            status: mapping.status || run.status,
-            mode: mapping.mode || run.mode_default || 'copy',
-            logs
+            run_id: run.run_id,
+            start: run.start,
+            end: run.end,
+            status: run.status,
+            mappings
           };
-        });
-
-        return {
-          run_id: run.run_id,
-          start: run.start,
-          end: run.end,
-          status: run.status,
-          mappings
-        };
-      });
+        })
+        .filter(run => mappingIndex === null || (run.mappings && run.mappings.length > 0));
 
       logger.logApiCall('GET', `/api/clients/${hostname}/jobs/${jobId}/logs/full`, req.username, 200);
       res.json({ hostname, job_id: jobId, runs: payload });
@@ -1236,6 +1248,9 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
           client.lastSeen = status.lastSeen;
           client.backup_status = status.backup_status;
           client.backup_job_id = status.backup_job_id;
+          client.agent_ip = status.agent_ip;
+          client.agent_port = status.agent_port;
+          client.backup_status_timestamp = status.backup_status_timestamp;
         }
       });
 
