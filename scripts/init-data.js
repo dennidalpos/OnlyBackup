@@ -29,6 +29,10 @@ function loadConfig() {
     config.dataRoot = path.join(configDir, config.dataRoot);
   }
 
+  if (!config.dataRoot) {
+    config.dataRoot = path.join(configDir, 'data');
+  }
+
   return config;
 }
 

@@ -1721,15 +1721,12 @@ class OnlyBackupApp {
                 });
             }
 
-            // Retention events are now stored in .retention.json files and loaded on demand
-            // This avoids showing cumulative historical deletions from previous runs
             const retentionEntries = [];
             if (run.mappings && run.mappings.length > 0) {
                 run.mappings.forEach((m, index) => {
                     const mode = (m.mode || run.mode_default || 'copy');
                     if (mode !== 'copy') return;
 
-                    // Check if retention is configured
                     const hasRetention = m.retention && m.retention.max_backups > 0;
                     if (!hasRetention) return;
 

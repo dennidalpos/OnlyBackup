@@ -8,8 +8,6 @@ namespace OnlyBackupAgent.FileSystem
 {
     public class NetworkShareManager : IDisposable
     {
-        #region Win32 API Declarations
-
         [DllImport("mpr.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern int WNetAddConnection2(ref NETRESOURCE netResource, string password, string username, int flags);
 
@@ -35,10 +33,6 @@ namespace OnlyBackupAgent.FileSystem
             [MarshalAs(UnmanagedType.LPWStr)]
             public string lpProvider;
         }
-
-        #endregion
-
-        #region Constants
 
         private const int RESOURCETYPE_DISK = 0x00000001;
 
@@ -73,10 +67,6 @@ namespace OnlyBackupAgent.FileSystem
         private const int DEFAULT_MAX_RETRIES = 3;
         private static readonly int[] DEFAULT_RETRY_DELAYS_MS = { 500, 1000, 2000 };
 
-        #endregion
-
-        #region Properties
-
         private readonly List<string> _activeConnections = new List<string>();
         private readonly object _lockObject = new object();
         private bool _disposed = false;
@@ -110,10 +100,6 @@ namespace OnlyBackupAgent.FileSystem
         }
 
         public Action<string> Logger { get; set; }
-
-        #endregion
-
-        #region Public Methods
 
         public ConnectionResult Connect(string uncPath, NetworkCredentials credentials = null)
         {
@@ -256,10 +242,6 @@ namespace OnlyBackupAgent.FileSystem
             }
         }
 
-        #endregion
-
-        #region Private Methods - Connection
-
         private List<AuthStrategy> BuildAuthenticationStrategies(NetworkCredentials credentials)
         {
             var strategies = new List<AuthStrategy>();
@@ -392,10 +374,6 @@ namespace OnlyBackupAgent.FileSystem
                 Log("Errore ForceDisconnect: {0}", ex.Message);
             }
         }
-
-        #endregion
-
-        #region Private Methods - Utilities
 
         private string ExtractShareRoot(string uncPath)
         {
@@ -571,10 +549,6 @@ namespace OnlyBackupAgent.FileSystem
             }
         }
 
-        #endregion
-
-        #region IDisposable
-
         public void Dispose()
         {
             Dispose(true);
@@ -598,11 +572,7 @@ namespace OnlyBackupAgent.FileSystem
             Dispose(false);
         }
 
-        #endregion
     }
-
-    #region Supporting Classes
-
     public class NetworkCredentials
     {
         public string Username { get; set; }
@@ -688,5 +658,4 @@ namespace OnlyBackupAgent.FileSystem
         public string Password { get; set; }
     }
 
-    #endregion
 }

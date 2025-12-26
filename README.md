@@ -33,14 +33,19 @@ Sistema di backup centralizzato per ambienti Windows con architettura server/age
    npm install
    ```
 2. **Configurare `config.json`** (vedi §5) nella root del progetto.
-3. **Avvio**
+3. **Inizializzazione dati (opzionale)**
+   ```bash
+   node scripts/init-data.js <password-admin>
+   ```
+   Se `dataRoot` non è definito in `config.json`, lo script inizializza automaticamente `./data` accanto al file di configurazione.
+4. **Avvio**
    ```bash
    npm start
    # oppure
    CONFIG_PATH=../config.json node src/server.js
    ```
-4. **Accesso dashboard:** `http://<host>:<porta>` (default admin/admin).
-5. **Installazione come servizio (NSSM):** usare `nssm install OnlyBackupServer "C:\\Program Files\\nodejs\\node.exe"` con `AppDirectory` impostata su `server` e `CONFIG_PATH` puntato al file di configurazione.
+5. **Accesso dashboard:** `http://<host>:<porta>` (default admin/admin).
+6. **Installazione come servizio (NSSM):** usare `nssm install OnlyBackupServer "C:\\Program Files\\nodejs\\node.exe"` con `AppDirectory` impostata su `server` e `CONFIG_PATH` puntato al file di configurazione.
 
 ### Agent
 1. **Build** (WiX Toolset 3.14 + Visual Studio 2017+):
@@ -68,6 +73,7 @@ Sistema di backup centralizzato per ambienti Windows con architettura server/age
     "scheduler": { "checkInterval": 60000, "enableFileWatcher": true }
   }
   ```
+- **`dataRoot` predefinito:** se omesso, viene usata la cartella `data` accanto al file di configurazione.
 - **Utenti e autenticazione:** credenziali in `data/users/users.json` (ricreare admin/admin eliminando il file con servizio fermo). Sessione basata su cookie; impostare `secureCookies` su `true` con HTTPS.
 - **Sicurezza:** proteggere `dataRoot` con ACL NTFS, usare account servizio dedicati, considerare BitLocker/HTTPS e firewall restrittivi. Le credenziali dei job sono salvate in chiaro nei JSON: limitare l'accesso ai file.
 
@@ -147,4 +153,3 @@ Note: l'agent applica retention log a 20 MB e le eliminazioni da UI rimuovono an
 - **Log non visualizzati:** controllare presenza file in `data/logs/<hostname>/<jobId>`, verificare upload agent e permessi su `data/logs`.
 - **Server non raggiungibile:** verificare porta 8080 (o configurata), processi in ascolto e regole firewall; con NSSM ispezionare `service-stdout/stderr.log`.
 - **.NET Framework mancante (agent):** installare .NET 4.6.2 Developer Pack e riavviare; l'installer MSI blocca l'installazione in assenza del prerequisito.
-
