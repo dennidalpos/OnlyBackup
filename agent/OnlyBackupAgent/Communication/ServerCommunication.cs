@@ -74,7 +74,6 @@ namespace OnlyBackupAgent.Communication
 
         public void LogMessage(string message)
         {
-            // Silent logging - do not throw exceptions
             try
             {
                 Console.WriteLine(String.Format("[ServerComm] {0}", message));

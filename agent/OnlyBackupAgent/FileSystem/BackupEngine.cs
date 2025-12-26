@@ -348,7 +348,6 @@ namespace OnlyBackupAgent.FileSystem
 
                 PopulateRunMetadata(successResult, loggingContext, operations, bytesProcessed);
 
-                // Generate backup manifest
                 GenerateBackupManifest(backupTarget, loggingContext, sourceList, bytesProcessed, stats, optionsDict);
 
                 if (!isSyncMode)
@@ -843,7 +842,6 @@ namespace OnlyBackupAgent.FileSystem
             }
             catch (Exception ex)
             {
-                // Log but don't fail the backup
                 if (_serverComm != null)
                 {
                     try
@@ -878,7 +876,7 @@ namespace OnlyBackupAgent.FileSystem
 
             if (maxBackups <= 0)
             {
-                return deletionEvents; // Retention disabled
+                return deletionEvents;
             }
 
             try
@@ -903,7 +901,7 @@ namespace OnlyBackupAgent.FileSystem
                         DateTime parsedTimestamp;
                         if (!TryParseTimestampFromFolder(name, out parsedTimestamp))
                         {
-                            continue; // Ignore folders not following the timestamp pattern
+                            continue;
                         }
 
                         var info = new DirectoryInfo(dir);
@@ -989,7 +987,6 @@ namespace OnlyBackupAgent.FileSystem
             if (options == null)
                 return 0;
 
-            // Try to get max_backups from options.retention.max_backups
             if (options.ContainsKey("retention") && options["retention"] != null)
             {
                 var retention = options["retention"] as IDictionary<string, object>;
@@ -1003,7 +1000,6 @@ namespace OnlyBackupAgent.FileSystem
                 }
             }
 
-            // Fallback: try max_backups directly
             if (options.ContainsKey("max_backups"))
             {
                 int parsed;

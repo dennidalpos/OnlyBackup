@@ -71,8 +71,6 @@ class JobExecutor {
         .replace(/[^a-zA-Z0-9_-]/g, '_')
         .substring(0, 50);
 
-      // Use only historical backups from previous runs (server can't access UNC paths)
-      // This is more reliable than scanExistingBackups which requires filesystem access
       const existingBackups = this.getHistoricalRetentionBackups(job, mapping);
       existingBackups.sort((a, b) => a.mtime - b.mtime);
 
@@ -88,6 +86,10 @@ class JobExecutor {
 
   sanitizeSegment(value) {
     return (value || 'unknown').toString().replace(/[^a-zA-Z0-9._-]/g, '_');
+  }
+
+  escapeRegExp(value) {
+    return (value || '').toString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   saveAgentLog(hostname, jobId, runId, content, mapping = null) {
@@ -710,14 +712,13 @@ class JobExecutor {
       }
 
       const items = fs.readdirSync(basePath);
+      const safeJobLabel = this.escapeRegExp(jobLabel);
       const patterns = [
-        // New slot-based pattern WITHOUT timestamp: jobLabel_source_s1, jobLabel_source_s2
-        new RegExp(`^${jobLabel}_.+_s(\\d+)$`),
-        // Legacy patterns with timestamp (for backward compatibility)
-        new RegExp(`^${jobLabel}_.+_s(\\d+)_\\d{4}_\\d{2}_\\d{2}_\\d{2}_\\d{2}_\\d{2}$`),
-        new RegExp(`^${jobLabel}_.+_v(\\d+)_s(\\d+)_\\d{4}_\\d{2}_\\d{2}_\\d{2}_\\d{2}_\\d{2}$`),
-        new RegExp(`^${jobLabel}_.+_v(\\d+)_\\d{4}_\\d{2}_\\d{2}_\\d{2}_\\d{2}_\\d{2}$`),
-        new RegExp(`^${jobLabel}_${mode}_(\\d+)_(.+)$`)
+        new RegExp(`^${safeJobLabel}_.+_s(\\d+)$`),
+        new RegExp(`^${safeJobLabel}_.+_s(\\d+)_\\d{4}_\\d{2}_\\d{2}_\\d{2}_\\d{2}_\\d{2}$`),
+        new RegExp(`^${safeJobLabel}_.+_v(\\d+)_s(\\d+)_\\d{4}_\\d{2}_\\d{2}_\\d{2}_\\d{2}_\\d{2}$`),
+        new RegExp(`^${safeJobLabel}_.+_v(\\d+)_\\d{4}_\\d{2}_\\d{2}_\\d{2}_\\d{2}_\\d{2}$`),
+        new RegExp(`^${safeJobLabel}_${mode}_(\\d+)_(.+)$`)
       ];
 
       for (const item of items) {
@@ -738,7 +739,7 @@ class JobExecutor {
               if (idx === 0) {
                 retentionIndex = parseInt(match[1]);
               } else if (idx === 1) {
-                retentionIndex = parseInt(match[2]);
+                retentionIndex = parseInt(match[1]);
               } else {
                 retentionIndex = parseInt(match[1]);
               }
@@ -1016,21 +1017,15 @@ class JobExecutor {
           }
         : null;
 
-      // NOTE: Retention is now handled by agent-side slot rotation (DeleteOldSlotIfExists)
-      // The agent deletes the old slot BEFORE creating the new backup
-      // Retention events are tracked in .retention.json files and accessible via
-      // /api/clients/:hostname/jobs/:jobId/retention/events?runId=X
-
       if (runMapping) {
-        // Initialize empty arrays - events will be read from agent's .retention.json files
         runMapping.retention_deleted = [];
         runMapping.retention_cleanup = [];
         runMapping.retention_summary = {
           slots: retentionSlots,
           found_before_start: backupsAtStart,
-          existing_before: 0,  // Will be calculated from physical backups
-          deleted: 0,          // Will be read from retention events
-          existing_after: 0,   // Will be calculated from physical backups
+          existing_before: 0,
+          deleted: 0,
+          existing_after: 0,
           backups_before: [],
           backups_after: [],
           skipped_incomplete: 0

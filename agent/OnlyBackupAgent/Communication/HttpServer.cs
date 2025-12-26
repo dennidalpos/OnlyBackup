@@ -368,11 +368,9 @@ namespace OnlyBackupAgent.Communication
                         var dirInfo = new DirectoryInfo(dir);
                         var dirName = dirInfo.Name;
 
-                        // Check if this looks like a backup directory
                         bool isBackup = false;
                         int retentionIndex = 0;
 
-                        // Pattern: jobLabel_source_s1, jobLabel_source_s2 (new slot-based)
                         if (!String.IsNullOrWhiteSpace(jobLabel))
                         {
                             var slotMatch = System.Text.RegularExpressions.Regex.Match(
@@ -386,7 +384,6 @@ namespace OnlyBackupAgent.Communication
                             }
                         }
 
-                        // If no job_label or no match, accept any directory with _s\d+ pattern
                         if (!isBackup)
                         {
                             var genericMatch = System.Text.RegularExpressions.Regex.Match(dirName, "_s(\\d+)$");
@@ -399,7 +396,6 @@ namespace OnlyBackupAgent.Communication
 
                         if (isBackup)
                         {
-                            // Check for manifest
                             var manifestPath = Path.Combine(dir, "backup.manifest.json");
                             bool hasManifest = File.Exists(manifestPath);
 
@@ -417,7 +413,6 @@ namespace OnlyBackupAgent.Communication
                     }
                     catch
                     {
-                        // Skip directories we can't read
                     }
                 }
 
@@ -597,7 +592,6 @@ namespace OnlyBackupAgent.Communication
 
                         if (isBackup || hasManifest || isTimestamp)
                         {
-                             // Filtering Logic by Source
                              if (hasManifest && !String.IsNullOrWhiteSpace(normalizedSource))
                              {
                                  try
@@ -631,7 +625,7 @@ namespace OnlyBackupAgent.Communication
 
                                      if (!sourceMatch)
                                      {
-                                         continue; // Skip this backup as it belongs to another source
+                                         continue;
                                      }
                                  }
                                  catch { } 

@@ -269,7 +269,6 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
 
   const callAgentDelete = (agentIp, agentPort, items = []) => {
     return new Promise((resolve, reject) => {
-      // items can be strings (legacy) or objects { path, credentials }
       const postData = JSON.stringify({ paths: items });
 
       const options = {
@@ -1066,9 +1065,6 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
                 logCandidates.push(mapping.log_path);
               }
 
-              // run_log_index rimosso dalla visualizzazione utente per evitare JSON raw
-              // if (mapping.run_log_index) { ... }
-
               if (logCandidates.length === 0 && run.log_path) {
                 logCandidates.push(run.log_path);
               }
@@ -1154,7 +1150,6 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         return res.status(400).json({ error: 'Percorso non appartenente al job selezionato' });
       }
 
-      // Extract credentials for this path
       const normalize = (p) => (p || '').replace(/\\/g, '/').replace(/\/$/, '').toLowerCase();
       const targetPath = normalize(backupPath);
 
