@@ -4,9 +4,9 @@
      xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension">
 
   <?define ProductName = "OnlyBackup Agent" ?>
-  <?define ProductVersion = "1.0.0.0" ?>
+  <?define ProductVersion = "1.0.1.0" ?>
   <?define Manufacturer = "OnlyBackup" ?>
-  <?define ProductCode = "9C9E5F2A-88E9-4A79-9E8E-5F1EAF9B64A8" ?>
+  <?define ProductCode = "*" ?>
   <?define UpgradeCode = "12345678-1234-1234-1234-123456789ABC" ?>
 
   <Product Id="$(var.ProductCode)"
@@ -33,7 +33,9 @@
     </Property>
 
     <MajorUpgrade DowngradeErrorMessage="Una versione più recente di $(var.ProductName) è già installata."
-                  AllowSameVersionUpgrades="yes" />
+                  AllowSameVersionUpgrades="yes"
+                  Schedule="afterInstallInitialize"
+                  AllowDowngrades="no" />
 
     <MediaTemplate EmbedCab="yes" />
 
@@ -61,7 +63,21 @@
                   Impersonate="no"
                   Return="check" />
 
+    <CustomAction Id="StopServiceBeforeUpgrade"
+                  Directory="TARGETDIR"
+                  ExeCommand="cmd.exe /c &quot;net stop OnlyBackupAgent 2&gt;nul&quot;"
+                  Execute="immediate"
+                  Return="ignore" />
+
+    <CustomAction Id="CleanupOrphanedRegistry"
+                  Directory="TARGETDIR"
+                  ExeCommand="cmd.exe /c &quot;reg delete HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{9C9E5F2A-88E9-4A79-9E8E-5F1EAF9B64A8} /f 2&gt;nul&quot;"
+                  Execute="immediate"
+                  Return="ignore" />
+
     <InstallExecuteSequence>
+      <Custom Action="StopServiceBeforeUpgrade" Before="InstallValidate">UPGRADINGPRODUCTCODE OR Installed</Custom>
+      <Custom Action="CleanupOrphanedRegistry" After="StopServiceBeforeUpgrade">NOT Installed</Custom>
       <Custom Action="SetReinstallAll" Before="CostInitialize">Installed</Custom>
       <Custom Action="SetReinstallMode" Before="CostInitialize">Installed</Custom>
       <Custom Action="InstallNetFx462" After="InstallInitialize">NOT Installed AND (NOT NETFRAMEWORK462 OR NETFRAMEWORK462 &lt; 394802)</Custom>

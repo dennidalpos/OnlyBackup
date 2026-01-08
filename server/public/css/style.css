@@ -411,6 +411,30 @@ h1, h2, h3, h4, h5, h6 {
     background: var(--panel-header-bg);
     flex-shrink: 0;
 }
+.search-box {
+    padding: 0.75rem 0.875rem;
+    border-bottom: 1px solid var(--border-dark);
+    background: var(--panel-header-bg);
+    flex-shrink: 0;
+}
+.search-box input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    transition: border-color var(--transition-fast);
+}
+.search-box input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: var(--focus-ring);
+}
+.search-box input::placeholder {
+    color: var(--text-muted);
+}
 .left-panel .panel-header h2 {
     font-size: 0.8125rem;
     font-weight: 600;

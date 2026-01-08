@@ -55,19 +55,34 @@ namespace OnlyBackupAgent.Communication
         {
             try
             {
-                using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
+                using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
                 {
                     socket.Connect(serverHost, serverPort);
                     IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
                     if (endPoint != null && endPoint.Address != null)
                     {
-                        return endPoint.Address.ToString();
+                        string ipAddress = endPoint.Address.ToString();
+                        socket.Close();
+                        return ipAddress;
                     }
                     return "127.0.0.1";
                 }
             }
             catch
             {
+                try
+                {
+                    string hostName = Dns.GetHostName();
+                    IPHostEntry hostEntry = Dns.GetHostEntry(hostName);
+                    foreach (IPAddress ip in hostEntry.AddressList)
+                    {
+                        if (ip.AddressFamily == AddressFamily.InterNetwork)
+                        {
+                            return ip.ToString();
+                        }
+                    }
+                }
+                catch { }
                 return "127.0.0.1";
             }
         }

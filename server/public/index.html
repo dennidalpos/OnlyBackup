@@ -111,6 +111,9 @@
                             <button onclick="app.refreshClients()" class="btn btn-icon" title="Aggiorna lista client">&#8635;</button>
                         </div>
                     </div>
+                    <div class="search-box">
+                        <input type="text" id="clientSearchInput" placeholder="Cerca client..." oninput="app.filterClients(this.value)">
+                    </div>
                     <div class="panel-state" id="clientsState">
                         <div class="state-row" data-state="loading"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div></div>
                         <div class="state-row hidden" data-state="empty">Nessun agent registrato.</div>

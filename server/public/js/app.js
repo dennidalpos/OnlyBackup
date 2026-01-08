@@ -1342,7 +1342,7 @@ class OnlyBackupApp {
                             <label>Percorso destinazione</label>
                             <input type="text" value="${this.escapeForAttribute(mapping.destination_path || '')}"
                                    oninput="app.updateMappingField(${index}, 'destination_path', this.value)"
-                                   placeholder="es. \\\\NAS\\Backups\\Documents">
+                                   placeholder="es. \\NAS\\Backups\\Documents">
                         </div>
                         <div class="form-row">
                             <label>Modalita</label>
@@ -2308,6 +2308,20 @@ class OnlyBackupApp {
             }
         };
         input.click();
+    }
+
+    filterClients(searchTerm) {
+        const items = document.querySelectorAll('.client-item');
+        const term = searchTerm.toLowerCase().trim();
+
+        items.forEach(item => {
+            const hostname = item.querySelector('.client-name')?.textContent.toLowerCase() || '';
+            if (hostname.includes(term)) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
     }
 
     async refreshClients() {

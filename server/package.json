@@ -5,8 +5,8 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "NODE_ENV=development node src/server.js",
-    "test": "NODE_ENV=test node src/server.js"
+    "dev": "set NODE_ENV=development&& node src/server.js",
+    "test": "set NODE_ENV=test&& node src/server.js"
   },
   "keywords": ["backup", "restore", "windows", "centralizzato"],
   "author": "OnlyBackup Team",
