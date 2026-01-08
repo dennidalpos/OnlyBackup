@@ -6,9 +6,10 @@
   <?define ProductName = "OnlyBackup Agent" ?>
   <?define ProductVersion = "1.0.0.0" ?>
   <?define Manufacturer = "OnlyBackup" ?>
+  <?define ProductCode = "9C9E5F2A-88E9-4A79-9E8E-5F1EAF9B64A8" ?>
   <?define UpgradeCode = "12345678-1234-1234-1234-123456789ABC" ?>
 
-  <Product Id="*"
+  <Product Id="$(var.ProductCode)"
            Name="$(var.ProductName)"
            Language="1033"
            Version="$(var.ProductVersion)"
