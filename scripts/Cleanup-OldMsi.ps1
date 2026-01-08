@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   Enumerates Windows Installer (MSI) entries from registry uninstall keys on Windows 10/11
-  and Windows Server 2019-2022. By default the script only reports findings.
+  and Windows Server 2019-2022. By default the script opens an interactive selection menu.
 
   Use -Uninstall to remove older MSI entries by DisplayName, keeping the newest version.
   Use -CleanupRegistry to remove obviously orphaned MSI uninstall entries where the cached
@@ -29,6 +29,10 @@
 .EXAMPLE
   # Interactive selection of MSI entries to uninstall
   .\Cleanup-OldMsi.ps1 -Interactive
+
+.EXAMPLE
+  # Report only (disable interactive selection)
+  .\Cleanup-OldMsi.ps1 -NonInteractive
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -39,7 +43,8 @@ param(
   [switch]$CleanupRegistry,
   [switch]$Include64bitOnly,
   [switch]$IncludeGpo,
-  [switch]$Interactive
+  [switch]$Interactive = $true,
+  [switch]$NonInteractive
 )
 
 Set-StrictMode -Version Latest
@@ -217,6 +222,10 @@ if ($IncludeGpo) {
   if ($gpoEntries) {
     $entries = $entries + ($gpoEntries | Where-Object { $_.ProductCode -and ($entries.ProductCode -notcontains $_.ProductCode) })
   }
+}
+
+if ($NonInteractive) {
+  $Interactive = $false
 }
 
 Write-Host "Found $($entries.Count) MSI uninstall entries." -ForegroundColor Cyan
