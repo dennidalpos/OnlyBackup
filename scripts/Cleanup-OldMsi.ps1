@@ -65,7 +65,8 @@ function Get-MsiUninstallEntries {
 
     Get-ChildItem -Path $path | ForEach-Object {
       $props = Get-ItemProperty -Path $_.PSPath
-      if ($props.WindowsInstaller -ne 1) { return }
+      $windowsInstaller = $props.PSObject.Properties['WindowsInstaller']
+      if (-not $windowsInstaller -or $windowsInstaller.Value -ne 1) { return }
 
       [pscustomobject]@{
         DisplayName      = $props.DisplayName
