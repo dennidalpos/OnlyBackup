@@ -55,7 +55,7 @@ Sistema di backup centralizzato per ambienti Windows con architettura server/age
    ```
    Oppure aprire `agent/OnlyBackupAgent.sln` in Visual Studio (Release, x64/AnyCPU) e compilare.
 2. **Installazione come servizio:** distribuire MSI generato (`build/OnlyBackupAgent-<ver>-win-x64.msi`) e installare con `msiexec /i ...` (supporto installazione silenziosa `/quiet`). Il servizio viene registrato come `OnlyBackupAgent` con avvio automatico.
-   - **Reinstallazione forzata (MSI precedente mancante):** se Windows Installer richiede il vecchio pacchetto e non è più disponibile, usare `msiexec /i OnlyBackupAgent.msi REINSTALL=ALL REINSTALLMODE=amus` per forzare la reinstallazione con il nuovo MSI.
+   - **Reinstallazione forzata (MSI precedente mancante):** se Windows Installer richiede il vecchio pacchetto e non è più disponibile, usare `msiexec /i OnlyBackupAgent.msi REINSTALL=ALL REINSTALLMODE=amus` per forzare la reinstallazione con il nuovo MSI. Il pacchetto prova anche a impostare automaticamente questi flag quando rileva un'installazione esistente, ma il comando manuale resta il fallback consigliato.
 3. **Avvio in modalità console:**
    ```powershell
    cd "C:\\Program Files\\OnlyBackup Agent"
