@@ -51,7 +51,7 @@
                   Value="ALL" />
     <CustomAction Id="SetReinstallMode"
                   Property="REINSTALLMODE"
-                  Value="amus" />
+                  Value="vomus" />
 
     <Binary Id="NetFx462Installer" SourceFile="$(var.NetFxInstaller)" />
     <CustomAction Id="InstallNetFx462"
@@ -62,16 +62,16 @@
                   Return="check" />
 
     <InstallExecuteSequence>
-      <Custom Action="SetReinstallAll" Before="InstallInitialize">Installed</Custom>
-      <Custom Action="SetReinstallMode" Before="InstallInitialize">Installed</Custom>
+      <Custom Action="SetReinstallAll" Before="CostInitialize">Installed</Custom>
+      <Custom Action="SetReinstallMode" Before="CostInitialize">Installed</Custom>
       <Custom Action="InstallNetFx462" After="InstallInitialize">NOT Installed AND (NOT NETFRAMEWORK462 OR NETFRAMEWORK462 &lt; 394802)</Custom>
-      <InstallServices After="InstallFiles">NOT Installed</InstallServices>
-      <StartServices After="InstallServices">NOT Installed</StartServices>
+      <InstallServices>NOT Installed</InstallServices>
+      <StartServices>NOT Installed</StartServices>
     </InstallExecuteSequence>
 
     <InstallUISequence>
-      <Custom Action="SetReinstallAll" Before="AppSearch">Installed</Custom>
-      <Custom Action="SetReinstallMode" Before="AppSearch">Installed</Custom>
+      <Custom Action="SetReinstallAll" Before="CostInitialize">Installed</Custom>
+      <Custom Action="SetReinstallMode" Before="CostInitialize">Installed</Custom>
     </InstallUISequence>
 
   </Product>
@@ -98,6 +98,16 @@
                       ElementPath="/configuration/appSettings/add[\[]@key='ServerHost'[\]]/@value"
                       Value="[SERVERHOST]"
                       File="[INSTALLFOLDER]OnlyBackupAgent.exe.config" />
+      </Component>
+
+      <Component Id="RegistryCleanup" Guid="140C84DB-F8ED-4F4C-A797-67A841DBFD2B">
+        <CreateFolder Directory="INSTALLFOLDER" KeyPath="yes" />
+        <util:RemoveRegistryKey Root="HKLM"
+                                Key="SOFTWARE\OnlyBackup"
+                                Action="removeOnInstall" />
+        <util:RemoveRegistryKey Root="HKLM"
+                                Key="SOFTWARE\WOW6432Node\OnlyBackup"
+                                Action="removeOnInstall" />
       </Component>
 
     </ComponentGroup>
