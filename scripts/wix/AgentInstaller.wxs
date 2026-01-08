@@ -65,8 +65,8 @@
       <Custom Action="SetReinstallAll" Before="InstallInitialize">Installed</Custom>
       <Custom Action="SetReinstallMode" Before="InstallInitialize">Installed</Custom>
       <Custom Action="InstallNetFx462" After="InstallInitialize">NOT Installed AND (NOT NETFRAMEWORK462 OR NETFRAMEWORK462 &lt; 394802)</Custom>
-      <InstallServices After="InstallFiles">NOT Installed</InstallServices>
-      <StartServices After="InstallServices">NOT Installed</StartServices>
+      <InstallServices>NOT Installed</InstallServices>
+      <StartServices>NOT Installed</StartServices>
     </InstallExecuteSequence>
 
     <InstallUISequence>
