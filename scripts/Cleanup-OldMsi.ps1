@@ -69,13 +69,13 @@ function Get-MsiUninstallEntries {
       if (-not $windowsInstaller -or $windowsInstaller.Value -ne 1) { return }
 
       [pscustomobject]@{
-        DisplayName      = $props.DisplayName
-        DisplayVersion   = $props.DisplayVersion
+        DisplayName      = $props.PSObject.Properties['DisplayName']?.Value
+        DisplayVersion   = $props.PSObject.Properties['DisplayVersion']?.Value
         ProductCode      = $props.PSChildName
-        InstallLocation  = $props.InstallLocation
-        UninstallString  = $props.UninstallString
-        QuietUninstall   = $props.QuietUninstallString
-        LocalPackage     = $props.LocalPackage
+        InstallLocation  = $props.PSObject.Properties['InstallLocation']?.Value
+        UninstallString  = $props.PSObject.Properties['UninstallString']?.Value
+        QuietUninstall   = $props.PSObject.Properties['QuietUninstallString']?.Value
+        LocalPackage     = $props.PSObject.Properties['LocalPackage']?.Value
         RegistryPath     = $_.PSPath
         Wow6432Node      = $path -like '*WOW6432Node*'
         Source           = 'Registry'
@@ -127,12 +127,12 @@ function Get-GpoMsiEntries {
 
       [pscustomobject]@{
         DisplayName      = $displayName
-        DisplayVersion   = $props.DisplayVersion
+        DisplayVersion   = $props.PSObject.Properties['DisplayVersion']?.Value
         ProductCode      = $productCode
-        InstallLocation  = $props.InstallLocation
-        UninstallString  = $props.UninstallString
-        QuietUninstall   = $props.QuietUninstallString
-        LocalPackage     = $props.LocalPackage
+        InstallLocation  = $props.PSObject.Properties['InstallLocation']?.Value
+        UninstallString  = $props.PSObject.Properties['UninstallString']?.Value
+        QuietUninstall   = $props.PSObject.Properties['QuietUninstallString']?.Value
+        LocalPackage     = $props.PSObject.Properties['LocalPackage']?.Value
         RegistryPath     = $_.PSPath
         Wow6432Node      = $false
         Source           = 'GPO'
