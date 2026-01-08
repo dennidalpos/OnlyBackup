@@ -120,11 +120,52 @@ Sistema di backup centralizzato per ambienti Windows con architettura server/age
 - **Riconoscimento snapshot legacy:** la scansione considera anche cartelle con manifest oppure con nome timestamp `YYYY_MM_DD_HH_mm_ss` (fallback per vecchi backup).
 - **Log completi:** visualizzazione di `run.json`, `robocopy.log` ed eventi sincronizzati; eliminazioni UI propagano la cancellazione al client.
 - **Monitoraggio agent:** heartbeat via `/api/agent/heartbeat`, stato agent su `/api/status` (locale), panoramica `clients`/`runs` via API REST.
+- **Notifiche email:** sistema integrato per notifiche automatiche su eventi critici (backup falliti/parziali, agent offline/online). Configurazione SMTP completa con supporto OAuth2 per Gmail/Office365, template email personalizzabili per ogni tipo di evento.
 
-## 12. Struttura directory `data/`
+## 12. Notifiche Email
+Il sistema integra notifiche email automatiche per eventi critici:
+
+### Configurazione SMTP
+Dalla dashboard accedere a **📧 Email** nella barra superiore per configurare:
+- **Server SMTP:** host, porta, SSL/TLS
+- **Autenticazione:** Basic (username/password) o OAuth2 (Gmail/Office365 con MFA)
+- **Destinatari:** lista di email che riceveranno le notifiche
+- **Eventi notificabili:**
+  - Backup falliti (failed)
+  - Backup parziali (partial)
+  - Errori critici (critical)
+  - Avvisi backup (warning)
+  - Agent offline
+  - Agent tornato online (opzionale)
+
+### Template Email Personalizzabili
+Ogni tipo di evento ha un template modificabile (soggetto + corpo) con supporto per:
+- **Placeholder:** `{{hostname}}`, `{{job_id}}`, `{{run_id}}`, `{{timestamp}}`, `{{status}}`
+- **Condizioni:** `{{#if variabile}}...{{/if}}`
+- **Iterazioni:** `{{#each array}}{{this.campo}}{{/each}}`
+
+### Configurazione Rapida
+1. Gmail con App Password:
+   - Host: `smtp.gmail.com`, Porta: `587`, Auth: Basic
+   - Generare App Password da impostazioni account Google
+2. Office 365:
+   - Host: `smtp.office365.com`, Porta: `587`, Auth: Basic
+   - Usare password account o App Password se MFA attivo
+
+### Test
+Pulsante "Invia Email di Test" disponibile per verificare la configurazione prima del salvataggio.
+
+### Persistenza
+Le configurazioni sono salvate in `data/config/`:
+- `email-settings.json` - Impostazioni SMTP e destinatari
+- `email-templates.json` - Template personalizzati
+
+## 13. Struttura directory `data/`
 ```
 data/
 ├── config/                    # Configurazioni
+│   ├── email-settings.json    # Configurazione SMTP e notifiche
+│   └── email-templates.json   # Template email personalizzati
 ├── state/
 │   ├── jobs/                  # Definizioni job (*.json)
 │   ├── runs/                  # Storico esecuzioni (*.json)
@@ -139,13 +180,13 @@ data/
 ```
 Note: l'agent applica retention log a 20 MB e le eliminazioni da UI rimuovono anche i file locali. Usare `scripts/init-data.js` solo per inizializzare admin o rigenerare stato scheduler vuoto.
 
-## 13. Sviluppo e manutenzione
+## 14. Sviluppo e manutenzione
 - Evitare modifiche invasive allo scheduler senza backup di `dataRoot` (jobs/runs/agents/scheduler).
 - Eseguire backup periodici della directory `data/` prima di upgrade di server o agent.
 - Garantire compatibilità dello scheduler con il formato `state/scheduler` quando si introducono nuove versioni.
 - Aggiornamenti agent: fermare il servizio, opzionale backup di `OnlyBackupAgent.exe.config`, installare nuovo MSI, verificare riavvio del servizio.
 
-## 14. Troubleshooting
+## 15. Troubleshooting
 - **Agent offline:** verificare servizio `OnlyBackupAgent`, configurazione host/porte, firewall outbound, DNS; usare `Get-EventLog` per dettagli.
 - **Errori robocopy/accesso negato:** controllare permessi NTFS/UNC su sorgente e destinazione, credenziali job e account servizio; test manuale `robocopy` o `net use`.
 - **Permessi UNC / conflitti credenziali (1219):** disconnettere sessioni esistenti (`net use \\server /delete /yes`), riavviare agent; usare credenziali dedicate.
@@ -154,3 +195,4 @@ Note: l'agent applica retention log a 20 MB e le eliminazioni da UI rimuovono an
 - **Log non visualizzati:** controllare presenza file in `data/logs/<hostname>/<jobId>`, verificare upload agent e permessi su `data/logs`.
 - **Server non raggiungibile:** verificare porta 8080 (o configurata), processi in ascolto e regole firewall; con NSSM ispezionare `service-stdout/stderr.log`.
 - **.NET Framework mancante (agent):** installare .NET 4.6.2 Developer Pack e riavviare; l'installer MSI blocca l'installazione in assenza del prerequisito.
+- **Email non inviate:** verificare configurazione SMTP (test email), controllare log server per errori di connessione, verificare credenziali e firewall outbound sulla porta SMTP. Per Gmail/Office365 con MFA usare App Password o OAuth2.

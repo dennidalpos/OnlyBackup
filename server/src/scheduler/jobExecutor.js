@@ -38,10 +38,11 @@ const BACKUP_COMPLETE_MARKER = '.backup_complete';
 const BACKUP_INFO_FILE = 'retention_info.json';
 
 class JobExecutor {
-  constructor(storage, logger, config) {
+  constructor(storage, logger, config, emailService = null) {
     this.storage = storage;
     this.logger = logger;
     this.config = config;
+    this.emailService = emailService;
     this.runningJobs = new Map();
   }
 
@@ -227,6 +228,12 @@ class JobExecutor {
 
       this.storage.saveRun(run);
 
+      if (this.emailService && (run.status === 'failed' || run.status === 'partial')) {
+        this.emailService.notifyBackupStatus(run, job).catch(err => {
+          this.logger.warn('Errore invio notifica email backup', { error: err.message });
+        });
+      }
+
       return {
         success: true,
         runId,
@@ -258,6 +265,12 @@ class JobExecutor {
       run.retention_status = { applied: false, reason: 'Job fallito' };
       this.storage.saveRun(run);
       await this.rollbackFailedRun(job, run, error);
+
+      if (this.emailService) {
+        this.emailService.notifyBackupStatus(run, job).catch(err => {
+          this.logger.warn('Errore invio notifica email backup', { error: err.message });
+        });
+      }
 
       throw error;
     } finally {

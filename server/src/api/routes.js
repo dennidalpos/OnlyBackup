@@ -625,6 +625,9 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       }
     }
 
+    const wasOffline = existingHeartbeat && (existingHeartbeat.status === 'offline' ||
+      (Date.now() - new Date(existingHeartbeat.timestamp).getTime() > HEARTBEAT_TTL_MS));
+
     const heartbeat = {
       hostname,
       timestamp: timestamp || new Date().toISOString(),
@@ -640,6 +643,24 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
 
     if (!saved) {
       return res.status(500).json({ error: 'Impossibile salvare heartbeat' });
+    }
+
+    if (wasOffline && heartbeat.status === 'online') {
+      const emailService = req.app.get('emailService');
+      if (emailService) {
+        const jobs = storage.loadAllJobs()
+          .filter(j => j.client_hostname === hostname)
+          .map(j => j.job_id);
+
+        emailService.notifyAgentStatus(
+          hostname,
+          'online',
+          existingHeartbeat ? existingHeartbeat.timestamp : new Date().toISOString(),
+          jobs
+        ).catch(err => {
+          logger.warn('Errore invio notifica email agent online', { error: err.message });
+        });
+      }
     }
 
     logger.logApiCall('POST', '/api/agent/heartbeat', hostname, 200);
@@ -1629,6 +1650,106 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       res.json({ run_id: runId, events: allEvents });
     } catch (error) {
       logger.error('Errore recupero eventi retention', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  router.get('/api/email/settings', requireAuth, (req, res) => {
+    try {
+      const emailService = req.app.get('emailService');
+      if (!emailService) {
+        return res.status(500).json({ error: 'Servizio email non disponibile' });
+      }
+
+      const settings = emailService.getSettings();
+      logger.logApiCall('GET', '/api/email/settings', req.username, 200);
+      res.json(settings);
+    } catch (error) {
+      logger.error('Errore recupero impostazioni email', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  router.put('/api/email/settings', requireAuth, (req, res) => {
+    try {
+      const emailService = req.app.get('emailService');
+      if (!emailService) {
+        return res.status(500).json({ error: 'Servizio email non disponibile' });
+      }
+
+      const result = emailService.updateSettings(req.body);
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error || 'Errore aggiornamento impostazioni' });
+      }
+
+      logger.logApiCall('PUT', '/api/email/settings', req.username, 200);
+      res.json({ success: true });
+    } catch (error) {
+      logger.error('Errore aggiornamento impostazioni email', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  router.get('/api/email/templates', requireAuth, (req, res) => {
+    try {
+      const emailService = req.app.get('emailService');
+      if (!emailService) {
+        return res.status(500).json({ error: 'Servizio email non disponibile' });
+      }
+
+      const templates = emailService.getTemplates();
+      logger.logApiCall('GET', '/api/email/templates', req.username, 200);
+      res.json(templates);
+    } catch (error) {
+      logger.error('Errore recupero template email', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  router.put('/api/email/templates', requireAuth, (req, res) => {
+    try {
+      const emailService = req.app.get('emailService');
+      if (!emailService) {
+        return res.status(500).json({ error: 'Servizio email non disponibile' });
+      }
+
+      const result = emailService.updateTemplates(req.body);
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error || 'Errore aggiornamento template' });
+      }
+
+      logger.logApiCall('PUT', '/api/email/templates', req.username, 200);
+      res.json({ success: true });
+    } catch (error) {
+      logger.error('Errore aggiornamento template email', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  router.post('/api/email/test', requireAuth, async (req, res) => {
+    try {
+      const emailService = req.app.get('emailService');
+      if (!emailService) {
+        return res.status(500).json({ error: 'Servizio email non disponibile' });
+      }
+
+      const { recipient } = req.body;
+      if (!recipient) {
+        return res.status(400).json({ error: 'Destinatario richiesto' });
+      }
+
+      const result = await emailService.sendTestEmail(recipient);
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error || 'Errore invio email di test' });
+      }
+
+      logger.logApiCall('POST', '/api/email/test', req.username, 200);
+      res.json({ success: true, messageId: result.messageId });
+    } catch (error) {
+      logger.error('Errore invio email di test', { error: error.message });
       res.status(500).json({ error: 'Errore interno' });
     }
   });

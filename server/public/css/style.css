@@ -164,6 +164,7 @@ h1, h2, h3, h4, h5, h6 {
     white-space: nowrap;
     min-height: 32px;
     line-height: 1.1;
+    text-decoration: none;
 }
 .btn:disabled {
     opacity: 0.6;

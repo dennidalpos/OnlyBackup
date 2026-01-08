@@ -8,6 +8,7 @@ const Storage = require('./storage/storage');
 const AuthManager = require('./auth/auth');
 const JobExecutor = require('./scheduler/jobExecutor');
 const Scheduler = require('./scheduler/scheduler');
+const EmailService = require('./services/emailService');
 const setupRoutes = require('./api/routes');
 
 class OnlyBackupServer {
@@ -16,6 +17,7 @@ class OnlyBackupServer {
     this.logger = null;
     this.storage = null;
     this.authManager = null;
+    this.emailService = null;
     this.jobExecutor = null;
     this.scheduler = null;
     this.app = null;
@@ -33,7 +35,9 @@ class OnlyBackupServer {
 
       this.authManager = new AuthManager(this.storage, this.logger, this.config);
 
-      this.jobExecutor = new JobExecutor(this.storage, this.logger, this.config);
+      this.emailService = new EmailService(this.storage, this.logger);
+
+      this.jobExecutor = new JobExecutor(this.storage, this.logger, this.config, this.emailService);
 
       this.scheduler = new Scheduler(this.storage, this.logger, this.config, this.jobExecutor);
 
@@ -48,6 +52,10 @@ class OnlyBackupServer {
       setInterval(() => {
         this.authManager.cleanupExpiredSessions();
       }, 60000);
+
+      setInterval(() => {
+        this.checkOfflineAgents();
+      }, 5 * 60 * 1000);
 
       this.setupShutdownHandlers();
 
@@ -117,6 +125,8 @@ class OnlyBackupServer {
 
     this.app.use(express.static(path.join(__dirname, '../public')));
 
+    this.app.set('emailService', this.emailService);
+
     setupRoutes(this.app, this.authManager, this.storage, this.scheduler, this.logger);
 
     this.app.use((req, res, next) => {
@@ -169,6 +179,39 @@ class OnlyBackupServer {
     console.log('');
     console.log('='.repeat(70));
     console.log('');
+  }
+
+  checkOfflineAgents() {
+    try {
+      const HEARTBEAT_TTL_MS = 2 * 60 * 1000;
+      const heartbeats = this.storage.loadAllAgentHeartbeats();
+      const now = Date.now();
+
+      heartbeats.forEach(hb => {
+        const lastSeen = new Date(hb.timestamp).getTime();
+        const isOffline = hb.status === 'offline' || (now - lastSeen) > HEARTBEAT_TTL_MS;
+
+        if (isOffline && hb.status !== 'offline') {
+          const jobs = this.storage.loadAllJobs()
+            .filter(j => j.client_hostname === hb.hostname)
+            .map(j => j.job_id);
+
+          this.emailService.notifyAgentStatus(
+            hb.hostname,
+            'offline',
+            hb.timestamp,
+            jobs
+          ).catch(err => {
+            this.logger.warn('Errore invio notifica email agent offline', { error: err.message });
+          });
+
+          const updatedHeartbeat = { ...hb, status: 'offline' };
+          this.storage.saveAgentHeartbeat(updatedHeartbeat);
+        }
+      });
+    } catch (error) {
+      this.logger.error('Errore verifica agent offline', { error: error.message });
+    }
   }
 
   setupShutdownHandlers() {

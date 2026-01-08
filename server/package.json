@@ -16,6 +16,7 @@
     "chokidar": "^5.0.0",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
+    "nodemailer": "^6.9.15",
     "uuid": "^13.0.0",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0"
