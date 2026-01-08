@@ -45,6 +45,12 @@
     <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectDir)\License.rtf" Overridable="yes" />
 
     <Property Id="SERVERHOST" Value="$(var.ServerHost)" />
+    <CustomAction Id="SetReinstallAll"
+                  Property="REINSTALL"
+                  Value="ALL" />
+    <CustomAction Id="SetReinstallMode"
+                  Property="REINSTALLMODE"
+                  Value="amus" />
 
     <Binary Id="NetFx462Installer" SourceFile="$(var.NetFxInstaller)" />
     <CustomAction Id="InstallNetFx462"
@@ -55,8 +61,15 @@
                   Return="check" />
 
     <InstallExecuteSequence>
+      <Custom Action="SetReinstallAll" Before="InstallValidate">Installed</Custom>
+      <Custom Action="SetReinstallMode" Before="InstallValidate">Installed</Custom>
       <Custom Action="InstallNetFx462" After="InstallInitialize">NOT Installed AND (NOT NETFRAMEWORK462 OR NETFRAMEWORK462 &lt; 394802)</Custom>
     </InstallExecuteSequence>
+
+    <InstallUISequence>
+      <Custom Action="SetReinstallAll" Before="CostFinalize">Installed</Custom>
+      <Custom Action="SetReinstallMode" Before="CostFinalize">Installed</Custom>
+    </InstallUISequence>
 
   </Product>
 
