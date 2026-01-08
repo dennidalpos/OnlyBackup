@@ -6,9 +6,10 @@
   <?define ProductName = "OnlyBackup Agent" ?>
   <?define ProductVersion = "1.0.0.0" ?>
   <?define Manufacturer = "OnlyBackup" ?>
+  <?define ProductCode = "9C9E5F2A-88E9-4A79-9E8E-5F1EAF9B64A8" ?>
   <?define UpgradeCode = "12345678-1234-1234-1234-123456789ABC" ?>
 
-  <Product Id="*"
+  <Product Id="$(var.ProductCode)"
            Name="$(var.ProductName)"
            Language="1033"
            Version="$(var.ProductVersion)"
@@ -45,6 +46,12 @@
     <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectDir)\License.rtf" Overridable="yes" />
 
     <Property Id="SERVERHOST" Value="$(var.ServerHost)" />
+    <CustomAction Id="SetReinstallAll"
+                  Property="REINSTALL"
+                  Value="ALL" />
+    <CustomAction Id="SetReinstallMode"
+                  Property="REINSTALLMODE"
+                  Value="amus" />
 
     <Binary Id="NetFx462Installer" SourceFile="$(var.NetFxInstaller)" />
     <CustomAction Id="InstallNetFx462"
@@ -55,8 +62,15 @@
                   Return="check" />
 
     <InstallExecuteSequence>
+      <Custom Action="SetReinstallAll" Before="InstallInitialize">Installed</Custom>
+      <Custom Action="SetReinstallMode" Before="InstallInitialize">Installed</Custom>
       <Custom Action="InstallNetFx462" After="InstallInitialize">NOT Installed AND (NOT NETFRAMEWORK462 OR NETFRAMEWORK462 &lt; 394802)</Custom>
     </InstallExecuteSequence>
+
+    <InstallUISequence>
+      <Custom Action="SetReinstallAll" Before="AppSearch">Installed</Custom>
+      <Custom Action="SetReinstallMode" Before="AppSearch">Installed</Custom>
+    </InstallUISequence>
 
   </Product>
 
