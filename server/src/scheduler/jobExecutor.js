@@ -225,6 +225,8 @@ class JobExecutor {
         run.retention_status = { applied: false, reason: 'Run non riuscito' };
       }
 
+      this.storage.saveRun(run);
+
       return {
         success: true,
         runId,
@@ -235,7 +237,7 @@ class JobExecutor {
         skippedFiles: run.skipped_files
       };
     } catch (error) {
-      run.status = 'failure';
+      run.status = 'failed';
       run.end = new Date().toISOString();
       run.errors.push({
         timestamp: new Date().toISOString(),
@@ -254,6 +256,7 @@ class JobExecutor {
       await this.updateAgentBackupStatus(job.client_hostname, 'failed', job.job_id);
 
       run.retention_status = { applied: false, reason: 'Job fallito' };
+      this.storage.saveRun(run);
       await this.rollbackFailedRun(job, run, error);
 
       throw error;

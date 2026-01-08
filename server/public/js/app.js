@@ -14,6 +14,9 @@ class OnlyBackupApp {
         this.selectedFsType = null;
         this.statsInterval = null;
         this.clientsPollingInterval = null;
+        this.statsPollingMs = 30000;
+        this.clientsPollingMs = 15000;
+        this.activeScreen = null;
         this.clientStatusCache = {};
         this.selectedClientRunsLoaded = false;
         this.init();
@@ -54,6 +57,10 @@ class OnlyBackupApp {
                 this.closeFilesystemModal();
                 this.closeLogViewer();
             }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            this.handleVisibilityChange();
         });
     }
 
@@ -288,6 +295,7 @@ class OnlyBackupApp {
         if (screen) {
             screen.classList.remove('hidden');
         }
+        this.activeScreen = screenId;
     }
 
     showLogin() {
@@ -297,10 +305,7 @@ class OnlyBackupApp {
     async showPublicStats() {
         this.showScreen('publicStatsScreen');
         await this.loadPublicStats();
-        if (this.statsInterval) {
-            clearInterval(this.statsInterval);
-        }
-        this.statsInterval = setInterval(() => this.loadPublicStats(), 30000);
+        this.startPublicStatsPolling();
     }
 
     async loadPublicStats() {
@@ -322,16 +327,48 @@ class OnlyBackupApp {
         this.showScreen('mainDashboard');
         document.getElementById('currentUser').textContent = this.currentUser;
         await Promise.all([this.loadClients(), this.loadHeaderStats()]);
+        this.startDashboardPolling();
+    }
 
+    startPublicStatsPolling() {
+        if (document.hidden) return;
         if (this.statsInterval) {
             clearInterval(this.statsInterval);
         }
-        this.statsInterval = setInterval(() => this.loadHeaderStats(), 30000);
+        this.statsInterval = setInterval(() => this.loadPublicStats(), this.statsPollingMs);
+    }
+
+    startDashboardPolling() {
+        if (document.hidden) return;
+        if (this.statsInterval) {
+            clearInterval(this.statsInterval);
+        }
+        this.statsInterval = setInterval(() => this.loadHeaderStats(), this.statsPollingMs);
 
         if (this.clientsPollingInterval) {
             clearInterval(this.clientsPollingInterval);
         }
-        this.clientsPollingInterval = setInterval(() => this.loadClients(), 5000);
+        this.clientsPollingInterval = setInterval(() => this.loadClients(), this.clientsPollingMs);
+    }
+
+    handleVisibilityChange() {
+        if (document.hidden) {
+            if (this.statsInterval) {
+                clearInterval(this.statsInterval);
+                this.statsInterval = null;
+            }
+            if (this.clientsPollingInterval) {
+                clearInterval(this.clientsPollingInterval);
+                this.clientsPollingInterval = null;
+            }
+            return;
+        }
+
+        if (this.activeScreen === 'mainDashboard' && this.authenticated) {
+            this.startDashboardPolling();
+        } else if (this.activeScreen === 'publicStatsScreen') {
+            this.startPublicStatsPolling();
+        }
     }
 
     async loadHeaderStats() {
