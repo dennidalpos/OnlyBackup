@@ -37,7 +37,70 @@ if (-not $isAdmin) {
     exit 1
 }
 
+function Get-OnlyBackupProductCodes {
+    $productCodes = @()
+
+    $registryPaths = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+    )
+
+    foreach ($regPath in $registryPaths) {
+        if (-not (Test-Path $regPath)) { continue }
+
+        Get-ChildItem -Path $regPath -ErrorAction SilentlyContinue | ForEach-Object {
+            $keyPath = $_.PSPath
+            $keyName = $_.PSChildName
+
+            try {
+                $props = Get-ItemProperty -Path $keyPath -ErrorAction Stop
+                $displayName = if ($props.PSObject.Properties['DisplayName']) { $props.PSObject.Properties['DisplayName'].Value } else { $null }
+
+                if ($displayName -like "*OnlyBackup*") {
+                    if ($keyName -match "^\{[0-9A-Fa-f-]+\}$") {
+                        $productCodes += @{
+                            ProductCode = $keyName
+                            DisplayName = $displayName
+                            RegistryPath = $keyPath
+                        }
+                    }
+                }
+            }
+            catch {
+                # Ignora chiavi senza permessi
+            }
+        }
+    }
+
+    # Forza ritorno come array anche con un solo elemento
+    return ,@($productCodes)
+}
+
 Write-Header "OnlyBackup Agent - Cleanup Script"
+
+Write-Header "Rilevamento Installazioni OnlyBackup"
+
+$installedProducts = Get-OnlyBackupProductCodes
+
+if ($installedProducts.Count -eq 0) {
+    Write-Info "Nessuna installazione MSI OnlyBackup trovata nel registro."
+    Write-Info "Procedo comunque con cleanup file e servizi residui."
+}
+else {
+    Write-Info "Trovate $($installedProducts.Count) installazioni MSI:"
+    foreach ($product in $installedProducts) {
+        Write-Info "  - $($product.DisplayName) [$($product.ProductCode)]"
+    }
+}
+
+Write-Host ""
+$confirmation = Read-Host "Procedere con la rimozione completa? (S/N)"
+if ($confirmation -ne 'S' -and $confirmation -ne 's') {
+    Write-Info "Cleanup annullato dall'utente."
+    exit 0
+}
+
+Write-Header "Avvio Cleanup"
 
 Write-Info "Tentativo di fermare il servizio OnlyBackupAgent..."
 try {
@@ -219,36 +282,80 @@ function Invoke-MsiUninstall {
         [string]$ProductCode,
 
         [Parameter(Mandatory = $true)]
-        [string]$DisplayName
+        [string]$DisplayName,
+
+        [int]$TimeoutSeconds = 300,
+        [int]$MaxRetries = 2
     )
 
     $safeGuid = $ProductCode.Trim("{}")
-    $logPath = "C:\Temp\OnlyBackup_uninstall_$safeGuid.log"
+    $logDir = "C:\Temp\OnlyBackup_Cleanup"
+
+    if (-not (Test-Path $logDir)) {
+        New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+    }
+
+    $logPath = Join-Path $logDir "uninstall_${safeGuid}_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
     $arguments = "/x $ProductCode /qn /norestart /l*v `"$logPath`""
 
-    $process = Start-Process -FilePath "msiexec.exe" -ArgumentList $arguments -Wait -PassThru
-    Write-Info "msiexec exit code $($process.ExitCode) per $DisplayName"
-
-    if ($process.ExitCode -eq 1603) {
-        Write-ErrorMessage "msiexec 1603 per $DisplayName. Log: $logPath"
-        Stop-OnlyBackupProcesses
-
-        if (Test-PendingReboot) {
-            Write-Info "Pending reboot rilevato. Riavviare il sistema prima di riprovare."
+    for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
+        if ($attempt -gt 1) {
+            Write-Info "Tentativo $attempt di $MaxRetries per $DisplayName..."
+            Start-Sleep -Seconds 5  # Delay tra retry
         }
 
-        if (Test-WindowsInstallerBusy) {
-            Write-Info "Windows Installer occupato. Attendere la fine di altre installazioni."
+        $process = Start-Process -FilePath "msiexec.exe" `
+                                  -ArgumentList $arguments `
+                                  -Wait `
+                                  -PassThru `
+                                  -NoNewWindow
+
+        Write-Info "msiexec exit code $($process.ExitCode) per $DisplayName (tentativo $attempt)"
+
+        # Exit codes comuni:
+        # 0 = Success
+        # 1605 = Product not found (OK, già rimosso)
+        # 1614 = Product uninstalled (OK)
+        # 3010 = Success, richiede reboot
+        if ($process.ExitCode -eq 0 -or $process.ExitCode -eq 1605 -or $process.ExitCode -eq 1614 -or $process.ExitCode -eq 3010) {
+            Write-Success "Uninstall completato per $DisplayName"
+            return $true
         }
 
-        $retryProcess = Start-Process -FilePath "msiexec.exe" -ArgumentList $arguments -Wait -PassThru
-        Write-Info "Retry msiexec exit code $($retryProcess.ExitCode) per $DisplayName"
+        if ($process.ExitCode -eq 1603) {
+            Write-ErrorMessage "Fatal error 1603 per $DisplayName (tentativo $attempt)"
 
-        if ($retryProcess.ExitCode -eq 1603) {
-            Write-ErrorMessage "msiexec 1603 persistente per $DisplayName. Verificare il log: $logPath"
-            Write-Info "Cercare 'Return value 3' nel log per dettagli."
+            if ($attempt -eq 1) {
+                # Prima retry: stop processi e servizi
+                Stop-OnlyBackupProcesses
+
+                if (Test-PendingReboot) {
+                    Write-Info "ATTENZIONE: Sistema in pending reboot. Riavviare prima di continuare."
+                }
+
+                if (Test-WindowsInstallerBusy) {
+                    Write-Info "Windows Installer occupato. Attendere..."
+                    Start-Sleep -Seconds 10
+                }
+            }
+
+            # Log dettaglio errore
+            if (Test-Path $logPath) {
+                $errorLines = Select-String -Path $logPath -Pattern "Return value 3|Error|Failed" | Select-Object -Last 10
+                if ($errorLines) {
+                    Write-Info "Ultimi errori dal log MSI:"
+                    $errorLines | ForEach-Object { Write-Info "  $($_.Line)" }
+                }
+            }
+        }
+        else {
+            Write-ErrorMessage "Uninstall fallito con exit code $($process.ExitCode)"
         }
     }
+
+    Write-ErrorMessage "Uninstall fallito dopo $MaxRetries tentativi per $DisplayName"
+    Write-Info "Log dettagliato: $logPath"
+    return $false
 }
 
 function Remove-OnlyBackupUninstallEntries {
@@ -268,8 +375,8 @@ function Remove-OnlyBackupUninstallEntries {
             return
         }
 
-        $displayName = $props.PSObject.Properties['DisplayName']?.Value
-        $uninstallString = $props.PSObject.Properties['UninstallString']?.Value
+        $displayName = if ($props.PSObject.Properties['DisplayName']) { $props.PSObject.Properties['DisplayName'].Value } else { $null }
+        $uninstallString = if ($props.PSObject.Properties['UninstallString']) { $props.PSObject.Properties['UninstallString'].Value } else { $null }
 
         if ([string]::IsNullOrWhiteSpace($displayName)) {
             return
@@ -307,7 +414,44 @@ Remove-OnlyBackupUninstallEntries -RegistryPath "HKLM:\SOFTWARE\Microsoft\Window
 Remove-OnlyBackupUninstallEntries -RegistryPath "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
 
 Write-Header "Cleanup Completato"
-Write-Success "Pulizia completata. Ora puoi installare una nuova versione dell'agent."
-Write-Info "Per installare il nuovo agent, esegui:"
-Write-Host "  msiexec /i OnlyBackupAgent.msi /qn" -ForegroundColor Cyan
+
+# Verifica finale
+$remainingProducts = Get-OnlyBackupProductCodes
+$serviceExists = Get-Service -Name "OnlyBackupAgent" -ErrorAction SilentlyContinue
+$agentFolderExists = Test-Path "C:\Program Files\OnlyBackup\Agent"
+
+$cleanupSuccess = $true
+
+if ($remainingProducts.Count -gt 0) {
+    Write-ErrorMessage "ATTENZIONE: $($remainingProducts.Count) voci MSI ancora presenti:"
+    foreach ($product in $remainingProducts) {
+        Write-Info "  - $($product.DisplayName)"
+    }
+    $cleanupSuccess = $false
+}
+
+if ($serviceExists) {
+    Write-ErrorMessage "ATTENZIONE: Servizio OnlyBackupAgent ancora presente"
+    $cleanupSuccess = $false
+}
+
+if ($agentFolderExists) {
+    Write-Info "Cartella agent ancora presente (potrebbe contenere file in uso)"
+}
+
+if ($cleanupSuccess) {
+    Write-Success "Cleanup completato con successo!"
+    Write-Success "Sistema pronto per nuova installazione."
+    Write-Host ""
+    Write-Info "Per installare il nuovo agent:"
+    Write-Host "  msiexec /i OnlyBackupAgent.msi /qn" -ForegroundColor Cyan
+}
+else {
+    Write-ErrorMessage "Cleanup completato con AVVISI (vedere sopra)"
+    Write-Info "Azioni raccomandate:"
+    Write-Info "  1. Riavviare il sistema"
+    Write-Info "  2. Eseguire nuovamente questo script"
+    Write-Info "  3. Verificare log in: C:\Temp\OnlyBackup_Cleanup\"
+}
+
 Write-Host ""

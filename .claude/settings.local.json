@@ -3,7 +3,13 @@
     "allow": [
       "Bash(npm test:*)",
       "Bash(where:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(dir \"C:\\\\Users\\\\perondi_adm\\\\Documents\\\\GitHub\\\\OnlyBackup\\\\scripts\\\\out\")",
+      "Bash(findstr:*)",
+      "Bash(cmd.exe /c \"dir C:\\\\Users\\\\perondi_adm\\\\Documents\\\\GitHub\\\\OnlyBackup\\\\scripts\\\\out\\\\*.msi 2>nul\")",
+      "Bash(powershell.exe:*)",
+      "Bash(Select-String -Pattern \"\\(OK|ERROR|SUCCESS|Validazione|Build|MSI\\)\" -Context 0,0)",
+      "Bash(git add:*)"
     ]
   }
 }

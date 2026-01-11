@@ -67,19 +67,57 @@ Sistema di backup centralizzato per ambienti Windows con architettura server/age
    - `NODE_ENV` per cambiare ambiente (`development` o `production`).
 
 ### Agent
-1. **Build** (WiX Toolset 3.14 + Visual Studio 2017+):
-   ```powershell
-   .\scripts\Build-AgentMsi.ps1 -ServerHost "<server-ip>" -ServerPort 8080 -AgentPort 8081
-   ```
-   Oppure aprire `agent/OnlyBackupAgent.sln` in Visual Studio (Release, x64/AnyCPU) e compilare.
-2. **Installazione come servizio:** distribuire MSI generato (`build/OnlyBackupAgent-<ver>-win-x64.msi`) e installare con `msiexec /i ...` (supporto installazione silenziosa `/quiet`). Il servizio viene registrato come `OnlyBackupAgent` con avvio automatico.
-   - **Reinstallazione forzata (MSI precedente mancante):** se Windows Installer richiede il vecchio pacchetto e non è più disponibile, usare `msiexec /i OnlyBackupAgent.msi REINSTALL=ALL REINSTALLMODE=amus` per forzare la reinstallazione con il nuovo MSI. Il pacchetto usa un ProductCode stabile per favorire la reinstallazione con lo stesso MSI, ma il comando manuale resta il fallback consigliato.
-3. **Avvio in modalità console:**
-   ```powershell
-   cd "C:\\Program Files\\OnlyBackup Agent"
-   .\OnlyBackupAgent.exe /console
-   ```
-4. **Parametri di configurazione:** `agent/OnlyBackupAgent/App.config` definisce host/porta del server, porta locale agent e intervallo heartbeat (ms). Valori possono essere sovrascritti dal wizard MSI.
+
+#### Build MSI
+**Requisiti:** WiX Toolset 3.14, .NET Framework 4.6.2 Developer Pack, MSBuild
+
+```powershell
+.\scripts\Build-AgentMsi.ps1
+# Segui il wizard interattivo per configurare ServerHost (localhost o hostname/IP)
+```
+
+**Output:** `output/agent-msi/artifacts/OnlyBackupAgent.msi` (versione 1.0.3.0)
+
+#### Installazione
+
+**Versione Corrente: 1.0.3.0** - Punto di partenza pulito con nuovo UpgradeCode
+
+**Installazione Standard:**
+```powershell
+# Installazione silenziosa con log (CONSIGLIATO)
+msiexec /i OnlyBackupAgent.msi /qn ADDLOCAL=ALL /l*v C:\Temp\install.log
+
+# Oppure usa lo script helper
+.\scripts\Install-WithVerboseLog.ps1 -MsiPath ".\OnlyBackupAgent.msi"
+```
+
+**Verifica Installazione:**
+```powershell
+.\scripts\Quick-Check.ps1
+# Verifica: file installati, servizio Running, voce registro
+```
+
+Il servizio `OnlyBackupAgent` viene installato e avviato automaticamente.
+
+**NOTA IMPORTANTE:** La versione 1.0.3.0 usa un nuovo UpgradeCode. Per migrare da versioni precedenti (1.0.0.x - 1.0.2.x):
+1. Eseguire cleanup completo: `.\scripts\Force-Cleanup.ps1`
+2. Riavviare il sistema se richiesto
+3. Installare la nuova versione
+
+Consultare `scripts/MSI-INSTALLATION-GUIDE.md` per troubleshooting e casi d'uso avanzati.
+
+#### Modalità Console (Debug)
+```powershell
+cd "C:\\Program Files (x86)\\OnlyBackup\\Agent"
+.\OnlyBackupAgent.exe /console
+```
+
+#### Configurazione
+File: `OnlyBackupAgent.exe.config`
+- ServerHost: hostname o IP del server OnlyBackup
+- ServerPort: porta server (default 8080)
+- AgentPort: porta locale agent (default 8081)
+- HeartbeatInterval: frequenza heartbeat in ms (default 30000)
 
 ## 5. Configurazione
 - **`config.json` server (estratto):**

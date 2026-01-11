@@ -1,29 +1,39 @@
+# Node.js
 node_modules/
 server/node_modules/
-
-logs/
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Logs
+logs/
+*.log
+
+# Environment
 .env
 .env.*
 
+# Coverage
 coverage/
 .nyc_output/
 
+# Build outputs
 dist/
 build/
 out/
+output/
 
+# Cache
 .cache/
 
+# OS
 .DS_Store
 Thumbs.db
 Desktop.ini
+nul
 
+# IDEs
 .idea/
 .vscode/
 *.suo
@@ -34,7 +44,33 @@ Desktop.ini
 *.svclog
 *.scc
 
+# .NET / C#
 agent/**/bin/
 agent/**/obj/
+*.exe
+*.dll
+*.pdb
+!agent/OnlyBackupAgent/bin/Release/
+packages/
+*.nupkg
 
-OnlyBackup.zip
+# MSI Build
+scripts/wix/payload/*.exe
+!scripts/wix/payload/NDP462-KB3151800-x86-x64-AllOS-ENU.exe
+
+# Temp files
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+
+# Data (runtime)
+data/logs/
+data/state/
+C:/Temp/OnlyBackup_*.log
