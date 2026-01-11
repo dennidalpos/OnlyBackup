@@ -101,6 +101,7 @@ $registryPaths = @(
     "HKLM:\SOFTWARE\OnlyBackup",
     "HKLM:\SOFTWARE\WOW6432Node\OnlyBackup",
     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{9C9E5F2A-88E9-4A79-9E8E-5F1EAF9B64A8}",
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{7DA33E82-31DD-41F8-896C-59BA2C392F84}",
     "HKLM:\SOFTWARE\OnlyBackupInstaller"
 )
 
