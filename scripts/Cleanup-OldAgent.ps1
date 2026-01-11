@@ -180,8 +180,103 @@ try {
     Write-ErrorMessage "Errore rimuovendo regola firewall server: $_"
 }
 
-# 7. Cerca e rimuovi voci MSI orfane da registro
+# 7. Cerca e rimuovi voci MSI OnlyBackup da registro
 Write-Info "Ricerca voci MSI OnlyBackup nel registro..."
+
+function Stop-OnlyBackupProcesses {
+    Write-Info "Tentativo di stop servizi/processi OnlyBackup..."
+    $serviceNames = @("OnlyBackupAgent", "OnlyBackupServer")
+    foreach ($serviceName in $serviceNames) {
+        try {
+            $svc = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if ($svc -and $svc.Status -eq "Running") {
+                Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+                Write-Info "Servizio fermato: $serviceName"
+            }
+        } catch {
+            Write-ErrorMessage "Errore fermando servizio $serviceName: $_"
+        }
+    }
+
+    $processNames = @("OnlyBackupAgent", "node")
+    foreach ($processName in $processNames) {
+        try {
+            $procs = Get-Process -Name $processName -ErrorAction SilentlyContinue
+            foreach ($proc in $procs) {
+                Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+                Write-Info "Processo terminato: $processName (PID $($proc.Id))"
+            }
+        } catch {
+            Write-ErrorMessage "Errore fermando processo $processName: $_"
+        }
+    }
+}
+
+function Test-PendingReboot {
+    $rebootKeys = @(
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired",
+        "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\PendingFileRenameOperations"
+    )
+
+    foreach ($key in $rebootKeys) {
+        if (Test-Path $key) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Test-WindowsInstallerBusy {
+    $installerService = Get-Service -Name "msiserver" -ErrorAction SilentlyContinue
+    if ($installerService -and $installerService.Status -eq "Running") {
+        $msiProcesses = Get-Process -Name "msiexec" -ErrorAction SilentlyContinue
+        if ($msiProcesses) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Invoke-MsiUninstall {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProductCode,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DisplayName
+    )
+
+    $safeGuid = $ProductCode.Trim("{}")
+    $logPath = "C:\Temp\OnlyBackup_uninstall_$safeGuid.log"
+    $arguments = "/x $ProductCode /qn /norestart /l*v `"$logPath`""
+
+    $process = Start-Process -FilePath "msiexec.exe" -ArgumentList $arguments -Wait -PassThru
+    Write-Info "msiexec exit code $($process.ExitCode) per $DisplayName"
+
+    if ($process.ExitCode -eq 1603) {
+        Write-ErrorMessage "msiexec 1603 per $DisplayName. Log: $logPath"
+        Stop-OnlyBackupProcesses
+
+        if (Test-PendingReboot) {
+            Write-Info "Pending reboot rilevato. Riavviare il sistema prima di riprovare."
+        }
+
+        if (Test-WindowsInstallerBusy) {
+            Write-Info "Windows Installer occupato. Attendere la fine di altre installazioni."
+        }
+
+        $retryProcess = Start-Process -FilePath "msiexec.exe" -ArgumentList $arguments -Wait -PassThru
+        Write-Info "Retry msiexec exit code $($retryProcess.ExitCode) per $DisplayName"
+
+        if ($retryProcess.ExitCode -eq 1603) {
+            Write-ErrorMessage "msiexec 1603 persistente per $DisplayName. Verificare il log: $logPath"
+            Write-Info "Cercare 'Return value 3' nel log per dettagli."
+        }
+    }
+}
 
 function Remove-OnlyBackupUninstallEntries {
     param([string]$RegistryPath)
@@ -190,51 +285,47 @@ function Remove-OnlyBackupUninstallEntries {
         return
     }
 
-    Get-ChildItem -Path $RegistryPath | ForEach-Object {
+    Get-ChildItem -Path $RegistryPath -ErrorAction SilentlyContinue | ForEach-Object {
         $keyPath = $_.PSPath
         $keyName = $_.PSChildName
+
         try {
             $props = Get-ItemProperty -Path $keyPath -ErrorAction Stop
         } catch {
             return
         }
 
-        if (-not $props.DisplayName) {
+        $displayName = $props.PSObject.Properties['DisplayName']?.Value
+        $uninstallString = $props.PSObject.Properties['UninstallString']?.Value
+
+        if ([string]::IsNullOrWhiteSpace($displayName)) {
             return
         }
 
-        if ($props.DisplayName -notlike "*OnlyBackup*") {
+        if ($displayName -notlike "*OnlyBackup*") {
             return
         }
 
-        Write-Info "Trovata voce: $($props.DisplayName) ($keyName)"
+        Write-Info "Trovata voce: $displayName ($keyName)"
 
         $productCode = $null
         if ($keyName -match "^\{[0-9A-Fa-f-]+\}$") {
             $productCode = $keyName
-        } elseif ($props.UninstallString -match "\{[0-9A-Fa-f-]+\}") {
+        } elseif ($uninstallString -match "\{[0-9A-Fa-f-]+\}") {
             $productCode = $Matches[0]
         }
 
         if ($productCode) {
-            try {
-                $arguments = "/x $productCode /qn /norestart"
-                $process = Start-Process -FilePath "msiexec.exe" -ArgumentList $arguments -Wait -PassThru
-                if ($process.ExitCode -eq 0) {
-                    Write-Success "Disinstallato via msiexec: $($props.DisplayName)"
-                } else {
-                    Write-ErrorMessage "msiexec exit code $($process.ExitCode) per $($props.DisplayName)"
-                }
-            } catch {
-                Write-ErrorMessage "Errore disinstallando $($props.DisplayName) via msiexec: $_"
-            }
+            Invoke-MsiUninstall -ProductCode $productCode -DisplayName $displayName
+        } else {
+            Write-Info "ProductCode non trovato per $displayName, salto uninstall MSI."
         }
 
         try {
             Remove-Item -Path $keyPath -Recurse -Force -ErrorAction Stop
-            Write-Success "Rimossa voce registro: $($props.DisplayName)"
+            Write-Success "Rimossa voce registro: $displayName"
         } catch {
-            Write-ErrorMessage "Errore rimuovendo voce registro $($props.DisplayName): $_"
+            Write-ErrorMessage "Errore rimuovendo voce registro $displayName: $_"
         }
     }
 }
