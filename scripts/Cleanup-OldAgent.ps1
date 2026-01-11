@@ -102,7 +102,9 @@ $registryPaths = @(
     "HKLM:\SOFTWARE\WOW6432Node\OnlyBackup",
     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{9C9E5F2A-88E9-4A79-9E8E-5F1EAF9B64A8}",
     "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{7DA33E82-31DD-41F8-896C-59BA2C392F84}",
-    "HKLM:\SOFTWARE\OnlyBackupInstaller"
+    "HKLM:\SOFTWARE\OnlyBackupInstaller",
+    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{9C9E5F2A-88E9-4A79-9E8E-5F1EAF9B64A8}",
+    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{7DA33E82-31DD-41F8-896C-59BA2C392F84}"
 )
 
 foreach ($path in $registryPaths) {
@@ -120,7 +122,9 @@ foreach ($path in $registryPaths) {
 Write-Info "Rimozione file di installazione..."
 $installPaths = @(
     "C:\Program Files\OnlyBackup\Agent",
-    "C:\Program Files (x86)\OnlyBackup\Agent"
+    "C:\Program Files (x86)\OnlyBackup\Agent",
+    "C:\Program Files\OnlyBackup\Server",
+    "C:\Program Files (x86)\OnlyBackup\Server"
 )
 
 foreach ($path in $installPaths) {
@@ -151,7 +155,7 @@ if (-not $KeepLogs) {
 }
 
 # 6. Rimuovi regola firewall
-Write-Info "Rimozione regola firewall..."
+Write-Info "Rimozione regole firewall..."
 try {
     $firewallRule = Get-NetFirewallRule -DisplayName "OnlyBackup Agent" -ErrorAction SilentlyContinue
     if ($firewallRule) {
@@ -161,44 +165,82 @@ try {
         Write-Info "Regola firewall non presente"
     }
 } catch {
-    Write-ErrorMessage "Errore rimuovendo regola firewall: $_"
+    Write-ErrorMessage "Errore rimuovendo regola firewall agent: $_"
 }
 
-# 7. Cerca e rimuovi MSI orfani
-Write-Info "Ricerca prodotti MSI OnlyBackup..."
 try {
-    $msiProducts = Get-CimInstance -ClassName Win32_Product | Where-Object { $_.Name -like "*OnlyBackup*Agent*" }
-    if ($msiProducts) {
-        foreach ($product in $msiProducts) {
-            Write-Info "Trovato: $($product.Name) (IdentifyingNumber: $($product.IdentifyingNumber))"
-            try {
-                $result = Invoke-CimMethod -InputObject $product -MethodName Uninstall
-                if ($result.ReturnValue -eq 0) {
-                    Write-Success "Disinstallato: $($product.Name)"
-                } else {
-                    Write-ErrorMessage "Disinstallazione con codice $($result.ReturnValue) per $($product.Name)"
-                }
-            } catch {
-                Write-ErrorMessage "Errore disinstallando $($product.Name) via CIM: $_"
-                try {
-                    $arguments = "/x $($product.IdentifyingNumber) /qn /norestart"
-                    $process = Start-Process -FilePath "msiexec.exe" -ArgumentList $arguments -Wait -PassThru
-                    if ($process.ExitCode -eq 0) {
-                        Write-Success "Disinstallato via msiexec: $($product.Name)"
-                    } else {
-                        Write-ErrorMessage "msiexec exit code $($process.ExitCode) per $($product.Name)"
-                    }
-                } catch {
-                    Write-ErrorMessage "Errore disinstallando $($product.Name) via msiexec: $_"
-                }
-            }
-        }
+    $firewallRule = Get-NetFirewallRule -DisplayName "OnlyBackup Server" -ErrorAction SilentlyContinue
+    if ($firewallRule) {
+        Remove-NetFirewallRule -DisplayName "OnlyBackup Server" -ErrorAction Stop
+        Write-Success "Regola firewall server rimossa"
     } else {
-        Write-Info "Nessun prodotto MSI OnlyBackup trovato"
+        Write-Info "Regola firewall server non presente"
     }
 } catch {
-    Write-ErrorMessage "Errore cercando prodotti MSI: $_"
+    Write-ErrorMessage "Errore rimuovendo regola firewall server: $_"
 }
+
+# 7. Cerca e rimuovi voci MSI orfane da registro
+Write-Info "Ricerca voci MSI OnlyBackup nel registro..."
+
+function Remove-OnlyBackupUninstallEntries {
+    param([string]$RegistryPath)
+
+    if (-not (Test-Path $RegistryPath)) {
+        return
+    }
+
+    Get-ChildItem -Path $RegistryPath | ForEach-Object {
+        $keyPath = $_.PSPath
+        $keyName = $_.PSChildName
+        try {
+            $props = Get-ItemProperty -Path $keyPath -ErrorAction Stop
+        } catch {
+            return
+        }
+
+        if (-not $props.DisplayName) {
+            return
+        }
+
+        if ($props.DisplayName -notlike "*OnlyBackup*") {
+            return
+        }
+
+        Write-Info "Trovata voce: $($props.DisplayName) ($keyName)"
+
+        $productCode = $null
+        if ($keyName -match "^\{[0-9A-Fa-f-]+\}$") {
+            $productCode = $keyName
+        } elseif ($props.UninstallString -match "\{[0-9A-Fa-f-]+\}") {
+            $productCode = $Matches[0]
+        }
+
+        if ($productCode) {
+            try {
+                $arguments = "/x $productCode /qn /norestart"
+                $process = Start-Process -FilePath "msiexec.exe" -ArgumentList $arguments -Wait -PassThru
+                if ($process.ExitCode -eq 0) {
+                    Write-Success "Disinstallato via msiexec: $($props.DisplayName)"
+                } else {
+                    Write-ErrorMessage "msiexec exit code $($process.ExitCode) per $($props.DisplayName)"
+                }
+            } catch {
+                Write-ErrorMessage "Errore disinstallando $($props.DisplayName) via msiexec: $_"
+            }
+        }
+
+        try {
+            Remove-Item -Path $keyPath -Recurse -Force -ErrorAction Stop
+            Write-Success "Rimossa voce registro: $($props.DisplayName)"
+        } catch {
+            Write-ErrorMessage "Errore rimuovendo voce registro $($props.DisplayName): $_"
+        }
+    }
+}
+
+Remove-OnlyBackupUninstallEntries -RegistryPath "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"
+Remove-OnlyBackupUninstallEntries -RegistryPath "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
 
 Write-Header "Cleanup Completato"
 Write-Success "Pulizia completata. Ora puoi installare una nuova versione dell'agent."
