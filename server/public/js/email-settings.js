@@ -1,13 +1,10 @@
-// Email Settings Page Handler
 let emailTemplates = null;
 let currentSettings = null;
 
-// Initialize page
 document.addEventListener('DOMContentLoaded', async () => {
     await loadEmailSettings();
 });
 
-// Switch between tabs
 function switchTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
@@ -26,7 +23,6 @@ function switchTab(tabName) {
     }
 }
 
-// Load email settings
 async function loadEmailSettings() {
     try {
         const response = await fetch('/api/email/settings', {
@@ -57,7 +53,6 @@ async function loadEmailSettings() {
     }
 }
 
-// Populate form with settings
 function populateEmailSettings(settings) {
     document.getElementById('emailEnabled').checked = settings.enabled || false;
     document.getElementById('smtpHost').value = settings.smtp?.host || '';
@@ -83,7 +78,6 @@ function populateEmailSettings(settings) {
     toggleAuthType();
 }
 
-// Toggle between basic and OAuth2 auth fields
 function toggleAuthType() {
     const authType = document.getElementById('authType').value;
     const basicFields = document.getElementById('basicAuthFields');
@@ -98,7 +92,6 @@ function toggleAuthType() {
     }
 }
 
-// Save email settings
 async function saveEmailSettings() {
     try {
         const authType = document.getElementById('authType').value;
@@ -156,7 +149,6 @@ async function saveEmailSettings() {
     }
 }
 
-// Send test email
 async function testEmail() {
     const recipient = prompt('Inserisci l\'indirizzo email di test:');
     if (!recipient) return;
@@ -181,7 +173,6 @@ async function testEmail() {
     }
 }
 
-// Load template for editing
 async function loadTemplate() {
     const select = document.getElementById('templateSelect');
     const eventType = select.value;
@@ -219,7 +210,6 @@ async function loadTemplate() {
     }
 }
 
-// Save template
 async function saveTemplate() {
     const select = document.getElementById('templateSelect');
     const eventType = select.value;
@@ -263,7 +253,6 @@ async function saveTemplate() {
     }
 }
 
-// Reset template to default
 async function resetTemplate() {
     const select = document.getElementById('templateSelect');
     const eventType = select.value;
@@ -277,7 +266,6 @@ async function resetTemplate() {
     }
 
     try {
-        // Clear cached templates to force reload
         emailTemplates = null;
 
         const response = await fetch('/api/email/templates', {
@@ -290,7 +278,6 @@ async function resetTemplate() {
 
         emailTemplates = await response.json();
 
-        // Reload the current template
         await loadTemplate();
 
         showMessage('warning', 'Template ripristinato. Clicca su "Salva Template" per confermare il ripristino.');
@@ -300,7 +287,6 @@ async function resetTemplate() {
     }
 }
 
-// Show status message
 function showMessage(type, message) {
     const container = document.getElementById('statusMessage');
     const messageClass = type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'error';
@@ -313,7 +299,6 @@ function showMessage(type, message) {
     }, 5000);
 }
 
-// Escape HTML to prevent XSS
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
