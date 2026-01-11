@@ -41,6 +41,7 @@
 
     <Feature Id="ProductFeature" Title="OnlyBackup Agent" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="ServerComponents" />
       <ComponentRef Id="ServiceComponent" />
     </Feature>
 
@@ -75,12 +76,25 @@
                   Execute="immediate"
                   Return="ignore" />
 
+    <CustomAction Id="SetInstallWebServerServiceData"
+                  Property="InstallWebServerService"
+                  Value="&quot;[SystemFolder]WindowsPowerShell\\v1.0\\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;[SERVERFOLDER]Install-ServerService.ps1&quot; -ServerDir &quot;[SERVERFOLDER]&quot; -ConfigPath &quot;[SERVERFOLDER]config.json&quot; -NssmPath &quot;[SERVERFOLDER]nssm.exe&quot;" />
+
+    <CustomAction Id="InstallWebServerService"
+                  BinaryKey="WixCA"
+                  DllEntry="CAQuietExec"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check" />
+
     <InstallExecuteSequence>
       <Custom Action="StopServiceBeforeUpgrade" Before="InstallValidate">UPGRADINGPRODUCTCODE OR Installed</Custom>
       <Custom Action="CleanupOrphanedRegistry" After="StopServiceBeforeUpgrade">NOT Installed</Custom>
       <Custom Action="SetReinstallAll" Before="CostInitialize">Installed</Custom>
       <Custom Action="SetReinstallMode" Before="CostInitialize">Installed</Custom>
       <Custom Action="InstallNetFx462" After="InstallInitialize">NOT Installed AND (NOT NETFRAMEWORK462 OR NETFRAMEWORK462 &lt; 394802)</Custom>
+      <Custom Action="SetInstallWebServerServiceData" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="InstallWebServerService" After="SetInstallWebServerServiceData">NOT Installed</Custom>
       <InstallServices>NOT Installed</InstallServices>
       <StartServices>NOT Installed</StartServices>
     </InstallExecuteSequence>
@@ -97,6 +111,21 @@
       <Directory Id="ProgramFilesFolder">
         <Directory Id="ManufacturerFolder" Name="OnlyBackup">
           <Directory Id="INSTALLFOLDER" Name="Agent" />
+          <Directory Id="SERVERFOLDER" Name="Server">
+            <Directory Id="SERVER_SRC" Name="src">
+              <Directory Id="SERVER_SRC_SERVICES" Name="services" />
+              <Directory Id="SERVER_SRC_AUTH" Name="auth" />
+              <Directory Id="SERVER_SRC_LOGGING" Name="logging" />
+              <Directory Id="SERVER_SRC_STORAGE" Name="storage" />
+              <Directory Id="SERVER_SRC_SCHEDULER" Name="scheduler" />
+              <Directory Id="SERVER_SRC_API" Name="api" />
+            </Directory>
+            <Directory Id="SERVER_PUBLIC" Name="public">
+              <Directory Id="SERVER_PUBLIC_CSS" Name="css" />
+              <Directory Id="SERVER_PUBLIC_JS" Name="js" />
+            </Directory>
+            <Directory Id="SERVERDATAFOLDER" Name="data" />
+          </Directory>
         </Directory>
       </Directory>
     </Directory>
@@ -134,6 +163,72 @@
 
     </ComponentGroup>
 
+    <ComponentGroup Id="ServerComponents" Directory="SERVERFOLDER">
+      <Component Id="ServerPackageJson" Guid="F6C1C9C0-2C5A-4C84-8F0E-4D8FDF0EF9D9">
+        <File Id="ServerPackageJsonFile"
+              Source="$(var.RootDir)\server\package.json"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="ServerPackageLock" Guid="0B2702FF-DAFC-4931-9D78-2A3476A0CB47">
+        <File Id="ServerPackageLockFile"
+              Source="$(var.RootDir)\server\package-lock.json"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="ServerConfigFile" Guid="B204616B-8D3C-4D9D-BBB3-1A321E6E5B39">
+        <File Id="ServerConfigJsonFile"
+              Source="$(var.RootDir)\config.json"
+              Name="config.json"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="ServerNssmExecutable" Guid="59F9D4D8-5891-4A90-BB2A-8728AA46A88E">
+        <File Id="ServerNssmExe"
+              Source="$(var.NssmExe)"
+              Name="nssm.exe"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="ServerServiceScript" Guid="681AF52A-3E2D-4BD3-AB07-1F57081A1EED">
+        <File Id="ServerServiceScriptFile"
+              Source="$(var.PayloadDir)\Install-ServerService.ps1"
+              Name="Install-ServerService.ps1"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="ServerFirewallComponent" Guid="4B8B52BE-8B65-4B74-9E09-6E17C9C6E7A0">
+        <RegistryValue Root="HKLM"
+                       Key="SOFTWARE\OnlyBackupInstaller"
+                       Name="ServerFirewallRule"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+        <fire:FirewallException Id="ServerFirewall"
+                                Name="OnlyBackup Server"
+                                Port="8080"
+                                Protocol="tcp"
+                                Scope="any"
+                                IgnoreFailure="yes" />
+      </Component>
+
+      <ComponentRef Id="ServerMainScript" />
+      <ComponentRef Id="ServerEmailService" />
+      <ComponentRef Id="ServerAuthScript" />
+      <ComponentRef Id="ServerLoggingScript" />
+      <ComponentRef Id="ServerStorageScript" />
+      <ComponentRef Id="ServerSchedulerScript" />
+      <ComponentRef Id="ServerJobExecutorScript" />
+      <ComponentRef Id="ServerRoutesScript" />
+      <ComponentRef Id="ServerPublicIndex" />
+      <ComponentRef Id="ServerPublicEmailSettings" />
+      <ComponentRef Id="ServerPublicCss" />
+      <ComponentRef Id="ServerPublicAppJs" />
+      <ComponentRef Id="ServerPublicEmailSettingsJs" />
+      <ComponentRef Id="ServerDataFolder" />
+      <ComponentRef Id="ServerFirewallComponent" />
+    </ComponentGroup>
+
     <DirectoryRef Id="INSTALLFOLDER">
       <Component Id="ServiceComponent" Guid="44444444-4444-4444-4444-444444444444">
         <File Id="ServiceExecutable"
@@ -162,6 +257,116 @@
                                 Protocol="tcp"
                                 Scope="any"
                                 IgnoreFailure="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="SERVER_SRC">
+      <Component Id="ServerMainScript" Guid="A1E1A2F1-8B3D-4F54-9F7D-9EC3D6D2AFB0">
+        <File Id="ServerMainScriptFile"
+              Source="$(var.RootDir)\server\src\server.js"
+              KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="SERVER_SRC_SERVICES">
+      <Component Id="ServerEmailService" Guid="BA8D6E72-4F0E-4CE9-95AA-DC5D7CF1A2C7">
+        <File Id="ServerEmailServiceFile"
+              Source="$(var.RootDir)\server\src\services\emailService.js"
+              KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="SERVER_SRC_AUTH">
+      <Component Id="ServerAuthScript" Guid="D6C5CC47-9A8E-4E4F-94E8-50A6F49C1A05">
+        <File Id="ServerAuthScriptFile"
+              Source="$(var.RootDir)\server\src\auth\auth.js"
+              KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="SERVER_SRC_LOGGING">
+      <Component Id="ServerLoggingScript" Guid="F0DE0A9D-8FD4-4A7A-AE73-45E9B33A4D9B">
+        <File Id="ServerLoggingScriptFile"
+              Source="$(var.RootDir)\server\src\logging\logger.js"
+              KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="SERVER_SRC_STORAGE">
+      <Component Id="ServerStorageScript" Guid="E6C65D86-F9CD-4A77-ADBD-6A6AFD40C629">
+        <File Id="ServerStorageScriptFile"
+              Source="$(var.RootDir)\server\src\storage\storage.js"
+              KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="SERVER_SRC_SCHEDULER">
+      <Component Id="ServerSchedulerScript" Guid="7BA4E5E0-C378-4E8C-A38E-6BB2ECA52CB4">
+        <File Id="ServerSchedulerScriptFile"
+              Source="$(var.RootDir)\server\src\scheduler\scheduler.js"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="ServerJobExecutorScript" Guid="0D57EF86-02A8-4D0C-9C9F-4B7471BFEA37">
+        <File Id="ServerJobExecutorScriptFile"
+              Source="$(var.RootDir)\server\src\scheduler\jobExecutor.js"
+              KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="SERVER_SRC_API">
+      <Component Id="ServerRoutesScript" Guid="A9B53C0B-0F8C-4F53-AD20-25F25D9E3FF7">
+        <File Id="ServerRoutesScriptFile"
+              Source="$(var.RootDir)\server\src\api\routes.js"
+              KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="SERVER_PUBLIC">
+      <Component Id="ServerPublicIndex" Guid="DE2A6D37-7F66-41D9-876E-6AFD7A7687ED">
+        <File Id="ServerPublicIndexFile"
+              Source="$(var.RootDir)\server\public\index.html"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="ServerPublicEmailSettings" Guid="07F86657-CC96-4A27-B809-8A2E0549614F">
+        <File Id="ServerPublicEmailSettingsFile"
+              Source="$(var.RootDir)\server\public\email-settings.html"
+              KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="SERVER_PUBLIC_CSS">
+      <Component Id="ServerPublicCss" Guid="5F055B9A-4BBE-4E83-8C75-3B7839A66E6B">
+        <File Id="ServerPublicCssFile"
+              Source="$(var.RootDir)\server\public\css\style.css"
+              KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="SERVER_PUBLIC_JS">
+      <Component Id="ServerPublicAppJs" Guid="D33783D1-1196-4C6A-9F69-1FC1ED32654A">
+        <File Id="ServerPublicAppJsFile"
+              Source="$(var.RootDir)\server\public\js\app.js"
+              KeyPath="yes" />
+      </Component>
+
+      <Component Id="ServerPublicEmailSettingsJs" Guid="1E07F9F5-08C6-4C3E-9B4E-5882C1B1E45E">
+        <File Id="ServerPublicEmailSettingsJsFile"
+              Source="$(var.RootDir)\server\public\js\email-settings.js"
+              KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="SERVERDATAFOLDER">
+      <Component Id="ServerDataFolder" Guid="E017B0D7-FA73-4A35-8FFB-2C8BD5B3DE76">
+        <CreateFolder />
+        <RegistryValue Root="HKLM"
+                       Key="SOFTWARE\OnlyBackupInstaller"
+                       Name="ServerDataFolder"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
       </Component>
     </DirectoryRef>
   </Fragment>
