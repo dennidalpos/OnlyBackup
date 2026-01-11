@@ -76,16 +76,6 @@
                   Execute="immediate"
                   Return="ignore" />
 
-    <CustomAction Id="SetInstallWebServerServiceData"
-                  Property="InstallWebServerService"
-                  Value="&quot;[SystemFolder]WindowsPowerShell\\v1.0\\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;[SERVERFOLDER]Install-ServerService.ps1&quot; -ServerDir &quot;[SERVERFOLDER]&quot; -ConfigPath &quot;[SERVERFOLDER]config.json&quot; -NssmPath &quot;[SERVERFOLDER]nssm.exe&quot;" />
-
-    <CustomAction Id="InstallWebServerService"
-                  BinaryKey="WixCA"
-                  DllEntry="CAQuietExec"
-                  Execute="deferred"
-                  Impersonate="no"
-                  Return="check" />
 
     <InstallExecuteSequence>
       <Custom Action="StopServiceBeforeUpgrade" Before="InstallValidate">UPGRADINGPRODUCTCODE OR Installed</Custom>
@@ -93,8 +83,6 @@
       <Custom Action="SetReinstallAll" Before="CostInitialize">Installed</Custom>
       <Custom Action="SetReinstallMode" Before="CostInitialize">Installed</Custom>
       <Custom Action="InstallNetFx462" After="InstallInitialize">NOT Installed AND (NOT NETFRAMEWORK462 OR NETFRAMEWORK462 &lt; 394802)</Custom>
-      <Custom Action="SetInstallWebServerServiceData" After="InstallFiles">NOT Installed</Custom>
-      <Custom Action="InstallWebServerService" After="SetInstallWebServerServiceData">NOT Installed</Custom>
       <InstallServices>NOT Installed</InstallServices>
       <StartServices>NOT Installed</StartServices>
     </InstallExecuteSequence>
@@ -187,13 +175,6 @@
         <File Id="ServerNssmExe"
               Source="$(var.NssmExe)"
               Name="nssm.exe"
-              KeyPath="yes" />
-      </Component>
-
-      <Component Id="ServerServiceScript" Guid="681AF52A-3E2D-4BD3-AB07-1F57081A1EED">
-        <File Id="ServerServiceScriptFile"
-              Source="$(var.PayloadDir)\Install-ServerService.ps1"
-              Name="Install-ServerService.ps1"
               KeyPath="yes" />
       </Component>
 
