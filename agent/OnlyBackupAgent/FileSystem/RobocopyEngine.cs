@@ -17,7 +17,7 @@ namespace OnlyBackupAgent.FileSystem
             _logger = logger;
         }
 
-        public RobocopyResult Copy(string source, string destination, bool isFile = false, string logFilePath = null, bool appendLog = false, bool teeOutput = true, bool mirrorMode = false)
+        public RobocopyResult Copy(string source, string destination, bool isFile = false, string logFilePath = null, bool appendLog = false, bool teeOutput = true, bool mirrorMode = false, bool includeLogContent = true, int logTailBytes = 524288)
         {
             try
             {
@@ -71,7 +71,7 @@ namespace OnlyBackupAgent.FileSystem
                 var parsed = ParseResult(result, source, destDir);
                 parsed.CommandLine = String.Format("robocopy.exe {0}", args);
                 parsed.LogFilePath = logFilePath;
-                parsed.LogContent = ReadLogFile(logFilePath);
+                parsed.LogContent = includeLogContent ? ReadLogFile(logFilePath, logTailBytes) : null;
                 parsed.StartedAtUtc = startUtc;
                 parsed.EndedAtUtc = DateTime.UtcNow;
 
@@ -292,6 +292,11 @@ namespace OnlyBackupAgent.FileSystem
 
                 var info = new FileInfo(logFilePath);
                 long length = info.Length;
+                if (maxBytes <= 0)
+                {
+                    return File.ReadAllText(logFilePath, Encoding.UTF8);
+                }
+
                 int toRead = (int)Math.Min(length, maxBytes);
 
                 using (var stream = new FileStream(logFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))

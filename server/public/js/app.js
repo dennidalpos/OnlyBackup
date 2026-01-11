@@ -14,11 +14,20 @@ class OnlyBackupApp {
         this.selectedFsType = null;
         this.statsInterval = null;
         this.clientsPollingInterval = null;
-        this.statsPollingMs = 30000;
-        this.clientsPollingMs = 15000;
+        this.statsPollingMs = 60000;
+        this.clientsPollingMs = 30000;
+        this.statsPollingTimer = null;
+        this.clientsPollingTimer = null;
+        this.statsBackoffMs = this.statsPollingMs;
+        this.clientsBackoffMs = this.clientsPollingMs;
         this.activeScreen = null;
         this.clientStatusCache = {};
         this.selectedClientRunsLoaded = false;
+        this.logViewerOffset = 0;
+        this.logViewerLimit = 5;
+        this.logViewerTailLines = 200;
+        this.logViewerMappingIndex = null;
+        this.logViewerHasMore = false;
         this.init();
     }
 
@@ -281,6 +290,14 @@ class OnlyBackupApp {
                 clearInterval(this.clientsPollingInterval);
                 this.clientsPollingInterval = null;
             }
+            if (this.statsPollingTimer) {
+                clearTimeout(this.statsPollingTimer);
+                this.statsPollingTimer = null;
+            }
+            if (this.clientsPollingTimer) {
+                clearTimeout(this.clientsPollingTimer);
+                this.clientsPollingTimer = null;
+            }
             this.showPublicStats();
         } catch (error) {
             console.error('Errore logout:', error);
@@ -311,16 +328,21 @@ class OnlyBackupApp {
     async loadPublicStats() {
         try {
             const response = await fetch('/api/public/stats');
+            if (response.status === 304) {
+                return true;
+            }
             if (response.ok) {
                 const data = await response.json();
                 document.getElementById('backupsOk').textContent = data.backups_ok_24h;
                 document.getElementById('backupsFailed').textContent = data.backups_failed_24h;
                 document.getElementById('clientsOnline').textContent = data.clients_online;
                 document.getElementById('clientsOffline').textContent = data.clients_offline;
+                return true;
             }
         } catch (error) {
             console.error('Errore caricamento stats pubbliche:', error);
         }
+        return false;
     }
 
     async showDashboard() {
@@ -332,23 +354,51 @@ class OnlyBackupApp {
 
     startPublicStatsPolling() {
         if (document.hidden) return;
-        if (this.statsInterval) {
-            clearInterval(this.statsInterval);
-        }
-        this.statsInterval = setInterval(() => this.loadPublicStats(), this.statsPollingMs);
+        this.scheduleStatsPolling(() => this.loadPublicStats());
     }
 
     startDashboardPolling() {
         if (document.hidden) return;
+        this.scheduleStatsPolling(() => this.loadHeaderStats());
+        this.scheduleClientsPolling(() => this.loadClients());
+    }
+
+    scheduleStatsPolling(action) {
         if (this.statsInterval) {
             clearInterval(this.statsInterval);
+            this.statsInterval = null;
         }
-        this.statsInterval = setInterval(() => this.loadHeaderStats(), this.statsPollingMs);
+        if (this.statsPollingTimer) {
+            clearTimeout(this.statsPollingTimer);
+        }
 
+        const run = async () => {
+            const success = await action();
+            this.statsBackoffMs = success ? this.statsPollingMs : Math.min(this.statsBackoffMs * 2, this.statsPollingMs * 5);
+            this.statsPollingTimer = setTimeout(run, this.statsBackoffMs);
+        };
+
+        this.statsBackoffMs = this.statsPollingMs;
+        this.statsPollingTimer = setTimeout(run, this.statsBackoffMs);
+    }
+
+    scheduleClientsPolling(action) {
         if (this.clientsPollingInterval) {
             clearInterval(this.clientsPollingInterval);
+            this.clientsPollingInterval = null;
         }
-        this.clientsPollingInterval = setInterval(() => this.loadClients(), this.clientsPollingMs);
+        if (this.clientsPollingTimer) {
+            clearTimeout(this.clientsPollingTimer);
+        }
+
+        const run = async () => {
+            const success = await action();
+            this.clientsBackoffMs = success ? this.clientsPollingMs : Math.min(this.clientsBackoffMs * 2, this.clientsPollingMs * 5);
+            this.clientsPollingTimer = setTimeout(run, this.clientsBackoffMs);
+        };
+
+        this.clientsBackoffMs = this.clientsPollingMs;
+        this.clientsPollingTimer = setTimeout(run, this.clientsBackoffMs);
     }
 
     handleVisibilityChange() {
@@ -360,6 +410,14 @@ class OnlyBackupApp {
             if (this.clientsPollingInterval) {
                 clearInterval(this.clientsPollingInterval);
                 this.clientsPollingInterval = null;
+            }
+            if (this.statsPollingTimer) {
+                clearTimeout(this.statsPollingTimer);
+                this.statsPollingTimer = null;
+            }
+            if (this.clientsPollingTimer) {
+                clearTimeout(this.clientsPollingTimer);
+                this.clientsPollingTimer = null;
             }
             return;
         }
@@ -374,6 +432,9 @@ class OnlyBackupApp {
     async loadHeaderStats() {
         try {
             const response = await fetch('/api/public/stats');
+            if (response.status === 304) {
+                return true;
+            }
             if (response.ok) {
                 const data = await response.json();
                 const onlineEl = document.getElementById('headerClientsOnline');
@@ -391,17 +452,23 @@ class OnlyBackupApp {
                     healthy: true,
                     message: 'Backend online'
                 });
+                return true;
             }
         } catch (error) {
             console.error('Errore caricamento stats header:', error);
             this.updateFooterStatus({ healthy: false, message: 'Backend non raggiungibile' });
         }
+        return false;
     }
 
     async loadClients() {
         this.setPanelState('clientsState', 'loading');
         try {
             const response = await fetch('/api/clients');
+            if (response.status === 304) {
+                this.setPanelState('clientsState', this.clients.length === 0 ? 'empty' : 'ready');
+                return true;
+            }
             if (response.ok) {
                 const loadedClients = await response.json();
                 let selectedStatusChanged = false;
@@ -430,7 +497,7 @@ class OnlyBackupApp {
                 }
                 if (!this.selectedClient && this.clients.length > 0) {
                     this.selectClient(this.clients[0].hostname);
-                    return;
+                    return true;
                 } else if (this.selectedClient) {
                     this.updateClientHeader();
                     if (selectedStatusChanged || !this.selectedClientRunsLoaded) {
@@ -439,6 +506,7 @@ class OnlyBackupApp {
                     }
                     this.updateClientSummary();
                 }
+                return true;
             } else if (response.status === 401) {
                 this.logout();
             } else {
@@ -449,6 +517,7 @@ class OnlyBackupApp {
             this.showToast('error', 'Errore', 'Impossibile caricare la lista client');
             this.setPanelState('clientsState', 'error');
         }
+        return false;
     }
 
     renderClientsList() {
@@ -868,10 +937,37 @@ class OnlyBackupApp {
             <div class="skeleton skeleton-line"></div>
         `;
 
+        this.logViewerOffset = 0;
+        this.logViewerMappingIndex = Number.isInteger(mappingIndex) ? mappingIndex : null;
+        this.logViewerHasMore = false;
+
+        const loaded = await this.loadLogViewerPage(true);
+        if (!loaded) {
+            const fallback = logConsole?.innerHTML?.trim();
+            content.innerHTML = fallback
+                ? fallback
+                : '<p class="log-empty">Errore nel recupero dei log dal server.</p>';
+        }
+    }
+
+    async loadLogViewerPage(reset = false) {
+        const content = document.getElementById('logViewerContent');
+        if (!content || !this.selectedClient || !this.editingJob?.job_id) {
+            return false;
+        }
+
         try {
             const hostname = this.selectedClient.hostname || this.selectedClient;
-            const query = Number.isInteger(mappingIndex) ? `?mapping=${mappingIndex}` : '';
-            const response = await fetch(`/api/clients/${encodeURIComponent(hostname)}/jobs/${encodeURIComponent(this.editingJob.job_id)}/logs/full${query}`);
+            const mappingIndex = this.logViewerMappingIndex;
+            const params = new URLSearchParams();
+            if (Number.isInteger(mappingIndex)) {
+                params.set('mapping', mappingIndex.toString());
+            }
+            params.set('limit', this.logViewerLimit.toString());
+            params.set('offset', this.logViewerOffset.toString());
+            params.set('tailLines', this.logViewerTailLines.toString());
+
+            const response = await fetch(`/api/clients/${encodeURIComponent(hostname)}/jobs/${encodeURIComponent(this.editingJob.job_id)}/logs/full?${params.toString()}`);
             if (!response.ok) {
                 const errorPayload = await response.json().catch(() => ({}));
                 throw new Error(errorPayload.error || 'Risposta non valida dal server');
@@ -879,59 +975,78 @@ class OnlyBackupApp {
 
             const data = await response.json();
             const runs = Array.isArray(data?.runs) ? data.runs : [];
+            const total = data?.pagination?.total || 0;
 
-            if (runs.length === 0) {
-                const fallback = logConsole?.innerHTML?.trim();
-                content.innerHTML = fallback
-                    ? fallback
-                    : '<p class="log-empty">Nessun log disponibile per questa mappatura.</p>';
-                return;
+            if (reset) {
+                content.innerHTML = '';
             }
 
-            const sections = runs.map(run => {
-                const runMappings = Array.isArray(run.mappings) ? run.mappings : [];
-                const mapping = mappingIndex === null
-                    ? runMappings[0]
-                    : runMappings.find(m => Number.isInteger(mappingIndex) && Number(m.index) === mappingIndex);
+            if (runs.length === 0 && reset) {
+                content.innerHTML = '<p class="log-empty">Nessun log disponibile per questa mappatura.</p>';
+                return true;
+            }
 
-                if (!mapping) {
-                    return '';
-                }
+            const sections = runs.map(run => this.buildLogViewerSection(run, mappingIndex)).filter(Boolean).join('');
+            content.insertAdjacentHTML('beforeend', sections);
 
-                const logs = Array.isArray(mapping.logs) ? mapping.logs : [];
-                const entries = logs.length > 0
-                    ? logs.map(log => `<pre class="log-block">${this.escapeHtml(log.content || '')}</pre>`).join('')
-                    : '<p class="log-empty">Nessun log disponibile per questa mappatura.</p>';
+            this.logViewerOffset += runs.length;
+            this.logViewerHasMore = this.logViewerOffset < total;
 
-                const runTime = run.start
-                    ? new Date(run.start).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-                    : 'Data non disponibile';
-                const statusClass = this.normalizeRunStatus(mapping.status || run.status || '');
-                const destination = mapping.destination_path ? `<span class="log-run-destination">Dest: ${this.escapeHtml(mapping.destination_path)}</span>` : '';
+            const existingButton = document.getElementById('logViewerLoadMore');
+            if (existingButton) {
+                existingButton.remove();
+            }
 
-                return `
-                    <div class="log-run">
-                        <div class="log-run-header">
-                            <div>
-                                <div class="log-run-title">Run ${this.escapeHtml(run.run_id || '')}</div>
-                                <div class="log-run-meta">${this.escapeHtml(runTime)}${destination ? ` · ${destination}` : ''}</div>
-                            </div>
-                            <div class="log-run-status ${statusClass || 'unknown'}">${this.statusLabelFor(statusClass)}</div>
-                        </div>
-                        <div class="log-run-meta">${this.escapeHtml(mapping.label || `Mappatura ${(Number(mapping.index) || 0) + 1}`)} · ${this.escapeHtml((mapping.mode || 'copy').toUpperCase())}</div>
-                        ${entries}
+            if (this.logViewerHasMore) {
+                content.insertAdjacentHTML('beforeend', `
+                    <div class="log-load-more">
+                        <button id="logViewerLoadMore" class="btn btn-outline btn-small" onclick="app.loadLogViewerPage()">Carica altri log</button>
                     </div>
-                `;
-            }).filter(Boolean).join('');
+                `);
+            }
 
-            content.innerHTML = sections || '<p class="log-empty">Nessun log disponibile per questa mappatura.</p>';
+            return true;
         } catch (error) {
             console.error('Errore caricamento log viewer:', error);
-            const fallback = logConsole?.innerHTML?.trim();
-            content.innerHTML = fallback
-                ? fallback
-                : '<p class="log-empty">Errore nel recupero dei log dal server.</p>';
+            content.innerHTML = '<p class="log-empty">Errore nel recupero dei log dal server.</p>';
+            return false;
         }
+    }
+
+    buildLogViewerSection(run, mappingIndex) {
+        const runMappings = Array.isArray(run.mappings) ? run.mappings : [];
+        const mapping = mappingIndex === null
+            ? runMappings[0]
+            : runMappings.find(m => Number.isInteger(mappingIndex) && Number(m.index) === mappingIndex);
+
+        if (!mapping) {
+            return '';
+        }
+
+        const logs = Array.isArray(mapping.logs) ? mapping.logs : [];
+        const entries = logs.length > 0
+            ? logs.map(log => `<pre class="log-block">${this.escapeHtml(log.content || '')}</pre>`).join('')
+            : '<p class="log-empty">Nessun log disponibile per questa mappatura.</p>';
+
+        const runTime = run.start
+            ? new Date(run.start).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+            : 'Data non disponibile';
+        const statusClass = this.normalizeRunStatus(mapping.status || run.status || '');
+        const destination = mapping.destination_path ? `<span class="log-run-destination">Dest: ${this.escapeHtml(mapping.destination_path)}</span>` : '';
+
+        return `
+            <div class="log-run">
+                <div class="log-run-header">
+                    <div>
+                        <div class="log-run-title">Run ${this.escapeHtml(run.run_id || '')}</div>
+                        <div class="log-run-meta">${this.escapeHtml(runTime)}${destination ? ` · ${destination}` : ''}</div>
+                    </div>
+                    <div class="log-run-status ${statusClass || 'unknown'}">${this.statusLabelFor(statusClass)}</div>
+                </div>
+                <div class="log-run-meta">${this.escapeHtml(mapping.label || `Mappatura ${(Number(mapping.index) || 0) + 1}`)} · ${this.escapeHtml((mapping.mode || 'copy').toUpperCase())}</div>
+                ${entries}
+            </div>
+        `;
     }
 
     async openBackupsList() {
@@ -956,19 +1071,17 @@ class OnlyBackupApp {
             <div class="skeleton skeleton-line"></div>
         `;
 
-        try {
-            const hostname = this.selectedClient.hostname || this.selectedClient;
-            const response = await fetch(`/api/clients/${encodeURIComponent(hostname)}/jobs/${encodeURIComponent(this.editingJob.job_id)}/backups/analyze`);
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.error || 'Impossibile recuperare i backup');
-            }
-
-            this.renderBackupsModal(data);
-        } catch (error) {
-            console.error('Errore caricamento backup:', error);
-            content.innerHTML = `<p class="error-message">${this.escapeHtml(error.message || 'Errore nel recupero dei backup')}</p>`;
-        }
+        const mappings = Array.isArray(this.editingJob?.mappings) ? this.editingJob.mappings : [];
+        this.renderBackupsModal({
+            hostname: this.selectedClient.hostname || this.selectedClient,
+            job_id: this.editingJob.job_id,
+            mappings: mappings.map((mapping, index) => ({
+                index,
+                label: mapping.label,
+                destination_path: mapping.destination_path,
+                mode: mapping.mode || this.editingJob.mode_default || 'copy'
+            }))
+        });
     }
 
     renderBackupsModal(data) {
@@ -982,16 +1095,21 @@ class OnlyBackupApp {
         }
 
         const sections = mappings.map((mapping, idx) => {
-            const backups = Array.isArray(mapping.backups) ? mapping.backups : [];
             let body = '';
             const mappingIndex = Number.isFinite(Number(mapping.index)) ? Number(mapping.index) : idx;
             const cardId = `backup-card-${mappingIndex}`;
 
             if (mapping.error) {
                 body = `<p class="error-message">${this.escapeHtml(mapping.error)}</p>`;
-            } else if (backups.length === 0) {
-                body = '<p class="pill-label">Nessun backup trovato in destinazione.</p>';
+            } else if (!Array.isArray(mapping.backups)) {
+                body = `
+                    <p class="pill-label">Carica i backup per questa mappatura.</p>
+                    <button type="button" class="btn btn-outline btn-small" onclick="app.loadBackupsForMapping(${mappingIndex})">
+                        Carica backup
+                    </button>
+                `;
             } else {
+                const backups = mapping.backups;
                 const toolbar = `
                     <div class="backup-toolbar">
                         <label class="backup-select-all">
@@ -1055,6 +1173,121 @@ class OnlyBackupApp {
         content.innerHTML = sections;
     }
 
+    async loadBackupsForMapping(mappingIndex) {
+        if (!this.selectedClient || !this.editingJob?.job_id) return;
+        const card = document.getElementById(`backup-card-${mappingIndex}`);
+        if (!card) return;
+
+        const list = card.querySelector('.backup-list');
+        if (list) {
+            list.innerHTML = `
+                <div class="skeleton skeleton-line"></div>
+                <div class="skeleton skeleton-line"></div>
+            `;
+        }
+
+        try {
+            const hostname = this.selectedClient.hostname || this.selectedClient;
+            const response = await fetch(`/api/clients/${encodeURIComponent(hostname)}/jobs/${encodeURIComponent(this.editingJob.job_id)}/backups/analyze?mapping=${mappingIndex}`, {
+                cache: 'no-store'
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Impossibile recuperare i backup');
+            }
+
+            const mapping = Array.isArray(data?.mappings) ? data.mappings[0] : null;
+            if (!mapping) {
+                throw new Error('Mappatura non disponibile');
+            }
+
+            const refreshed = {
+                index: mappingIndex,
+                label: mapping.label,
+                destination_path: mapping.destination_path,
+                mode: mapping.mode,
+                backups: mapping.backups || [],
+                error: mapping.error || null
+            };
+
+            card.outerHTML = this.renderBackupCard(refreshed, mappingIndex);
+        } catch (error) {
+            console.error('Errore caricamento backup:', error);
+            if (list) {
+                list.innerHTML = `<p class="error-message">${this.escapeHtml(error.message || 'Errore nel recupero dei backup')}</p>`;
+            }
+        }
+    }
+
+    renderBackupCard(mapping, mappingIndex) {
+        const backups = Array.isArray(mapping.backups) ? mapping.backups : [];
+        let body = '';
+
+        if (mapping.error) {
+            body = `<p class="error-message">${this.escapeHtml(mapping.error)}</p>`;
+        } else if (backups.length === 0) {
+            body = '<p class="pill-label">Nessun backup trovato in destinazione.</p>';
+        } else {
+            const toolbar = `
+                <div class="backup-toolbar">
+                    <label class="backup-select-all">
+                        <input type="checkbox" onchange="app.toggleSelectAllBackups(${mappingIndex}, this.checked)">
+                        <span>Seleziona tutti</span>
+                    </label>
+                    <button type="button" class="btn btn-outline btn-small" onclick="app.deleteSelectedBackups(${mappingIndex})">Elimina selezionati</button>
+                </div>`;
+
+            const rows = backups.map(backup => {
+                const modified = backup.modified
+                    ? new Date(backup.modified).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                    : 'Data non disponibile';
+                const targetPath = backup.path || backup.name || '';
+                const legacyBadge = backup.legacy ? '<span class="badge badge-warning" title="Backup senza manifest">Legacy</span>' : '';
+                const sizeLabel = backup.size > 0 ? this.formatBytes(backup.size) : '';
+                const slotLabel = Number.isFinite(backup.retention_index)
+                    ? `<span class="badge badge-neutral" title="Indice retention">Slot ${backup.retention_index}</span>`
+                    : '';
+
+                return `
+                    <div class="backup-row">
+                        <label class="backup-select">
+                            <input type="checkbox" class="backup-checkbox" data-path="${this.escapeForAttribute(targetPath)}" data-mapping-index="${mappingIndex}">
+                            <span class="checkbox-faux"></span>
+                        </label>
+                        <div class="backup-main">
+                            <div class="backup-name">
+                                ${this.escapeHtml(backup.name || 'Backup')}
+                                ${legacyBadge}
+                                ${slotLabel}
+                            </div>
+                            <div class="backup-path">${this.escapeHtml(targetPath)}</div>
+                            ${sizeLabel ? `<div class="backup-size">${this.escapeHtml(sizeLabel)}</div>` : ''}
+                        </div>
+                        <div class="backup-actions">
+                            <div class="backup-meta">${this.escapeHtml(modified)}</div>
+                            <button type="button" class="btn btn-outline btn-small" onclick="app.deleteBackup('${this.escapeForAttribute(targetPath)}', { mappingIndex: ${mappingIndex} })">Elimina</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            body = toolbar + rows;
+        }
+
+        return `
+            <div class="backup-card" id="backup-card-${mappingIndex}" data-mapping-index="${mappingIndex}">
+                <header>
+                    <div>
+                        <div class="mapping-title">${this.escapeHtml(mapping.label || `Mappatura ${mappingIndex + 1}`)}</div>
+                        <div class="backup-destination">${this.escapeHtml(mapping.destination_path || 'Destinazione non configurata')}</div>
+                    </div>
+                    <span class="badge">${this.escapeHtml(mapping.mode || '-')}</span>
+                </header>
+                <div class="backup-list">${body}</div>
+            </div>
+        `;
+    }
+
     closeBackupsModal() {
         const modal = document.getElementById('backupsModal');
         if (modal) {
@@ -1062,7 +1295,7 @@ class OnlyBackupApp {
         }
     }
 
-    async deleteBackup(path, { skipConfirm = false, skipReload = false, silent = false } = {}) {
+    async deleteBackup(path, { skipConfirm = false, skipReload = false, silent = false, mappingIndex = null } = {}) {
         if (!path || !this.selectedClient || !this.editingJob?.job_id) return false;
 
         if (!skipConfirm && !confirm('Eliminare definitivamente questa cartella di backup?')) {
@@ -1084,7 +1317,11 @@ class OnlyBackupApp {
                     this.showToast('success', 'Backup eliminato', `Cartella rimossa: ${this.escapeHtml(path)}`);
                 }
                 if (!skipReload) {
-                    await this.openBackupsList();
+                    if (Number.isInteger(mappingIndex)) {
+                        await this.loadBackupsForMapping(mappingIndex);
+                    } else {
+                        await this.openBackupsList();
+                    }
                 }
                 return true;
             }
@@ -1143,7 +1380,7 @@ class OnlyBackupApp {
         }
 
         try {
-            await this.openBackupsList();
+            await this.loadBackupsForMapping(mappingIndex);
         } catch (err) {
             console.error('Errore aggiornamento lista backup dopo cancellazione multipla:', err);
         }

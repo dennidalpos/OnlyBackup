@@ -473,6 +473,13 @@ class JobExecutor {
     }
 
     try {
+      const logPayload = (this.config?.backup?.logPayload || 'tail').toString().toLowerCase();
+      const logMaxBytes = Number.isFinite(Number(this.config?.backup?.logTailBytes))
+        ? Number(this.config.backup.logTailBytes)
+        : Number.isFinite(Number(this.config?.backup?.logMaxBytes))
+          ? Number(this.config.backup.logMaxBytes)
+          : 131072;
+
       const backupRequest = {
         job_id: job.job_id,
         sources: [mapping.source_path],
@@ -486,7 +493,9 @@ class JobExecutor {
           run_id: run.run_id,
           run_timestamp: run.start,
           retention: retentionConfig,
-          max_backups: retentionConfig.max_backups
+          max_backups: retentionConfig.max_backups,
+          log_payload: logPayload,
+          log_max_bytes: logMaxBytes
         }
       };
 
