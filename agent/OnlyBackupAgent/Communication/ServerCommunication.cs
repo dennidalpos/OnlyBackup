@@ -13,6 +13,7 @@ namespace OnlyBackupAgent.Communication
         private readonly int serverPort;
         private readonly JavaScriptSerializer jsonSerializer;
         private int agentPort;
+        private string cachedLocalIp;
 
         public ServerCommunication(string serverHost, int serverPort)
         {
@@ -31,7 +32,7 @@ namespace OnlyBackupAgent.Communication
         {
             try
             {
-                string localIp = GetLocalIPAddress();
+                string localIp = GetCachedLocalIPAddress();
 
                 var data = new
                 {
@@ -49,6 +50,22 @@ namespace OnlyBackupAgent.Communication
             catch (Exception)
             {
             }
+        }
+
+        private string GetCachedLocalIPAddress()
+        {
+            if (!String.IsNullOrEmpty(cachedLocalIp))
+            {
+                return cachedLocalIp;
+            }
+
+            cachedLocalIp = GetLocalIPAddress();
+            if (cachedLocalIp != null && cachedLocalIp.StartsWith("127."))
+            {
+                return null;
+            }
+
+            return cachedLocalIp;
         }
 
         private string GetLocalIPAddress()

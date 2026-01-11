@@ -205,6 +205,19 @@ namespace OnlyBackupAgent.FileSystem
                 ? optionsDict["mode"].ToString().ToLowerInvariant()
                 : "copy";
             bool isSyncMode = String.Equals(mode, "sync", StringComparison.OrdinalIgnoreCase);
+            string logPayload = optionsDict != null && optionsDict.ContainsKey("log_payload") && optionsDict["log_payload"] != null
+                ? optionsDict["log_payload"].ToString().ToLowerInvariant()
+                : "tail";
+            int logMaxBytes = 262144;
+
+            if (optionsDict != null && optionsDict.ContainsKey("log_max_bytes") && optionsDict["log_max_bytes"] != null)
+            {
+                int parsed;
+                if (Int32.TryParse(optionsDict["log_max_bytes"].ToString(), out parsed) && parsed > 0)
+                {
+                    logMaxBytes = parsed;
+                }
+            }
 
             if (_serverComm != null && !String.IsNullOrEmpty(jobId))
             {
@@ -277,7 +290,7 @@ namespace OnlyBackupAgent.FileSystem
                     try
                     {
                         RobocopyResult robocopyResult;
-                        bytesProcessed += ProcessSource(source, backupTarget, loggingContext, appendLog, out robocopyResult, isSyncMode);
+                        bytesProcessed += ProcessSource(source, backupTarget, loggingContext, appendLog, out robocopyResult, isSyncMode, logPayload, logMaxBytes);
                         if (robocopyResult != null)
                         {
                             operations.Add(robocopyResult);
@@ -703,7 +716,7 @@ namespace OnlyBackupAgent.FileSystem
             }
         }
 
-        private long ProcessSource(string source, string destination, RunLoggingContext loggingContext, bool appendLog, out RobocopyResult robocopyResult, bool mirrorMode)
+        private long ProcessSource(string source, string destination, RunLoggingContext loggingContext, bool appendLog, out RobocopyResult robocopyResult, bool mirrorMode, string logPayload, int logMaxBytes)
         {
             robocopyResult = null;
             string normalizedSource = FileSystemOperations.NormalizePath(source);
@@ -738,6 +751,8 @@ namespace OnlyBackupAgent.FileSystem
 
             var robocopy = new RobocopyEngine();
             bool isFile = File.Exists(normalizedSource);
+            bool includeLogContent = !String.Equals(logPayload, "none", StringComparison.OrdinalIgnoreCase);
+            int effectiveLogBytes = String.Equals(logPayload, "full", StringComparison.OrdinalIgnoreCase) ? 0 : logMaxBytes;
 
             robocopyResult = robocopy.Copy(
                 normalizedSource,
@@ -746,7 +761,9 @@ namespace OnlyBackupAgent.FileSystem
                 loggingContext != null ? loggingContext.LogFilePath : null,
                 appendLog,
                 true,
-                mirrorMode
+                mirrorMode,
+                includeLogContent,
+                effectiveLogBytes
             );
 
             if (robocopyResult.HasWarnings || robocopyResult.FailedFiles > 0)

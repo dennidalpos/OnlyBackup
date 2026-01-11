@@ -5,6 +5,7 @@ class Storage {
   constructor(dataRoot, logger) {
     this.dataRoot = dataRoot;
     this.logger = logger;
+    this.runsIndexPath = path.join(this.dataRoot, 'state', 'runs', 'index.json');
     this.ensureDirectories();
   }
 
@@ -110,6 +111,7 @@ class Storage {
     const runPath = path.join(this.dataRoot, 'state', 'runs', `${run.run_id}.json`);
     try {
       fs.writeFileSync(runPath, JSON.stringify(run, null, 2), 'utf8');
+      this.updateRunsIndex(run);
       return true;
     } catch (error) {
       this.logger.error('Errore salvataggio run', { runId: run.run_id, error: error.message });
@@ -117,18 +119,64 @@ class Storage {
     }
   }
 
-  loadAllRuns() {
+  loadRunsIndex() {
+    try {
+      if (!fs.existsSync(this.runsIndexPath)) {
+        return { runs: [] };
+      }
+      const data = fs.readFileSync(this.runsIndexPath, 'utf8');
+      const parsed = JSON.parse(data);
+      if (!Array.isArray(parsed.runs)) {
+        return { runs: [] };
+      }
+      return parsed;
+    } catch (error) {
+      this.logger.warn('Indice run non valido, ricostruzione necessaria', { error: error.message });
+      return { runs: [] };
+    }
+  }
+
+  saveRunsIndex(index) {
+    try {
+      fs.writeFileSync(this.runsIndexPath, JSON.stringify(index, null, 2), 'utf8');
+      return true;
+    } catch (error) {
+      this.logger.error('Errore salvataggio indice run', { error: error.message });
+      return false;
+    }
+  }
+
+  updateRunsIndex(run) {
+    if (!run || !run.run_id) {
+      return false;
+    }
+
+    const index = this.loadRunsIndex();
+    const runs = Array.isArray(index.runs) ? index.runs : [];
+    const existingIndex = runs.findIndex(r => r.run_id === run.run_id);
+
+    if (existingIndex >= 0) {
+      runs[existingIndex] = run;
+    } else {
+      runs.push(run);
+    }
+
+    return this.saveRunsIndex({ runs });
+  }
+
+  rebuildRunsIndex() {
     const runsDir = path.join(this.dataRoot, 'state', 'runs');
     const runs = [];
 
     try {
       if (!fs.existsSync(runsDir)) {
-        return runs;
+        this.saveRunsIndex({ runs: [] });
+        return [];
       }
 
       const files = fs.readdirSync(runsDir);
       for (const file of files) {
-        if (path.extname(file) === '.json') {
+        if (path.extname(file) === '.json' && file !== path.basename(this.runsIndexPath)) {
           const runId = path.basename(file, '.json');
           const run = this.loadRun(runId);
           if (run) {
@@ -137,10 +185,24 @@ class Storage {
         }
       }
     } catch (error) {
+      this.logger.error('Errore ricostruzione indice run', { error: error.message });
+    }
+
+    this.saveRunsIndex({ runs });
+    return runs;
+  }
+
+  loadAllRuns() {
+    try {
+      const index = this.loadRunsIndex();
+      if (fs.existsSync(this.runsIndexPath) && Array.isArray(index.runs)) {
+        return index.runs;
+      }
+    } catch (error) {
       this.logger.error('Errore caricamento runs', { error: error.message });
     }
 
-    return runs;
+    return this.rebuildRunsIndex();
   }
 
   loadRunsForJob(jobId) {
@@ -277,11 +339,39 @@ class Storage {
           deleted += 1;
         }
       }
+
+      const index = this.loadRunsIndex();
+      if (Array.isArray(index.runs) && index.runs.length > 0) {
+        const filtered = index.runs.filter(run => run.client_hostname !== hostname);
+        this.saveRunsIndex({ runs: filtered });
+      }
     } catch (error) {
       this.logger.error('Errore eliminazione run cliente', { hostname, error: error.message });
     }
 
     return deleted;
+  }
+
+  deleteAllRuns() {
+    const runsDir = path.join(this.dataRoot, 'state', 'runs');
+    let deletedCount = 0;
+
+    try {
+      if (fs.existsSync(runsDir)) {
+        const files = fs.readdirSync(runsDir);
+        for (const file of files) {
+          if (file.endsWith('.json') && file !== path.basename(this.runsIndexPath)) {
+            fs.unlinkSync(path.join(runsDir, file));
+            deletedCount++;
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error('Errore eliminazione tutti i run', { error: error.message });
+    }
+
+    this.saveRunsIndex({ runs: [] });
+    return deletedCount;
   }
 
   deleteClient(hostname) {

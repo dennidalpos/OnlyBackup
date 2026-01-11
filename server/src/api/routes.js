@@ -2,11 +2,17 @@ const express = require('express');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 function setupRoutes(app, authManager, storage, scheduler, logger) {
   const router = express.Router();
   const HEARTBEAT_TTL_MS = 2 * 60 * 1000;
   const VALID_MODES = ['copy', 'sync'];
+  const STATS_CACHE_TTL_MS = 15000;
+  const CLIENTS_CACHE_TTL_MS = 15000;
+  const BACKUP_ANALYZE_CACHE_TTL_MS = 30000;
+  const responseCache = new Map();
+  const backupAnalyzeCache = new Map();
 
   const normalizeWindowsPath = (pathStr) => {
     if (!pathStr) return '';
@@ -336,7 +342,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     return { agent: heartbeat };
   };
 
-  const readLogFile = (filePath, runId = null) => {
+  const readLogFile = (filePath, runId = null, { tailLines = null, maxBytes = 262144 } = {}) => {
     if (!filePath) {
       return null;
     }
@@ -346,8 +352,25 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         return null;
       }
 
-      const content = fs.readFileSync(filePath, 'utf8');
       const stat = fs.statSync(filePath);
+      const size = stat.size;
+      const bytesToRead = Math.min(maxBytes, size);
+      let content = '';
+
+      if (bytesToRead > 0) {
+        const buffer = Buffer.alloc(bytesToRead);
+        const fd = fs.openSync(filePath, 'r');
+        fs.readSync(fd, buffer, 0, bytesToRead, size - bytesToRead);
+        fs.closeSync(fd);
+        content = buffer.toString('utf8');
+      } else {
+        content = fs.readFileSync(filePath, 'utf8');
+      }
+
+      if (tailLines && Number.isFinite(tailLines) && tailLines > 0) {
+        const lines = content.split(/\r?\n/).filter(line => line !== '');
+        content = lines.slice(-tailLines).join('\n');
+      }
 
       return {
         content,
@@ -454,6 +477,73 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
   };
 
   const sessionCookieOptions = buildSessionCookieOptions();
+
+  const computeEtag = (payload) => {
+    return `"${crypto.createHash('sha1').update(payload).digest('hex')}"`;
+  };
+
+  const getCacheEntry = (cacheKey, cacheMap) => {
+    const entry = cacheMap.get(cacheKey);
+    if (!entry) return null;
+    if (entry.expiresAt <= Date.now()) {
+      cacheMap.delete(cacheKey);
+      return null;
+    }
+    return entry;
+  };
+
+  const sendCachedResponse = (req, res, cacheKey, payload, ttlMs, cacheControl, cacheMap = responseCache) => {
+    const body = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const etag = computeEtag(body);
+    const lastModified = new Date().toUTCString();
+
+    cacheMap.set(cacheKey, {
+      body,
+      etag,
+      lastModified,
+      expiresAt: Date.now() + ttlMs
+    });
+
+    const ifNoneMatch = req.headers['if-none-match'];
+    const ifModifiedSince = req.headers['if-modified-since'];
+
+    res.setHeader('ETag', etag);
+    res.setHeader('Last-Modified', lastModified);
+    if (cacheControl) {
+      res.setHeader('Cache-Control', cacheControl);
+    }
+
+    if (ifNoneMatch === etag || (ifModifiedSince && new Date(ifModifiedSince) >= new Date(lastModified))) {
+      res.status(304).end();
+      return;
+    }
+
+    res.setHeader('Content-Type', 'application/json');
+    res.send(body);
+  };
+
+  const respondFromCache = (req, res, cacheKey, cacheControl, cacheMap = responseCache) => {
+    const cached = getCacheEntry(cacheKey, cacheMap);
+    if (!cached) return false;
+
+    const ifNoneMatch = req.headers['if-none-match'];
+    const ifModifiedSince = req.headers['if-modified-since'];
+
+    res.setHeader('ETag', cached.etag);
+    res.setHeader('Last-Modified', cached.lastModified);
+    if (cacheControl) {
+      res.setHeader('Cache-Control', cacheControl);
+    }
+
+    if (ifNoneMatch === cached.etag || (ifModifiedSince && new Date(ifModifiedSince) >= new Date(cached.lastModified))) {
+      res.status(304).end();
+      return true;
+    }
+
+    res.setHeader('Content-Type', 'application/json');
+    res.send(cached.body);
+    return true;
+  };
 
   const normalizeMapping = (mapping, modeDefault) => {
     const sourcePath = ensurePath(mapping.source_path, 'Percorso sorgente');
@@ -740,6 +830,11 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
 
   router.get('/api/public/stats', (req, res) => {
     try {
+      const cacheKey = 'public-stats';
+      if (respondFromCache(req, res, cacheKey, 'public, max-age=15')) {
+        return;
+      }
+
       const runs = storage.loadAllRuns();
       const agentStatus = buildAgentStatusMap();
       const now = Date.now();
@@ -797,14 +892,16 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         };
       });
 
-      res.json({
+      const payload = {
         backups_ok_24h: successCount,
         backups_failed_24h: failureCount,
         clients_online: onlineClients,
         clients_offline: offlineClients,
         recent_backups: recentBackups,
         client_statuses: clientStatuses
-      });
+      };
+
+      sendCachedResponse(req, res, cacheKey, payload, STATS_CACHE_TTL_MS, 'public, max-age=15');
     } catch (error) {
       logger.error('Errore stats pubbliche', { error: error.message });
       res.status(500).json({ error: 'Errore interno' });
@@ -1069,13 +1166,17 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       const { hostname, jobId } = req.params;
       const mappingIndexParam = req.query.mapping;
       const mappingIndex = Number.isFinite(Number(mappingIndexParam)) ? Number(mappingIndexParam) : null;
+      const limit = Number.isFinite(Number(req.query.limit)) ? Math.min(Number(req.query.limit), 50) : 5;
+      const offset = Number.isFinite(Number(req.query.offset)) ? Math.max(Number(req.query.offset), 0) : 0;
+      const tailLines = Number.isFinite(Number(req.query.tailLines)) ? Number(req.query.tailLines) : 200;
 
       const runs = storage
         .loadRunsForJob(jobId)
         .filter(r => r.client_hostname === hostname)
         .sort((a, b) => new Date(b.start || 0) - new Date(a.start || 0));
 
-      const payload = runs
+      const paginatedRuns = runs.slice(offset, offset + limit);
+      const payload = paginatedRuns
         .map(run => {
           const mappings = (run.mappings || [])
             .map((mapping, index) => {
@@ -1091,7 +1192,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
               }
 
               const logs = logCandidates
-                .map(candidate => readLogFile(candidate, run.run_id))
+                .map(candidate => readLogFile(candidate, run.run_id, { tailLines }))
                 .filter(Boolean);
 
               return {
@@ -1116,7 +1217,16 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         .filter(run => mappingIndex === null || (run.mappings && run.mappings.length > 0));
 
       logger.logApiCall('GET', `/api/clients/${hostname}/jobs/${jobId}/logs/full`, req.username, 200);
-      res.json({ hostname, job_id: jobId, runs: payload });
+      res.json({
+        hostname,
+        job_id: jobId,
+        runs: payload,
+        pagination: {
+          total: runs.length,
+          limit,
+          offset
+        }
+      });
     } catch (error) {
       logger.error('Errore recupero log completi', { error: error.message, params: req.params });
       res.status(500).json({ error: 'Errore interno' });
@@ -1223,6 +1333,11 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
 
   router.get('/api/clients', requireAuth, (req, res) => {
     try {
+      const cacheKey = 'clients-list';
+      if (respondFromCache(req, res, cacheKey, 'private, max-age=15')) {
+        return;
+      }
+
       const jobs = storage.loadAllJobs();
       const runs = storage.loadAllRuns();
       const heartbeats = storage.loadAllAgentHeartbeats();
@@ -1287,7 +1402,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       });
 
       logger.logApiCall('GET', '/api/clients', req.username, 200);
-      res.json(clients);
+      sendCachedResponse(req, res, cacheKey, clients, CLIENTS_CACHE_TTL_MS, 'private, max-age=15');
     } catch (error) {
       logger.error('Errore caricamento clients', { error: error.message });
       res.status(500).json({ error: 'Errore interno' });
@@ -1442,20 +1557,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
 
   router.delete('/api/runs/all', requireAuth, async (req, res) => {
     try {
-      const path = require('path');
-      const fs = require('fs');
-      const runsDir = path.join(storage.dataRoot, 'state', 'runs');
-      let deletedCount = 0;
-
-      if (fs.existsSync(runsDir)) {
-        const files = fs.readdirSync(runsDir);
-        for (const file of files) {
-          if (file.endsWith('.json')) {
-            fs.unlinkSync(path.join(runsDir, file));
-            deletedCount++;
-          }
-        }
-      }
+      const deletedCount = storage.deleteAllRuns();
 
       logger.logApiCall('DELETE', '/api/runs/all', req.username, 200);
       logger.info('Eliminati tutti i log', { count: deletedCount, user: req.username });
@@ -1491,10 +1593,22 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
   router.get('/api/clients/:hostname/jobs/:jobId/backups/analyze', requireAuth, async (req, res) => {
     try {
       const { hostname, jobId } = req.params;
+      const mappingIndexParam = req.query.mapping;
+      const mappingIndex = Number.isFinite(Number(mappingIndexParam)) ? Number(mappingIndexParam) : null;
+      const cacheKey = `${hostname}:${jobId}:${mappingIndex ?? 'all'}`;
+
+      if (respondFromCache(req, res, cacheKey, 'private, max-age=30', backupAnalyzeCache)) {
+        return;
+      }
+
       const job = storage.loadJob(jobId);
 
       if (!job || job.client_hostname !== hostname) {
         return res.status(404).json({ error: 'Job non trovato per il client indicato' });
+      }
+
+      if (mappingIndex !== null && (!job.mappings || !job.mappings[mappingIndex])) {
+        return res.status(404).json({ error: 'Mappatura non trovata per il job indicato' });
       }
 
       const { agent, error, status } = getOnlineAgentInfo(hostname);
@@ -1504,17 +1618,30 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
 
       const jobLabel = (job.job_id || 'backup').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 50);
 
-      const mappings = await callAgentJobBackups(agent.agent_ip, agent.agent_port, jobLabel, job.mappings || []);
+      const targetMappings = mappingIndex === null
+        ? (job.mappings || [])
+        : [job.mappings[mappingIndex]];
 
-      mappings.forEach(mapping => {
+      const mappings = await callAgentJobBackups(agent.agent_ip, agent.agent_port, jobLabel, targetMappings);
+
+      mappings.forEach((mapping, idx) => {
+        if (mappingIndex !== null) {
+          mapping.index = mappingIndex;
+          mapping.label = job.mappings[mappingIndex].label || mapping.label;
+          mapping.destination_path = job.mappings[mappingIndex].destination_path || mapping.destination_path;
+          mapping.mode = job.mappings[mappingIndex].mode || mapping.mode;
+        } else if (!Number.isFinite(Number(mapping.index))) {
+          mapping.index = idx;
+        }
+
         if (Array.isArray(mapping.backups)) {
           mapping.backups.sort((a, b) => new Date(b.modified || 0) - new Date(a.modified || 0));
         }
       });
 
       logger.logApiCall('GET', `/api/clients/${hostname}/jobs/${jobId}/backups/analyze`, req.username, 200);
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.json({ hostname, job_id: jobId, mappings });
+      const payload = { hostname, job_id: jobId, mappings };
+      sendCachedResponse(req, res, cacheKey, payload, BACKUP_ANALYZE_CACHE_TTL_MS, 'private, max-age=30', backupAnalyzeCache);
     } catch (error) {
       logger.error('Errore analisi backup fisici', { error: error.message, params: req.params });
       res.status(500).json({ error: 'Errore interno' });
