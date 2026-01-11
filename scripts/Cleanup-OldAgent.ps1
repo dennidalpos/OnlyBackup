@@ -194,7 +194,7 @@ function Stop-OnlyBackupProcesses {
                 Write-Info "Servizio fermato: $serviceName"
             }
         } catch {
-            Write-ErrorMessage "Errore fermando servizio $serviceName: $_"
+            Write-ErrorMessage "Errore fermando servizio ${serviceName}: $_"
         }
     }
 
@@ -207,7 +207,7 @@ function Stop-OnlyBackupProcesses {
                 Write-Info "Processo terminato: $processName (PID $($proc.Id))"
             }
         } catch {
-            Write-ErrorMessage "Errore fermando processo $processName: $_"
+            Write-ErrorMessage "Errore fermando processo ${processName}: $_"
         }
     }
 }
@@ -325,7 +325,7 @@ function Remove-OnlyBackupUninstallEntries {
             Remove-Item -Path $keyPath -Recurse -Force -ErrorAction Stop
             Write-Success "Rimossa voce registro: $displayName"
         } catch {
-            Write-ErrorMessage "Errore rimuovendo voce registro $displayName: $_"
+            Write-ErrorMessage "Errore rimuovendo voce registro ${displayName}: $_"
         }
     }
 }
