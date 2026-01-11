@@ -8,17 +8,20 @@ class Scheduler {
     this.config = config;
     this.jobExecutor = jobExecutor;
     this.scheduledJobs = new Map();
-    this.checkInterval = config.scheduler?.checkInterval || 60000;
-    this.checkIntervalId = null;
+    this.minCheckInterval = 10000; // Min 10s
+    this.maxIdleInterval = 300000; // Max 5min se nessun job
+    this.checkTimeoutId = null;
     this.watcher = null;
+    this.running = false;
   }
 
   async start() {
-    this.logger.debug('Avvio scheduler');
+    this.logger.debug('Avvio scheduler (mode: dynamic setTimeout)');
 
     await this.reloadJobs();
 
-    this.checkIntervalId = setInterval(() => this.checkScheduledJobs(), this.checkInterval);
+    this.running = true;
+    this.scheduleNextCheck();
 
     if (this.config.scheduler?.enableFileWatcher) {
       this.startFileWatcher();
@@ -26,16 +29,18 @@ class Scheduler {
 
     this.logger.debug('Scheduler avviato', {
       scheduledJobsCount: this.scheduledJobs.size,
-      checkInterval: this.checkInterval
+      mode: 'dynamic'
     });
   }
 
   stop() {
     this.logger.debug('Arresto scheduler');
 
-    if (this.checkIntervalId) {
-      clearInterval(this.checkIntervalId);
-      this.checkIntervalId = null;
+    this.running = false;
+
+    if (this.checkTimeoutId) {
+      clearTimeout(this.checkTimeoutId);
+      this.checkTimeoutId = null;
     }
 
     if (this.watcher) {
@@ -51,6 +56,50 @@ class Scheduler {
 
     this.scheduledJobs.clear();
     this.logger.debug('Scheduler arrestato');
+  }
+
+  scheduleNextCheck() {
+    if (!this.running) return;
+
+    // Calcola il prossimo run time per tutti i job
+    let nextRunTime = null;
+    for (const [jobId, scheduledJob] of this.scheduledJobs.entries()) {
+      const jobNextRun = scheduledJob.nextRun;
+      if (jobNextRun && (!nextRunTime || jobNextRun < nextRunTime)) {
+        nextRunTime = jobNextRun;
+      }
+    }
+
+    // Calcola delay
+    let delay;
+    if (!nextRunTime) {
+      // Nessun job schedulato: check ogni 5 minuti
+      delay = this.maxIdleInterval;
+      this.logger.debug('Nessun job schedulato, prossimo check tra 5 minuti');
+    } else {
+      const now = Date.now();
+      // Anticipa di 5s per compensare processing time
+      delay = Math.max(this.minCheckInterval, nextRunTime - now - 5000);
+
+      const nextDate = new Date(now + delay);
+      this.logger.debug('Prossimo check scheduler', {
+        delay: `${Math.round(delay / 1000)}s`,
+        nextCheckTime: nextDate.toISOString()
+      });
+    }
+
+    // Schedule timeout
+    this.checkTimeoutId = setTimeout(() => {
+      this.checkScheduledJobs();
+      this.scheduleNextCheck(); // Reschedule dopo execution
+    }, delay);
+  }
+
+  onJobsChanged() {
+    // Ricarica jobs e reschedula
+    this.logger.debug('Job modificati, reschedulo scheduler');
+    this.stop();
+    this.start();
   }
 
   async reloadJobs() {

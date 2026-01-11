@@ -1,5 +1,7 @@
 const fs = require('fs');
 const path = require('path');
+const cacheManager = require('./cacheManager');
+const eventBus = require('../events/eventBus');
 
 class Storage {
   constructor(dataRoot, logger) {
@@ -7,6 +9,18 @@ class Storage {
     this.logger = logger;
     this.runsIndexPath = path.join(this.dataRoot, 'state', 'runs', 'index.json');
     this.ensureDirectories();
+    this.setupCacheInvalidation();
+  }
+
+  setupCacheInvalidation() {
+    // Invalidate cache on data changes
+    eventBus.on('job_created', () => cacheManager.invalidate('all_jobs'));
+    eventBus.on('job_updated', () => cacheManager.invalidate('all_jobs'));
+    eventBus.on('job_deleted', () => cacheManager.invalidate('all_jobs'));
+
+    eventBus.on('backup_completed', () => {
+      cacheManager.invalidate('all_runs');
+    });
   }
 
   ensureDirectories() {
@@ -46,7 +60,19 @@ class Storage {
   saveJob(job) {
     const jobPath = path.join(this.dataRoot, 'state', 'jobs', `${job.job_id}.json`);
     try {
+      const isNew = !fs.existsSync(jobPath);
       fs.writeFileSync(jobPath, JSON.stringify(job, null, 2), 'utf8');
+
+      // Invalidate cache
+      cacheManager.invalidate('all_jobs');
+
+      // Emit event
+      if (isNew) {
+        eventBus.emitJobCreated(job);
+      } else {
+        eventBus.emitJobUpdated(job.job_id, job);
+      }
+
       return true;
     } catch (error) {
       this.logger.error('Errore salvataggio job', { jobId: job.job_id, error: error.message });
@@ -60,6 +86,13 @@ class Storage {
       if (fs.existsSync(jobPath)) {
         fs.unlinkSync(jobPath);
       }
+
+      // Invalidate cache
+      cacheManager.invalidate('all_jobs');
+
+      // Emit event
+      eventBus.emitJobDeleted(jobId);
+
       return true;
     } catch (error) {
       this.logger.error('Errore eliminazione job', { jobId, error: error.message });
@@ -68,6 +101,12 @@ class Storage {
   }
 
   loadAllJobs() {
+    // Check cache
+    const cached = cacheManager.get('all_jobs');
+    if (cached) {
+      return cached;
+    }
+
     const jobsDir = path.join(this.dataRoot, 'state', 'jobs');
     const jobs = [];
 
@@ -89,6 +128,9 @@ class Storage {
     } catch (error) {
       this.logger.error('Errore caricamento jobs', { error: error.message });
     }
+
+    // Cache indefinitamente (invalidato on change)
+    cacheManager.set('all_jobs', jobs);
 
     return jobs;
   }
@@ -112,6 +154,18 @@ class Storage {
     try {
       fs.writeFileSync(runPath, JSON.stringify(run, null, 2), 'utf8');
       this.updateRunsIndex(run);
+
+      // Invalidate cache
+      cacheManager.invalidate('all_runs');
+
+      // Emit event se completato
+      if (run.status && run.status !== 'running') {
+        const duration = run.end_time && run.start_time
+          ? new Date(run.end_time).getTime() - new Date(run.start_time).getTime()
+          : null;
+        eventBus.emitBackupCompleted(run.run_id, run.status, run.stats, duration);
+      }
+
       return true;
     } catch (error) {
       this.logger.error('Errore salvataggio run', { runId: run.run_id, error: error.message });
@@ -193,16 +247,29 @@ class Storage {
   }
 
   loadAllRuns() {
+    // Check cache
+    const cached = cacheManager.get('all_runs');
+    if (cached) {
+      return cached;
+    }
+
+    let runs;
     try {
       const index = this.loadRunsIndex();
       if (fs.existsSync(this.runsIndexPath) && Array.isArray(index.runs)) {
-        return index.runs;
+        runs = index.runs;
+      } else {
+        runs = this.rebuildRunsIndex();
       }
     } catch (error) {
       this.logger.error('Errore caricamento runs', { error: error.message });
+      runs = this.rebuildRunsIndex();
     }
 
-    return this.rebuildRunsIndex();
+    // Cache indefinitamente (invalidato on change)
+    cacheManager.set('all_runs', runs);
+
+    return runs;
   }
 
   loadRunsForJob(jobId) {

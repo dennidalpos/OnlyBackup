@@ -1,4 +1,5 @@
 const express = require('express');
+const compression = require('compression');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 const fs = require('fs');
@@ -110,6 +111,19 @@ class OnlyBackupServer {
 
   setupExpress() {
     this.app = express();
+
+    // Compression middleware (gzip/deflate)
+    this.app.use(compression({
+      filter: (req, res) => {
+        // Non comprimere SSE (text/event-stream)
+        if (req.headers.accept && req.headers.accept.includes('text/event-stream')) {
+          return false;
+        }
+        return compression.filter(req, res);
+      },
+      level: 6, // Balance tra velocità e compressione
+      threshold: 1024 // Comprimi solo se > 1KB
+    }));
 
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));

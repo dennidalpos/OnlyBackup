@@ -28,6 +28,10 @@ class OnlyBackupApp {
         this.logViewerTailLines = 200;
         this.logViewerMappingIndex = null;
         this.logViewerHasMore = false;
+        this.eventSource = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 10;
+        this.sseEnabled = true;
         this.init();
     }
 
@@ -71,6 +75,140 @@ class OnlyBackupApp {
         document.addEventListener('visibilitychange', () => {
             this.handleVisibilityChange();
         });
+    }
+
+    connectSSE() {
+        if (!this.sseEnabled || !window.EventSource) {
+            console.warn('SSE non supportato o disabilitato, uso polling fallback');
+            return;
+        }
+
+        if (this.eventSource) {
+            this.eventSource.close();
+        }
+
+        this.eventSource = new EventSource('/api/events');
+
+        this.eventSource.addEventListener('connected', (e) => {
+            console.log('SSE connesso:', e.data);
+            this.reconnectAttempts = 0;
+        });
+
+        this.eventSource.addEventListener('client_status_changed', (e) => {
+            const data = JSON.parse(e.data);
+            this.handleClientStatusChanged(data);
+        });
+
+        this.eventSource.addEventListener('backup_started', (e) => {
+            const data = JSON.parse(e.data);
+            this.handleBackupStarted(data);
+        });
+
+        this.eventSource.addEventListener('backup_completed', (e) => {
+            const data = JSON.parse(e.data);
+            this.handleBackupCompleted(data);
+        });
+
+        this.eventSource.addEventListener('stats_updated', (e) => {
+            const data = JSON.parse(e.data);
+            this.updateHeaderStats(data);
+        });
+
+        this.eventSource.addEventListener('job_created', (e) => {
+            const data = JSON.parse(e.data);
+            this.loadClients();
+        });
+
+        this.eventSource.addEventListener('job_updated', (e) => {
+            const data = JSON.parse(e.data);
+            this.loadClients();
+        });
+
+        this.eventSource.addEventListener('job_deleted', (e) => {
+            const data = JSON.parse(e.data);
+            this.loadClients();
+        });
+
+        this.eventSource.onerror = (err) => {
+            console.error('SSE error:', err);
+            this.eventSource.close();
+
+            if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+                this.reconnectAttempts++;
+                console.log(`Riconnessione SSE in ${delay}ms (tentativo ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+                setTimeout(() => {
+                    if (this.authenticated) {
+                        this.connectSSE();
+                    }
+                }, delay);
+            } else {
+                console.warn('Troppi tentativi di riconnessione SSE, fallback a polling');
+                this.sseEnabled = false;
+                this.startDashboardPolling();
+            }
+        };
+
+        window.addEventListener('beforeunload', () => {
+            if (this.eventSource) {
+                this.eventSource.close();
+            }
+        });
+    }
+
+    disconnectSSE() {
+        if (this.eventSource) {
+            this.eventSource.close();
+            this.eventSource = null;
+        }
+    }
+
+    handleClientStatusChanged(data) {
+        console.log('Client status changed:', data);
+
+        const clientRow = document.querySelector(`tr[data-hostname="${data.hostname}"]`);
+        if (clientRow) {
+            const statusCell = clientRow.querySelector('.client-status');
+            if (statusCell) {
+                statusCell.textContent = data.status === 'online' ? 'Online' : 'Offline';
+                statusCell.className = `client-status status-${data.status}`;
+            }
+        }
+
+        this.loadHeaderStats();
+    }
+
+    handleBackupStarted(data) {
+        console.log('Backup started:', data);
+        this.showToast('info', 'Backup Avviato', `Backup su ${data.hostname} avviato`);
+    }
+
+    handleBackupCompleted(data) {
+        console.log('Backup completed:', data);
+
+        const statusText = data.status === 'completed' ? 'completato' :
+                          data.status === 'failed' ? 'fallito' :
+                          data.status === 'partial' ? 'parziale' : data.status;
+
+        const type = data.status === 'completed' ? 'success' :
+                     data.status === 'failed' ? 'error' : 'warning';
+
+        this.showToast(type, 'Backup Completato', `Backup ${statusText}`);
+
+        this.loadHeaderStats();
+        this.loadClients();
+    }
+
+    updateHeaderStats(data) {
+        const onlineEl = document.getElementById('headerClientsOnline');
+        const offlineEl = document.getElementById('headerClientsOffline');
+        const okEl = document.getElementById('headerBackupsOk');
+        const koEl = document.getElementById('headerBackupsFailed');
+
+        if (onlineEl && data.clients_online !== undefined) onlineEl.textContent = data.clients_online;
+        if (offlineEl && data.clients_offline !== undefined) offlineEl.textContent = data.clients_offline;
+        if (okEl && data.success !== undefined) okEl.textContent = data.success;
+        if (koEl && data.failed !== undefined) koEl.textContent = data.failed;
     }
 
     showToast(type, title, message, duration = 5000) {
@@ -191,6 +329,11 @@ class OnlyBackupApp {
                 this.authenticated = true;
                 this.currentUser = data.username;
 
+                // Connetti SSE se autenticato
+                if (this.sseEnabled) {
+                    this.connectSSE();
+                }
+
                 if (data.mustChangePassword) {
                     this.showScreen('changePasswordScreen');
                 } else {
@@ -278,6 +421,10 @@ class OnlyBackupApp {
     async logout() {
         try {
             await fetch('/api/auth/logout', { method: 'POST' });
+
+            // Disconnetti SSE
+            this.disconnectSSE();
+
             this.authenticated = false;
             this.currentUser = null;
             this.selectedClient = null;

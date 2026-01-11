@@ -686,6 +686,9 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     next();
   };
 
+  // Event Bus
+  const eventBus = require('../events/eventBus');
+
   router.post('/api/agent/heartbeat', (req, res) => {
     const { hostname, timestamp, status, agent_ip, agent_port, backup_status, backup_job_id } = req.body || {};
 
@@ -733,6 +736,19 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
 
     if (!saved) {
       return res.status(500).json({ error: 'Impossibile salvare heartbeat' });
+    }
+
+    // Emit SSE event se lo stato è cambiato
+    const statusChanged = existingHeartbeat && existingHeartbeat.status !== heartbeat.status;
+    if (statusChanged || wasOffline) {
+      eventBus.emitClientStatusChanged(hostname, heartbeat.status, heartbeat.timestamp);
+    }
+
+    // Emit evento se backup status cambiato
+    if (backup_status && (!existingHeartbeat || existingHeartbeat.backup_status !== backup_status)) {
+      if (backup_status === 'in_progress') {
+        eventBus.emitBackupStarted(hostname, backup_job_id, null, heartbeat.timestamp);
+      }
     }
 
     if (wasOffline && heartbeat.status === 'online') {
@@ -987,7 +1003,8 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         return res.status(500).json({ error: 'Errore salvataggio job' });
       }
 
-      await scheduler.reloadJobs();
+      // Notifica scheduler di reschedulare
+      scheduler.onJobsChanged();
 
       logger.logApiCall('POST', '/api/jobs', req.username, 201);
       res.status(201).json({ success: true, job: normalizedJob });
@@ -1007,7 +1024,8 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         return res.status(500).json({ error: 'Errore salvataggio job' });
       }
 
-      await scheduler.reloadJobs();
+      // Notifica scheduler di reschedulare
+      scheduler.onJobsChanged();
 
       logger.logApiCall('PUT', `/api/jobs/${req.params.jobId}`, req.username, 200);
       res.json({ success: true, job: normalizedJob });
@@ -1025,7 +1043,8 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         return res.status(500).json({ error: 'Errore eliminazione job' });
       }
 
-      await scheduler.reloadJobs();
+      // Notifica scheduler di reschedulare
+      scheduler.onJobsChanged();
 
       logger.logApiCall('DELETE', `/api/jobs/${req.params.jobId}`, req.username, 200);
       res.json({ success: true });
@@ -1568,24 +1587,17 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     }
   });
 
+  // SSE Manager
+  const sseManager = require('../events/sseManager');
+
   router.get('/api/events', requireAuth, (req, res) => {
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
-
-    res.write('data: {"type":"connected"}\n\n');
-
+    const clientId = req.username || `user_${Date.now()}`;
     logger.debug('SSE client connesso', { username: req.username });
 
-    const heartbeatInterval = setInterval(() => {
-      if (!res.writableEnded) {
-        res.write(': ping\n\n');
-      }
-    }, 30000);
+    // Usa SSEManager per gestire la connessione
+    sseManager.addClient(clientId, res);
 
     req.on('close', () => {
-      clearInterval(heartbeatInterval);
       logger.debug('SSE client disconnesso', { username: req.username });
     });
   });
