@@ -40,8 +40,7 @@ try {
     Write-Host "[INFO] UpgradeCode: $($properties['UpgradeCode'])" -ForegroundColor Yellow
     Write-Host "[INFO] ProductVersion: $($properties['ProductVersion'])" -ForegroundColor Yellow
 
-    # Validazione UpgradeCode fisso
-    $expectedUpgradeCode = "{12345678-1234-1234-1234-123456789ABC}"
+    $expectedUpgradeCode = "{AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE}"
     if ($properties['UpgradeCode'] -ne $expectedUpgradeCode) {
         Write-Host "[ERROR] UpgradeCode non corretto!" -ForegroundColor Red
         Write-Host "  Atteso: $expectedUpgradeCode" -ForegroundColor Red
