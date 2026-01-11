@@ -81,6 +81,8 @@
                   Value="&quot;[SystemFolder]WindowsPowerShell\\v1.0\\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;[SERVERFOLDER]Install-ServerService.ps1&quot; -ServerDir &quot;[SERVERFOLDER]&quot; -ConfigPath &quot;[SERVERFOLDER]config.json&quot; -NssmPath &quot;[SERVERFOLDER]nssm.exe&quot;" />
 
     <CustomAction Id="InstallWebServerService"
+                  BinaryKey="WixCA"
+                  DllEntry="CAQuietExec"
                   Execute="deferred"
                   Impersonate="no"
                   Return="check" />
