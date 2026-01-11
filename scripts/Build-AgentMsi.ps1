@@ -57,6 +57,7 @@ $BuildBinDir = Join-Path $ProjectDir "bin\$Configuration"
 $WixDir = Join-Path $ScriptDir "wix"
 $PayloadDir = Join-Path $WixDir "payload"
 $SourceNetFxInstaller = Join-Path $PayloadDir "NDP462-KB3151800-x86-x64-AllOS-ENU.exe"
+$SourceNssmExe = Join-Path $PayloadDir "nssm.exe"
 
 if (-not $OutputDir) {
     $OutputDir = Join-Path $RootDir "output"
@@ -71,6 +72,7 @@ $StagingRoot = Join-Path $OutputDir "agent-msi"
 $BinDir = Join-Path $StagingRoot "bin"
 $ArtifactsDir = Join-Path $StagingRoot "artifacts"
 $NetFxInstaller = Join-Path $StagingRoot "NDP462-KB3151800-x86-x64-AllOS-ENU.exe"
+$NssmExe = Join-Path $StagingRoot "nssm.exe"
 
 if (Test-Path $StagingRoot) {
     Remove-Item -Path $StagingRoot -Recurse -Force
@@ -172,6 +174,18 @@ Copy-Item -Path $SourceNetFxInstaller -Destination $NetFxInstaller -Force
 
 Write-Success "Installer .NET Framework 4.6.2 disponibile e verificato"
 
+Write-Header "Verifica NSSM"
+
+if (-not (Test-Path $SourceNssmExe)) {
+    Write-ErrorMessage "nssm.exe non trovato in $PayloadDir"
+    Write-Info "Scarica NSSM (win64) da: https://nssm.cc/download"
+    Write-Info "Posiziona nssm.exe in: $PayloadDir"
+    exit 1
+}
+
+Copy-Item -Path $SourceNssmExe -Destination $NssmExe -Force
+Write-Success "NSSM trovato e copiato nello staging"
+
 Write-Header "Configurazione Server"
 
 $serverHostProvided = $PSBoundParameters.ContainsKey('ServerHost')
@@ -256,6 +270,9 @@ $candleArgs = @(
     "-out", $WixObjFile,
     "-dBinDir=$BinDir",
     "-dProjectDir=$ProjectDir",
+    "-dRootDir=$RootDir",
+    "-dPayloadDir=$PayloadDir",
+    "-dNssmExe=$NssmExe",
     "-dNetFxInstaller=$NetFxInstaller",
     "-dServerHost=$ServerHost",
     "-ext", "WixUtilExtension",
