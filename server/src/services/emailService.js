@@ -247,7 +247,7 @@ Questo è un messaggio automatico generato da OnlyBackup.`
         };
       }
 
-      this.transporter = nodemailer.createTransporter(transportOptions);
+      this.transporter = nodemailer.createTransport(transportOptions);
       this.logger.info('Transporter email creato');
       return true;
     } catch (error) {

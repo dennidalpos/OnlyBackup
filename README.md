@@ -2,6 +2,23 @@
 
 Sistema di backup centralizzato per ambienti Windows con architettura server/agent, orchestrazione HTTP e storage su filesystem. Supporta job con più mappature, modalità COPY e SYNC, retention automatica e logging completo per ogni run.
 
+## Indice
+1. Descrizione del progetto
+2. Architettura generale
+3. Requisiti di sistema
+4. Installazione e avvio
+5. Configurazione
+6. Concetti fondamentali
+7. Flusso di backup
+8. Modalità COPY
+9. Modalità SYNC
+10. Logging
+11. Dashboard e API
+12. Notifiche Email
+13. Struttura directory `data/`
+14. Sviluppo e manutenzione
+15. Troubleshooting
+
 ## 1. Descrizione del progetto
 - **Scopo:** eseguire e governare backup di percorsi locali o UNC tramite agent Windows gestiti da un server Node.js.
 - **Casi d'uso:** protezione file server e workstation, replica verso NAS/UNC, snapshot programmati con retention, sincronizzazione continua di directory.
@@ -41,16 +58,17 @@ Sistema di backup centralizzato per ambienti Windows con architettura server/age
 4. **Avvio**
    ```bash
    npm start
-   # oppure
    CONFIG_PATH=../config.json node src/server.js
    ```
 5. **Accesso dashboard:** `http://<host>:<porta>` (default admin/admin).
 6. **Installazione come servizio (NSSM):** usare `nssm install OnlyBackupServer "C:\\Program Files\\nodejs\\node.exe"` con `AppDirectory` impostata su `server` e `CONFIG_PATH` puntato al file di configurazione.
+7. **Variabili utili di avvio server:**
+   - `CONFIG_PATH` per puntare un file di configurazione alternativo.
+   - `NODE_ENV` per cambiare ambiente (`development` o `production`).
 
 ### Agent
 1. **Build** (WiX Toolset 3.14 + Visual Studio 2017+):
    ```powershell
-   # da root progetto
    .\scripts\Build-AgentMsi.ps1 -ServerHost "<server-ip>" -ServerPort 8080 -AgentPort 8081
    ```
    Oppure aprire `agent/OnlyBackupAgent.sln` in Visual Studio (Release, x64/AnyCPU) e compilare.
@@ -77,6 +95,10 @@ Sistema di backup centralizzato per ambienti Windows con architettura server/age
 - **`dataRoot` predefinito:** se omesso, viene usata la cartella `data` accanto al file di configurazione.
 - **Utenti e autenticazione:** credenziali in `data/users/users.json` (ricreare admin/admin eliminando il file con servizio fermo). Sessione basata su cookie; impostare `secureCookies` su `true` con HTTPS.
 - **Sicurezza:** proteggere `dataRoot` con ACL NTFS, usare account servizio dedicati, considerare BitLocker/HTTPS e firewall restrittivi. Le credenziali dei job sono salvate in chiaro nei JSON: limitare l'accesso ai file.
+- **Configurazioni avanzate suggerite:**
+  - `logging.maxFiles` e `logging.retentionDays` per ridurre lo spazio su disco dei log.
+  - `scheduler.checkInterval` per controllare la frequenza di polling dello scheduler.
+  - `scheduler.enableFileWatcher` per attivare il watcher delle modifiche di configurazione.
 
 ## 6. Concetti fondamentali
 - **Job:** unità logica schedulata, con uno o più mapping; definisce credenziali, pianificazione e retention (max backup per COPY).
@@ -121,6 +143,10 @@ Sistema di backup centralizzato per ambienti Windows con architettura server/age
 - **Log completi:** visualizzazione di `run.json`, `robocopy.log` ed eventi sincronizzati; eliminazioni UI propagano la cancellazione al client.
 - **Monitoraggio agent:** heartbeat via `/api/agent/heartbeat`, stato agent su `/api/status` (locale), panoramica `clients`/`runs` via API REST.
 - **Notifiche email:** sistema integrato per notifiche automatiche su eventi critici (backup falliti/parziali, agent offline/online). Configurazione SMTP completa con supporto OAuth2 per Gmail/Office365, template email personalizzabili per ogni tipo di evento.
+- **Endpoint utili per integrazioni:**
+  - `/api/jobs` per l'elenco e la modifica dei job.
+  - `/api/runs` per lo storico delle esecuzioni e gli stati.
+  - `/api/agents` per lo stato di disponibilità degli agent.
 
 ## 12. Notifiche Email
 Il sistema integra notifiche email automatiche per eventi critici:
@@ -163,16 +189,16 @@ Le configurazioni sono salvate in `data/config/`:
 ## 13. Struttura directory `data/`
 ```
 data/
-├── config/                    # Configurazioni
-│   ├── email-settings.json    # Configurazione SMTP e notifiche
-│   └── email-templates.json   # Template email personalizzati
+├── config/
+│   ├── email-settings.json
+│   └── email-templates.json
 ├── state/
-│   ├── jobs/                  # Definizioni job (*.json)
-│   ├── runs/                  # Storico esecuzioni (*.json)
-│   ├── agents/                # Heartbeat agent (*.json)
-│   └── scheduler/             # Stato scheduler
-├── users/                     # Utenti dashboard
-└── logs/                      # Log run sincronizzati dall'agent
+│   ├── jobs/
+│   ├── runs/
+│   ├── agents/
+│   └── scheduler/
+├── users/
+└── logs/
     └── <hostname>/<jobId>/<runId>/
         ├── run.json
         ├── robocopy.log
@@ -185,6 +211,8 @@ Note: l'agent applica retention log a 20 MB e le eliminazioni da UI rimuovono an
 - Eseguire backup periodici della directory `data/` prima di upgrade di server o agent.
 - Garantire compatibilità dello scheduler con il formato `state/scheduler` quando si introducono nuove versioni.
 - Aggiornamenti agent: fermare il servizio, opzionale backup di `OnlyBackupAgent.exe.config`, installare nuovo MSI, verificare riavvio del servizio.
+- **Ripristino rapido:** conservare copie di `config.json` e `data/` per ricostruire server e dashboard senza perdere storici.
+- **Rotazione log lato agent:** verificare periodicamente le cartelle `data/logs` per evitare crescite anomale in caso di problemi di rete.
 
 ## 15. Troubleshooting
 - **Agent offline:** verificare servizio `OnlyBackupAgent`, configurazione host/porte, firewall outbound, DNS; usare `Get-EventLog` per dettagli.
