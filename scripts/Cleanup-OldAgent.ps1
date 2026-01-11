@@ -1,23 +1,4 @@
 
-<#
-.SYNOPSIS
-    Script per pulire installazioni precedenti di OnlyBackup Agent
-
-.DESCRIPTION
-    Questo script rimuove:
-    - Servizio Windows OnlyBackupAgent
-    - Voci di registro orfane
-    - File di installazione precedenti
-
-    Utile quando si desidera fare un'installazione pulita dopo problemi di upgrade.
-
-.EXAMPLE
-    .\Cleanup-OldAgent.ps1
-
-.EXAMPLE
-    .\Cleanup-OldAgent.ps1 -KeepLogs
-#>
-
 [CmdletBinding()]
 param(
     [Parameter()]
@@ -49,7 +30,6 @@ function Write-ErrorMessage {
     Write-Host "[ERROR] $Message" -ForegroundColor Red
 }
 
-# Verifica permessi amministratore
 $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
     Write-ErrorMessage "Questo script richiede privilegi di amministratore."
@@ -59,7 +39,6 @@ if (-not $isAdmin) {
 
 Write-Header "OnlyBackup Agent - Cleanup Script"
 
-# 1. Ferma il servizio
 Write-Info "Tentativo di fermare il servizio OnlyBackupAgent..."
 try {
     $service = Get-Service -Name "OnlyBackupAgent" -ErrorAction SilentlyContinue
@@ -77,7 +56,6 @@ try {
     Write-ErrorMessage "Errore fermando il servizio: $_"
 }
 
-# 2. Elimina il servizio
 Write-Info "Rimozione servizio Windows..."
 try {
     $service = Get-Service -Name "OnlyBackupAgent" -ErrorAction SilentlyContinue
@@ -95,7 +73,6 @@ try {
     Write-ErrorMessage "Errore eliminando il servizio: $_"
 }
 
-# 3. Rimuovi voci di registro
 Write-Info "Pulizia registro di sistema..."
 $registryPaths = @(
     "HKLM:\SOFTWARE\OnlyBackup",
@@ -118,7 +95,6 @@ foreach ($path in $registryPaths) {
     }
 }
 
-# 4. Rimuovi file di installazione
 Write-Info "Rimozione file di installazione..."
 $installPaths = @(
     "C:\Program Files\OnlyBackup\Agent",
@@ -138,7 +114,6 @@ foreach ($path in $installPaths) {
     }
 }
 
-# 5. Gestione log
 if (-not $KeepLogs) {
     Write-Info "Rimozione log dell'agent..."
     $logPath = "C:\BackupConsole\logs"
@@ -154,7 +129,6 @@ if (-not $KeepLogs) {
     Write-Info "Log conservati (parametro -KeepLogs attivo)"
 }
 
-# 6. Rimuovi regola firewall
 Write-Info "Rimozione regole firewall..."
 try {
     $firewallRule = Get-NetFirewallRule -DisplayName "OnlyBackup Agent" -ErrorAction SilentlyContinue
@@ -180,7 +154,6 @@ try {
     Write-ErrorMessage "Errore rimuovendo regola firewall server: $_"
 }
 
-# 7. Cerca e rimuovi voci MSI OnlyBackup da registro
 Write-Info "Ricerca voci MSI OnlyBackup nel registro..."
 
 function Stop-OnlyBackupProcesses {

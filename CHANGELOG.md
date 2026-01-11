@@ -46,7 +46,6 @@
 
 #### 1. Barra di ricerca agent
 ```javascript
-// Nuova funzione in app.js
 filterClients(searchTerm) {
     const items = document.querySelectorAll('.client-item');
     const term = searchTerm.toLowerCase().trim();
@@ -60,10 +59,8 @@ filterClients(searchTerm) {
 #### 2. Fix multicast storm
 **Problema**: L'uso di UDP Datagram Socket senza specificare protocollo causava broadcast sulla rete
 ```csharp
-// PRIMA (problematico)
 using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
 
-// DOPO (corretto)
 using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
 ```
 
