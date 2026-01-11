@@ -166,15 +166,30 @@ try {
 # 7. Cerca e rimuovi MSI orfani
 Write-Info "Ricerca prodotti MSI OnlyBackup..."
 try {
-    $msiProducts = Get-WmiObject -Class Win32_Product | Where-Object { $_.Name -like "*OnlyBackup*Agent*" }
+    $msiProducts = Get-CimInstance -ClassName Win32_Product | Where-Object { $_.Name -like "*OnlyBackup*Agent*" }
     if ($msiProducts) {
         foreach ($product in $msiProducts) {
             Write-Info "Trovato: $($product.Name) (IdentifyingNumber: $($product.IdentifyingNumber))"
             try {
-                $product.Uninstall() | Out-Null
-                Write-Success "Disinstallato: $($product.Name)"
+                $result = Invoke-CimMethod -InputObject $product -MethodName Uninstall
+                if ($result.ReturnValue -eq 0) {
+                    Write-Success "Disinstallato: $($product.Name)"
+                } else {
+                    Write-ErrorMessage "Disinstallazione con codice $($result.ReturnValue) per $($product.Name)"
+                }
             } catch {
-                Write-ErrorMessage "Errore disinstallando $($product.Name): $_"
+                Write-ErrorMessage "Errore disinstallando $($product.Name) via CIM: $_"
+                try {
+                    $arguments = "/x $($product.IdentifyingNumber) /qn /norestart"
+                    $process = Start-Process -FilePath "msiexec.exe" -ArgumentList $arguments -Wait -PassThru
+                    if ($process.ExitCode -eq 0) {
+                        Write-Success "Disinstallato via msiexec: $($product.Name)"
+                    } else {
+                        Write-ErrorMessage "msiexec exit code $($process.ExitCode) per $($product.Name)"
+                    }
+                } catch {
+                    Write-ErrorMessage "Errore disinstallando $($product.Name) via msiexec: $_"
+                }
             }
         }
     } else {
