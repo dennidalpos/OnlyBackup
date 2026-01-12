@@ -1,5 +1,14 @@
 // Server Settings JavaScript
 
+// Variabili globali per gestione email
+let emailTemplates = null;
+let currentSettings = null;
+
+// Inizializzazione
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadEmailSettings();
+});
+
 // Gestione tab
 document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -355,3 +364,463 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// ===========================
+// EMAIL SETTINGS FUNCTIONS
+// ===========================
+
+async function loadEmailSettings() {
+    try {
+        const response = await fetch('/api/email/settings', {
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                window.location.href = '/';
+                return;
+            }
+            throw new Error('Errore caricamento impostazioni email');
+        }
+
+        currentSettings = await response.json();
+        populateEmailSettings(currentSettings);
+
+        const templatesResponse = await fetch('/api/email/templates', {
+            credentials: 'include'
+        });
+
+        if (templatesResponse.ok) {
+            emailTemplates = await templatesResponse.json();
+        }
+    } catch (error) {
+        console.error('Errore caricamento impostazioni:', error);
+        showMessage('error', 'Impossibile caricare le impostazioni email');
+    }
+}
+
+function populateEmailSettings(settings) {
+    document.getElementById('emailEnabled').checked = settings.enabled || false;
+    document.getElementById('smtpHost').value = settings.smtp?.host || '';
+    document.getElementById('smtpPort').value = settings.smtp?.port || 587;
+    document.getElementById('smtpSecure').checked = settings.smtp?.secure || false;
+    document.getElementById('authType').value = settings.smtp?.auth?.type || 'basic';
+    document.getElementById('smtpUser').value = settings.smtp?.auth?.user || '';
+    document.getElementById('smtpPass').value = settings.smtp?.auth?.pass === '********' ? '' : settings.smtp?.auth?.pass || '';
+    document.getElementById('oauth2User').value = settings.smtp?.auth?.user || '';
+    document.getElementById('oauth2ClientId').value = settings.smtp?.oauth2?.clientId || '';
+    document.getElementById('oauth2ClientSecret').value = settings.smtp?.oauth2?.clientSecret === '********' ? '' : settings.smtp?.oauth2?.clientSecret || '';
+    document.getElementById('oauth2RefreshToken').value = settings.smtp?.oauth2?.refreshToken === '********' ? '' : settings.smtp?.oauth2?.refreshToken || '';
+    document.getElementById('emailFrom').value = settings.from || '';
+    document.getElementById('emailRecipients').value = (settings.recipients || []).join('\n');
+
+    document.getElementById('eventBackupFailed').checked = settings.events?.backup_failed !== false;
+    document.getElementById('eventBackupPartial').checked = settings.events?.backup_partial !== false;
+    document.getElementById('eventBackupCritical').checked = settings.events?.backup_critical !== false;
+    document.getElementById('eventBackupWarning').checked = settings.events?.backup_warning !== false;
+    document.getElementById('eventAgentOffline').checked = settings.events?.agent_offline !== false;
+    document.getElementById('eventAgentOnline').checked = settings.events?.agent_online || false;
+
+    toggleAuthType();
+}
+
+function toggleAuthType() {
+    const authType = document.getElementById('authType').value;
+    const basicFields = document.getElementById('basicAuthFields');
+    const oauth2Fields = document.getElementById('oauth2Fields');
+
+    if (authType === 'oauth2') {
+        basicFields.classList.add('hidden');
+        oauth2Fields.classList.remove('hidden');
+    } else {
+        basicFields.classList.remove('hidden');
+        oauth2Fields.classList.add('hidden');
+    }
+}
+
+async function saveEmailSettings() {
+    try {
+        const authType = document.getElementById('authType').value;
+        const recipients = document.getElementById('emailRecipients').value
+            .split('\n')
+            .map(r => r.trim())
+            .filter(r => r);
+
+        const settings = {
+            enabled: document.getElementById('emailEnabled').checked,
+            smtp: {
+                host: document.getElementById('smtpHost').value,
+                port: parseInt(document.getElementById('smtpPort').value) || 587,
+                secure: document.getElementById('smtpSecure').checked,
+                auth: {
+                    type: authType,
+                    user: authType === 'oauth2' ? document.getElementById('oauth2User').value : document.getElementById('smtpUser').value,
+                    pass: authType === 'basic' ? document.getElementById('smtpPass').value : ''
+                },
+                oauth2: authType === 'oauth2' ? {
+                    clientId: document.getElementById('oauth2ClientId').value,
+                    clientSecret: document.getElementById('oauth2ClientSecret').value,
+                    refreshToken: document.getElementById('oauth2RefreshToken').value
+                } : {}
+            },
+            from: document.getElementById('emailFrom').value,
+            recipients: recipients,
+            events: {
+                backup_failed: document.getElementById('eventBackupFailed').checked,
+                backup_partial: document.getElementById('eventBackupPartial').checked,
+                backup_critical: document.getElementById('eventBackupCritical').checked,
+                backup_warning: document.getElementById('eventBackupWarning').checked,
+                agent_offline: document.getElementById('eventAgentOffline').checked,
+                agent_online: document.getElementById('eventAgentOnline').checked
+            }
+        };
+
+        const response = await fetch('/api/email/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(settings)
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Errore salvataggio impostazioni');
+        }
+
+        showMessage('success', 'Impostazioni email salvate con successo');
+        currentSettings = settings;
+    } catch (error) {
+        console.error('Errore salvataggio impostazioni:', error);
+        showMessage('error', error.message || 'Impossibile salvare le impostazioni');
+    }
+}
+
+async function testEmail() {
+    const recipient = prompt('Inserisci l\'indirizzo email di test:');
+    if (!recipient) return;
+
+    try {
+        const response = await fetch('/api/email/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ recipient })
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Errore invio email di test');
+        }
+
+        showMessage('success', 'Email di test inviata con successo. Controlla la casella di posta.');
+    } catch (error) {
+        console.error('Errore invio email di test:', error);
+        showMessage('error', error.message || 'Impossibile inviare email di test');
+    }
+}
+
+async function loadTemplate() {
+    const select = document.getElementById('templateSelect');
+    const eventType = select.value;
+    const editor = document.getElementById('templateEditor');
+    const actions = document.getElementById('templateActions');
+
+    if (!eventType) {
+        editor.classList.add('hidden');
+        actions.style.display = 'none';
+        return;
+    }
+
+    if (!emailTemplates) {
+        try {
+            const response = await fetch('/api/email/templates', {
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                emailTemplates = await response.json();
+            }
+        } catch (error) {
+            console.error('Errore caricamento template:', error);
+            showMessage('error', 'Impossibile caricare i template');
+            return;
+        }
+    }
+
+    const template = emailTemplates[eventType];
+    if (template) {
+        document.getElementById('templateSubject').value = template.subject || '';
+        document.getElementById('templateBody').value = template.body || '';
+        editor.classList.remove('hidden');
+        actions.style.display = 'flex';
+    }
+}
+
+async function saveTemplate() {
+    const select = document.getElementById('templateSelect');
+    const eventType = select.value;
+
+    if (!eventType) {
+        showMessage('warning', 'Seleziona un template da salvare');
+        return;
+    }
+
+    try {
+        const subject = document.getElementById('templateSubject').value;
+        const body = document.getElementById('templateBody').value;
+
+        const templates = {
+            [eventType]: {
+                subject: subject,
+                body: body
+            }
+        };
+
+        const response = await fetch('/api/email/templates', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(templates)
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Errore salvataggio template');
+        }
+
+        if (emailTemplates) {
+            emailTemplates[eventType] = { subject, body };
+        }
+
+        showMessage('success', 'Template salvato con successo');
+    } catch (error) {
+        console.error('Errore salvataggio template:', error);
+        showMessage('error', error.message || 'Impossibile salvare il template');
+    }
+}
+
+async function resetTemplate() {
+    const select = document.getElementById('templateSelect');
+    const eventType = select.value;
+
+    if (!eventType) {
+        return;
+    }
+
+    if (!confirm('Vuoi davvero ripristinare il template di default? Le modifiche attuali andranno perse.')) {
+        return;
+    }
+
+    try {
+        emailTemplates = null;
+
+        const response = await fetch('/api/email/templates', {
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            throw new Error('Errore caricamento template default');
+        }
+
+        emailTemplates = await response.json();
+
+        await loadTemplate();
+
+        showMessage('warning', 'Template ripristinato. Clicca su "Salva Template" per confermare il ripristino.');
+    } catch (error) {
+        console.error('Errore reset template:', error);
+        showMessage('error', 'Impossibile ripristinare il template');
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ===========================
+// IMPORT/EXPORT FUNCTIONS
+// ===========================
+
+async function exportConfig() {
+    // Mostra dialog con checkbox per selezionare sezioni
+    const sections = await showExportDialog();
+    if (!sections || sections.length === 0) return;
+
+    try {
+        const sectionsParam = sections.join(',');
+        const response = await fetch(`/api/config/export?sections=${sectionsParam}`, {
+            credentials: 'include'
+        });
+        const config = await response.json();
+
+        if (response.ok) {
+            const dataStr = JSON.stringify(config, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `onlybackup-config-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            const jobsCount = config.jobs?.length || 0;
+            const usersCount = config.users?.length || 0;
+            showMessage('success', `Export completato: ${sections.join(', ')} (${jobsCount} job, ${usersCount} utenti)`);
+        } else {
+            showMessage('error', config.error || 'Impossibile esportare la configurazione');
+        }
+    } catch (error) {
+        console.error('Errore export configurazione:', error);
+        showMessage('error', 'Errore di connessione al server');
+    }
+}
+
+function showExportDialog() {
+    return new Promise((resolve) => {
+        const html = `
+            <div style="padding: 20px;">
+                <h3 style="margin: 0 0 20px 0;">Seleziona cosa esportare</h3>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" value="jobs" checked style="width: 18px; height: 18px;"> Job
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" value="users" checked style="width: 18px; height: 18px;"> Utenti
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" value="clients" checked style="width: 18px; height: 18px;"> Client
+                    </label>
+                </div>
+                <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
+                    <button class="btn-cancel btn btn-outline btn-small">Annulla</button>
+                    <button class="btn-confirm btn btn-primary btn-small">Esporta</button>
+                </div>
+            </div>
+        `;
+
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.innerHTML = `<div class="modal-backdrop"></div><div class="modal-content">${html}</div>`;
+        document.body.appendChild(modal);
+
+        const cancel = () => {
+            document.body.removeChild(modal);
+            resolve(null);
+        };
+
+        modal.querySelector('.btn-cancel').onclick = cancel;
+        modal.querySelector('.modal-backdrop').onclick = cancel;
+
+        modal.querySelector('.btn-confirm').onclick = () => {
+            const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
+            const sections = Array.from(checkboxes).map(cb => cb.value);
+            document.body.removeChild(modal);
+            resolve(sections);
+        };
+    });
+}
+
+async function importConfig() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+            const config = JSON.parse(text);
+
+            // Mostra dialog con checkbox per selezionare sezioni da importare
+            const availableSections = config.sections || ['jobs', 'users', 'clients'];
+            const sections = await showImportDialog(config, availableSections);
+
+            if (!sections || sections.length === 0) return;
+
+            const response = await fetch('/api/config/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ config, sections })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                showMessage('success', `Import completato: ${data.imported.jobs} job, ${data.imported.users} utenti`);
+                // Ricarica la pagina dopo 2 secondi per aggiornare i dati
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                showMessage('error', data.error || 'Impossibile importare la configurazione');
+            }
+        } catch (error) {
+            console.error('Errore import configurazione:', error);
+            showMessage('error', 'File non valido o errore di connessione');
+        }
+    };
+    input.click();
+}
+
+function showImportDialog(config, availableSections) {
+    return new Promise((resolve) => {
+        const jobsCount = config.jobs?.length || 0;
+        const usersCount = config.users?.length || 0;
+        const clientsCount = config.clients?.length || 0;
+
+        const checkboxes = [];
+        if (availableSections.includes('jobs')) {
+            checkboxes.push(`<label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="jobs" checked style="width: 18px; height: 18px;"> Job (${jobsCount})</label>`);
+        }
+        if (availableSections.includes('users')) {
+            checkboxes.push(`<label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="users" checked style="width: 18px; height: 18px;"> Utenti (${usersCount})</label>`);
+        }
+        if (availableSections.includes('clients')) {
+            checkboxes.push(`<label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="clients" checked style="width: 18px; height: 18px;"> Client (${clientsCount})</label>`);
+        }
+
+        const html = `
+            <div style="padding: 20px;">
+                <h3 style="margin: 0 0 20px 0;">Seleziona cosa importare</h3>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    ${checkboxes.join('')}
+                </div>
+                <p style="margin-top: 16px; color: var(--text-muted); font-size: 0.875rem;">
+                    ⚠️ Gli elementi esistenti con lo stesso ID verranno sovrascritti
+                </p>
+                <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
+                    <button class="btn-cancel btn btn-outline btn-small">Annulla</button>
+                    <button class="btn-confirm btn btn-primary btn-small">Importa</button>
+                </div>
+            </div>
+        `;
+
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.innerHTML = `<div class="modal-backdrop"></div><div class="modal-content">${html}</div>`;
+        document.body.appendChild(modal);
+
+        const cancel = () => {
+            document.body.removeChild(modal);
+            resolve(null);
+        };
+
+        modal.querySelector('.btn-cancel').onclick = cancel;
+        modal.querySelector('.modal-backdrop').onclick = cancel;
+
+        modal.querySelector('.btn-confirm').onclick = () => {
+            const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
+            const sections = Array.from(checkboxes).map(cb => cb.value);
+            document.body.removeChild(modal);
+            resolve(sections);
+        };
+    });
+}
