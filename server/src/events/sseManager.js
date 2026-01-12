@@ -15,7 +15,9 @@ class SSEManager {
       'stats_updated',
       'job_created',
       'job_updated',
-      'job_deleted'
+      'job_deleted',
+      'alert_created',
+      'alert_resolved'
     ];
 
     events.forEach(eventName => {

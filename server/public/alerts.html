@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnlyBackup - Alert di Sistema</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="email-settings-page">
+        <div class="settings-container">
+            <div class="settings-header">
+                <h1>🔔 Alert di Sistema</h1>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <span id="alertCount" class="badge"></span>
+                    <a href="/" class="btn btn-secondary">← Torna alla Dashboard</a>
+                </div>
+            </div>
+
+            <div id="statusMessage"></div>
+
+            <div class="settings-content">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="active">Alert Attivi</button>
+                    <button class="tab-btn" data-tab="history">Storico</button>
+                </div>
+
+                <!-- Tab Alert Attivi -->
+                <div id="activeTab" class="tab-content active">
+                    <div id="activeAlertsContainer">
+                        <div class="loading-spinner">Caricamento...</div>
+                    </div>
+                </div>
+
+                <!-- Tab Storico -->
+                <div id="historyTab" class="tab-content">
+                    <div id="historyAlertsContainer">
+                        <div class="loading-spinner">Caricamento...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/alerts.js"></script>
+</body>
+</html>

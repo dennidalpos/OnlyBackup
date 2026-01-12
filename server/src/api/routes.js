@@ -752,6 +752,12 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     }
 
     if (wasOffline && heartbeat.status === 'online') {
+      // Agent tornato online - risolvi alert offline
+      const alertService = req.app.get('alertService');
+      if (alertService) {
+        alertService.resolveAgentOfflineAlert(hostname);
+      }
+
       const emailService = req.app.get('emailService');
       if (emailService) {
         const jobs = storage.loadAllJobs()
@@ -1507,26 +1513,47 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
 
   router.get('/api/config/export', requireAuth, (req, res) => {
     try {
-      const allJobs = storage.loadAllJobs();
-      const users = authManager.getAllUsers();
-      const heartbeats = storage.loadAllAgentHeartbeats();
-
-      const clientHostnames = new Set();
-      allJobs.forEach(job => clientHostnames.add(job.client_hostname));
-      heartbeats.forEach(hb => clientHostnames.add(hb.hostname));
+      // Sezioni richieste (default: tutte)
+      const sectionsParam = req.query.sections || 'jobs,users,clients';
+      const sections = sectionsParam.split(',').map(s => s.trim());
 
       const config = {
         version: '1.0',
         exportDate: new Date().toISOString(),
-        clients: Array.from(clientHostnames),
-        jobs: allJobs,
-        users: users.map(u => ({
+        sections: []
+      };
+
+      // Export jobs
+      if (sections.includes('jobs')) {
+        const allJobs = storage.loadAllJobs();
+        config.jobs = allJobs;
+        config.sections.push('jobs');
+      }
+
+      // Export users
+      if (sections.includes('users')) {
+        const users = authManager.getAllUsers();
+        config.users = users.map(u => ({
           username: u.username,
           passwordHash: u.passwordHash,
           role: u.role,
           mustChangePassword: u.mustChangePassword
-        }))
-      };
+        }));
+        config.sections.push('users');
+      }
+
+      // Export clients (heartbeats)
+      if (sections.includes('clients')) {
+        const heartbeats = storage.loadAllAgentHeartbeats();
+        const allJobs = storage.loadAllJobs();
+
+        const clientHostnames = new Set();
+        allJobs.forEach(job => clientHostnames.add(job.client_hostname));
+        heartbeats.forEach(hb => clientHostnames.add(hb.hostname));
+
+        config.clients = Array.from(clientHostnames);
+        config.sections.push('clients');
+      }
 
       logger.logApiCall('GET', '/api/config/export', req.username, 200);
       res.json(config);
@@ -1538,15 +1565,19 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
 
   router.post('/api/config/import', requireAuth, async (req, res) => {
     try {
-      const config = req.body;
+      const { config, sections } = req.body;
 
       if (!config || !config.version) {
         return res.status(400).json({ error: 'Configurazione non valida' });
       }
 
-      let imported = { jobs: 0, users: 0 };
+      // Sezioni da importare (default: tutte le presenti nel config)
+      const sectionsToImport = sections || config.sections || ['jobs', 'users', 'clients'];
 
-      if (Array.isArray(config.users)) {
+      let imported = { jobs: 0, users: 0, clients: 0 };
+
+      // Import users
+      if (sectionsToImport.includes('users') && Array.isArray(config.users)) {
         for (const user of config.users) {
           if (user.username && user.passwordHash) {
             const result = await authManager.importUser(user);
@@ -1555,7 +1586,8 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         }
       }
 
-      if (Array.isArray(config.jobs)) {
+      // Import jobs
+      if (sectionsToImport.includes('jobs') && Array.isArray(config.jobs)) {
         for (const job of config.jobs) {
           if (job.job_id && job.client_hostname) {
             const result = storage.saveJob(job);
@@ -1564,10 +1596,15 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         }
       }
 
+      // Import clients (count only)
+      if (sectionsToImport.includes('clients') && Array.isArray(config.clients)) {
+        imported.clients = config.clients.length;
+      }
+
       await scheduler.reloadJobs();
 
       logger.logApiCall('POST', '/api/config/import', req.username, 200);
-      res.json({ success: true, imported });
+      res.json({ success: true, imported, sections: sectionsToImport });
     } catch (error) {
       logger.error('Errore import configurazione', { error: error.message });
       res.status(500).json({ error: 'Errore interno' });
@@ -1889,6 +1926,118 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       res.json({ success: true, messageId: result.messageId });
     } catch (error) {
       logger.error('Errore invio email di test', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  // Alerts API
+  router.get('/api/alerts', requireAuth, (req, res) => {
+    try {
+      const alertService = req.app.get('alertService');
+      if (!alertService) {
+        return res.status(500).json({ error: 'Servizio alert non disponibile' });
+      }
+
+      const alerts = alertService.getActiveAlerts();
+      logger.logApiCall('GET', '/api/alerts', req.username, 200);
+      res.json({ alerts });
+    } catch (error) {
+      logger.error('Errore recupero alerts', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  router.get('/api/alerts/history', requireAuth, (req, res) => {
+    try {
+      const alertService = req.app.get('alertService');
+      if (!alertService) {
+        return res.status(500).json({ error: 'Servizio alert non disponibile' });
+      }
+
+      const alerts = alertService.getAllAlerts();
+      logger.logApiCall('GET', '/api/alerts/history', req.username, 200);
+      res.json({ alerts });
+    } catch (error) {
+      logger.error('Errore recupero storico alerts', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  router.post('/api/alerts/:alertId/resolve', requireAuth, (req, res) => {
+    try {
+      const alertService = req.app.get('alertService');
+      if (!alertService) {
+        return res.status(500).json({ error: 'Servizio alert non disponibile' });
+      }
+
+      const { alertId } = req.params;
+      const result = alertService.resolveAlert(alertId);
+
+      if (!result) {
+        return res.status(404).json({ error: 'Alert non trovato' });
+      }
+
+      logger.logApiCall('POST', `/api/alerts/${alertId}/resolve`, req.username, 200);
+      res.json({ success: true });
+    } catch (error) {
+      logger.error('Errore risoluzione alert', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  router.delete('/api/alerts/:alertId', requireAuth, (req, res) => {
+    try {
+      const alertService = req.app.get('alertService');
+      if (!alertService) {
+        return res.status(500).json({ error: 'Servizio alert non disponibile' });
+      }
+
+      const { alertId } = req.params;
+      const result = alertService.deleteAlert(alertId);
+
+      if (!result) {
+        return res.status(404).json({ error: 'Alert non trovato' });
+      }
+
+      logger.logApiCall('DELETE', `/api/alerts/${alertId}`, req.username, 200);
+      res.json({ success: true });
+    } catch (error) {
+      logger.error('Errore eliminazione alert', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  // Server management API
+  router.post('/api/server/reboot', requireAuth, async (req, res) => {
+    try {
+      // Solo admin possono riavviare il server
+      if (req.user && req.user.role !== 'admin') {
+        logger.logApiCall('POST', '/api/server/reboot', req.username, 403);
+        return res.status(403).json({ error: 'Accesso negato. Solo amministratori.' });
+      }
+
+      const serverService = req.app.get('serverService');
+      if (!serverService) {
+        return res.status(500).json({ error: 'Servizio server non disponibile' });
+      }
+
+      // Audit event
+      logger.warn('Riavvio server richiesto', {
+        user: req.username,
+        ip: req.ip,
+        timestamp: new Date().toISOString()
+      });
+
+      // Riavvio asincrono - risposta immediata al client
+      const result = await serverService.restartServer();
+
+      logger.logApiCall('POST', '/api/server/reboot', req.username, 200);
+
+      // Risposta immediata
+      res.json(result);
+
+    } catch (error) {
+      logger.error('Errore riavvio server', { error: error.message });
       res.status(500).json({ error: 'Errore interno' });
     }
   });

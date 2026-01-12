@@ -38,11 +38,12 @@ const BACKUP_COMPLETE_MARKER = '.backup_complete';
 const BACKUP_INFO_FILE = 'retention_info.json';
 
 class JobExecutor {
-  constructor(storage, logger, config, emailService = null) {
+  constructor(storage, logger, config, emailService = null, alertService = null) {
     this.storage = storage;
     this.logger = logger;
     this.config = config;
     this.emailService = emailService;
+    this.alertService = alertService;
     this.runningJobs = new Map();
   }
 
@@ -228,6 +229,18 @@ class JobExecutor {
 
       this.storage.saveRun(run);
 
+      // Gestione alert
+      if (this.alertService) {
+        if (run.status === 'failed') {
+          this.alertService.createBackupFailedAlert(run, job);
+        } else if (run.status === 'partial') {
+          this.alertService.createBackupPartialAlert(run, job);
+        } else if (run.status === 'success') {
+          // Risolvi eventuali alert precedenti per questo job
+          this.alertService.resolveBackupAlert(job.client_hostname, job.job_id);
+        }
+      }
+
       if (this.emailService && (run.status === 'failed' || run.status === 'partial')) {
         this.emailService.notifyBackupStatus(run, job).catch(err => {
           this.logger.warn('Errore invio notifica email backup', { error: err.message });
@@ -265,6 +278,11 @@ class JobExecutor {
       run.retention_status = { applied: false, reason: 'Job fallito' };
       this.storage.saveRun(run);
       await this.rollbackFailedRun(job, run, error);
+
+      // Crea alert per backup fallito
+      if (this.alertService) {
+        this.alertService.createBackupFailedAlert(run, job);
+      }
 
       if (this.emailService) {
         this.emailService.notifyBackupStatus(run, job).catch(err => {

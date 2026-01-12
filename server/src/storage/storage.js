@@ -32,6 +32,7 @@ class Storage {
       path.join(this.dataRoot, 'state', 'runs'),
       path.join(this.dataRoot, 'state', 'agents'),
       path.join(this.dataRoot, 'state', 'scheduler'),
+      path.join(this.dataRoot, 'state', 'alerts'),
       path.join(this.dataRoot, 'users'),
       path.join(this.dataRoot, 'logs')
     ];
@@ -503,6 +504,139 @@ class Storage {
       return true;
     } catch (error) {
       this.logger.error('Errore salvataggio stato scheduler', { error: error.message });
+      return false;
+    }
+  }
+
+  // Alert Management
+  loadAlert(alertId) {
+    const alertPath = path.join(this.dataRoot, 'state', 'alerts', `${alertId}.json`);
+    try {
+      if (!fs.existsSync(alertPath)) {
+        return null;
+      }
+      const data = fs.readFileSync(alertPath, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      this.logger.error('Errore lettura alert', { alertId, error: error.message });
+      return null;
+    }
+  }
+
+  saveAlert(alert) {
+    const alertPath = path.join(this.dataRoot, 'state', 'alerts', `${alert.alert_id}.json`);
+    try {
+      fs.writeFileSync(alertPath, JSON.stringify(alert, null, 2), 'utf8');
+
+      // Invalidate cache
+      cacheManager.invalidate('active_alerts');
+      cacheManager.invalidate('all_alerts');
+
+      return true;
+    } catch (error) {
+      this.logger.error('Errore salvataggio alert', { alertId: alert.alert_id, error: error.message });
+      return false;
+    }
+  }
+
+  loadAllAlerts(onlyActive = false) {
+    const cacheKey = onlyActive ? 'active_alerts' : 'all_alerts';
+
+    // Check cache
+    const cached = cacheManager.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const alertsDir = path.join(this.dataRoot, 'state', 'alerts');
+    const alerts = [];
+
+    try {
+      if (!fs.existsSync(alertsDir)) {
+        return alerts;
+      }
+
+      const files = fs.readdirSync(alertsDir);
+      for (const file of files) {
+        if (path.extname(file) === '.json') {
+          const alertId = path.basename(file, '.json');
+          const alert = this.loadAlert(alertId);
+          if (alert) {
+            if (!onlyActive || !alert.resolved) {
+              alerts.push(alert);
+            }
+          }
+        }
+      }
+
+      // Sort by timestamp descending (newest first)
+      alerts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    } catch (error) {
+      this.logger.error('Errore caricamento alerts', { error: error.message });
+    }
+
+    // Cache for 10 seconds
+    cacheManager.set(cacheKey, alerts, 10000);
+
+    return alerts;
+  }
+
+  resolveAlert(alertId, resolvedTimestamp = null) {
+    const alert = this.loadAlert(alertId);
+    if (!alert) {
+      return false;
+    }
+
+    alert.resolved = true;
+    alert.resolved_timestamp = resolvedTimestamp || new Date().toISOString();
+    return this.saveAlert(alert);
+  }
+
+  deleteAlert(alertId) {
+    const alertPath = path.join(this.dataRoot, 'state', 'alerts', `${alertId}.json`);
+    try {
+      if (fs.existsSync(alertPath)) {
+        fs.unlinkSync(alertPath);
+      }
+
+      // Invalidate cache
+      cacheManager.invalidate('active_alerts');
+      cacheManager.invalidate('all_alerts');
+
+      return true;
+    } catch (error) {
+      this.logger.error('Errore eliminazione alert', { alertId, error: error.message });
+      return false;
+    }
+  }
+
+  findAlertByKey(type, key) {
+    const alerts = this.loadAllAlerts(true);
+    return alerts.find(alert => alert.type === type && alert.key === key);
+  }
+
+  // Session Management
+  loadSessions() {
+    const sessionsPath = path.join(this.dataRoot, 'state', 'sessions.json');
+    try {
+      if (!fs.existsSync(sessionsPath)) {
+        return {};
+      }
+      const data = fs.readFileSync(sessionsPath, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      this.logger.error('Errore lettura sessioni', { error: error.message });
+      return {};
+    }
+  }
+
+  saveSessions(sessions) {
+    const sessionsPath = path.join(this.dataRoot, 'state', 'sessions.json');
+    try {
+      fs.writeFileSync(sessionsPath, JSON.stringify(sessions, null, 2), 'utf8');
+      return true;
+    } catch (error) {
+      this.logger.error('Errore salvataggio sessioni', { error: error.message });
       return false;
     }
   }

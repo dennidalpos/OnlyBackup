@@ -44,6 +44,14 @@ class EventBus extends EventEmitter {
   emitJobDeleted(jobId) {
     this.emit('job_deleted', { job_id: jobId });
   }
+
+  emitAlertCreated(alert) {
+    this.emit('alert_created', alert);
+  }
+
+  emitAlertResolved(alert) {
+    this.emit('alert_resolved', alert);
+  }
 }
 
 module.exports = new EventBus();

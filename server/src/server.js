@@ -10,6 +10,8 @@ const AuthManager = require('./auth/auth');
 const JobExecutor = require('./scheduler/jobExecutor');
 const Scheduler = require('./scheduler/scheduler');
 const EmailService = require('./services/emailService');
+const AlertService = require('./services/alertService');
+const ServerService = require('./services/serverService');
 const setupRoutes = require('./api/routes');
 
 class OnlyBackupServer {
@@ -19,6 +21,8 @@ class OnlyBackupServer {
     this.storage = null;
     this.authManager = null;
     this.emailService = null;
+    this.alertService = null;
+    this.serverService = null;
     this.jobExecutor = null;
     this.scheduler = null;
     this.app = null;
@@ -38,7 +42,11 @@ class OnlyBackupServer {
 
       this.emailService = new EmailService(this.storage, this.logger);
 
-      this.jobExecutor = new JobExecutor(this.storage, this.logger, this.config, this.emailService);
+      this.alertService = new AlertService(this.storage, this.logger);
+
+      this.serverService = new ServerService(this.logger);
+
+      this.jobExecutor = new JobExecutor(this.storage, this.logger, this.config, this.emailService, this.alertService);
 
       this.scheduler = new Scheduler(this.storage, this.logger, this.config, this.jobExecutor);
 
@@ -140,6 +148,8 @@ class OnlyBackupServer {
     this.app.use(express.static(path.join(__dirname, '../public')));
 
     this.app.set('emailService', this.emailService);
+    this.app.set('alertService', this.alertService);
+    this.app.set('serverService', this.serverService);
 
     setupRoutes(this.app, this.authManager, this.storage, this.scheduler, this.logger);
 
@@ -207,14 +217,21 @@ class OnlyBackupServer {
 
         if (isOffline && hb.status !== 'offline') {
           const jobs = this.storage.loadAllJobs()
-            .filter(j => j.client_hostname === hb.hostname)
-            .map(j => j.job_id);
+            .filter(j => j.client_hostname === hb.hostname);
+
+          // Crea alert per agent offline
+          if (this.alertService) {
+            this.alertService.createAgentOfflineAlert(
+              hb.hostname,
+              jobs.map(j => j.job_id)
+            );
+          }
 
           this.emailService.notifyAgentStatus(
             hb.hostname,
             'offline',
             hb.timestamp,
-            jobs
+            jobs.map(j => j.job_id)
           ).catch(err => {
             this.logger.warn('Errore invio notifica email agent offline', { error: err.message });
           });

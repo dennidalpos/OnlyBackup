@@ -8,6 +8,7 @@ class AuthManager {
     this.config = config;
     this.sessions = new Map();
     this.initDefaultAdmin();
+    this.loadSessions();
   }
 
   initDefaultAdmin() {
@@ -25,6 +26,26 @@ class AuthManager {
       this.storage.saveUsers([defaultAdmin]);
       this.logger.info('Utente admin di default creato', { username: 'admin' });
     }
+  }
+
+  loadSessions() {
+    const sessions = this.storage.loadSessions();
+    if (sessions) {
+      // Converti da oggetto a Map
+      Object.entries(sessions).forEach(([sessionId, session]) => {
+        this.sessions.set(sessionId, session);
+      });
+      this.logger.info('Sessioni ripristinate', { count: this.sessions.size });
+    }
+  }
+
+  saveSessions() {
+    // Converti Map a oggetto per JSON
+    const sessionsObj = {};
+    this.sessions.forEach((session, sessionId) => {
+      sessionsObj[sessionId] = session;
+    });
+    this.storage.saveSessions(sessionsObj);
   }
 
   async authenticate(username, password) {
@@ -46,9 +67,13 @@ class AuthManager {
     const sessionId = uuidv4();
     this.sessions.set(sessionId, {
       username: user.username,
+      role: user.role,
       createdAt: Date.now(),
       lastAccess: Date.now()
     });
+
+    // Persisti sessioni su disco
+    this.saveSessions();
 
     this.logger.logAuthAttempt(username, true);
 
@@ -73,19 +98,29 @@ class AuthManager {
 
     if (now - session.lastAccess > timeout) {
       this.sessions.delete(sessionId);
+      this.saveSessions();
       return { valid: false, reason: 'session_expired' };
     }
 
     session.lastAccess = now;
 
+    // Salva sessioni periodicamente (ogni validazione sarebbe troppo, solo ogni 5 minuti)
+    const lastSave = session.lastSave || 0;
+    if (now - lastSave > 300000) { // 5 minuti
+      session.lastSave = now;
+      this.saveSessions();
+    }
+
     return {
       valid: true,
-      username: session.username
+      username: session.username,
+      role: session.role
     };
   }
 
   logout(sessionId) {
     this.sessions.delete(sessionId);
+    this.saveSessions();
     this.logger.debug('Logout effettuato', { sessionId });
   }
 

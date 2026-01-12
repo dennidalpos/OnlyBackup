@@ -1,0 +1,26 @@
+{
+  "backup_failed": {
+    "subject": "[OnlyBackup] Backup fallito - {{hostname}} - {{job_id}}",
+    "body": "Backup fallito per il client {{hostname}}.\n\nJob ID: {{job_id}}\nRun ID: {{run_id}}\nOrario: {{timestamp}}\nStato: {{status}}\n\n{{#if errors}}\nErrori:\n{{#each errors}}\n- {{this.message}}\n{{/each}}\n{{/if}}\n\n{{#if target_path}}\nPercorso destinazione: {{target_path}}\n{{/if}}\n\nQuesto è un messaggio automatico generato da OnlyBackup."
+  },
+  "backup_partial": {
+    "subject": "[OnlyBackup] Backup parziale - {{hostname}} - {{job_id}}",
+    "body": "Backup completato parzialmente per il client {{hostname}}.\n\nJob ID: {{job_id}}\nRun ID: {{run_id}}\nOrario: {{timestamp}}\nStato: {{status}}\n\n{{#if warnings}}\nAvvisi:\n{{#each warnings}}\n- {{this.message}}\n{{/each}}\n{{/if}}\n\n{{#if stats}}\nStatistiche:\n- File totali: {{stats.total_files}}\n- File copiati: {{stats.copied_files}}\n- File saltati: {{stats.skipped_files}}\n- File falliti: {{stats.failed_files}}\n{{/if}}\n\nQuesto è un messaggio automatico generato da OnlyBackup."
+  },
+  "backup_critical": {
+    "subject": "[OnlyBackup] CRITICO - Errore backup - {{hostname}} - {{job_id}}",
+    "body": "ERRORE CRITICO durante il backup per il client {{hostname}}.\n\nJob ID: {{job_id}}\nRun ID: {{run_id}}\nOrario: {{timestamp}}\n\nDettagli errore:\n{{error_message}}\n\nAzione richiesta: verificare immediatamente lo stato del client e del job.\n\nQuesto è un messaggio automatico generato da OnlyBackup."
+  },
+  "backup_warning": {
+    "subject": "[OnlyBackup] Avviso backup - {{hostname}} - {{job_id}}",
+    "body": "Avviso durante il backup per il client {{hostname}}.\n\nJob ID: {{job_id}}\nRun ID: {{run_id}}\nOrario: {{timestamp}}\n\n{{#if warnings}}\nAvvisi:\n{{#each warnings}}\n- {{this.message}}\n{{/each}}\n{{/if}}\n\nQuesto è un messaggio automatico generato da OnlyBackup."
+  },
+  "agent_offline": {
+    "subject": "[OnlyBackup] Agent offline - {{hostname}}",
+    "body": "L'agent per il client {{hostname}} è risultato offline.\n\nUltimo contatto: {{last_seen}}\nDurata offline: {{offline_duration}}\n\n{{#if jobs}}\nJob interessati:\n{{#each jobs}}\n- {{this}}\n{{/each}}\n{{/if}}\n\nAzione richiesta: verificare lo stato del client.\n\nQuesto è un messaggio automatico generato da OnlyBackup."
+  },
+  "agent_online": {
+    "subject": "[OnlyBackup] Agent tornato online - {{hostname}}",
+    "body": "L'agent per il client {{hostname}} è tornato online.\n\nOra online: {{timestamp}}\nDurata offline: {{offline_duration}}\n\nIl client è nuovamente disponibile per i backup schedulati.\n\nQuesto è un messaggio automatico generato da OnlyBackup."
+  }
+}

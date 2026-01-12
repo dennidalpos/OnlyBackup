@@ -2627,8 +2627,13 @@ class OnlyBackupApp {
     }
 
     async exportConfig() {
+        // Mostra dialog con checkbox per selezionare sezioni
+        const sections = await this.showExportDialog();
+        if (!sections || sections.length === 0) return;
+
         try {
-            const response = await fetch('/api/config/export');
+            const sectionsParam = sections.join(',');
+            const response = await fetch(`/api/config/export?sections=${sectionsParam}`);
             const config = await response.json();
 
             if (response.ok) {
@@ -2643,7 +2648,9 @@ class OnlyBackupApp {
                 document.body.removeChild(link);
                 URL.revokeObjectURL(url);
 
-                this.showToast('success', 'Export completato', `Configurazione esportata (${config.jobs.length} job, ${config.users.length} utenti)`);
+                const jobsCount = config.jobs?.length || 0;
+                const usersCount = config.users?.length || 0;
+                this.showToast('success', 'Export completato', `Esportate sezioni: ${sections.join(', ')} (${jobsCount} job, ${usersCount} utenti)`);
             } else {
                 this.showToast('error', 'Errore', config.error || 'Impossibile esportare la configurazione');
             }
@@ -2651,6 +2658,52 @@ class OnlyBackupApp {
             console.error('Errore export configurazione:', error);
             this.showToast('error', 'Errore', 'Errore di connessione al server');
         }
+    }
+
+    showExportDialog() {
+        return new Promise((resolve) => {
+            const html = `
+                <div style="padding: 20px;">
+                    <h3 style="margin: 0 0 20px 0;">Seleziona cosa esportare</h3>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <label style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" value="jobs" checked> Job
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" value="users" checked> Utenti
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" value="clients" checked> Client
+                        </label>
+                    </div>
+                    <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
+                        <button class="btn-cancel btn btn-outline btn-small">Annulla</button>
+                        <button class="btn-confirm btn btn-primary btn-small">Esporta</button>
+                    </div>
+                </div>
+            `;
+
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.style.display = 'flex';
+            modal.innerHTML = `<div class="modal-backdrop"></div><div class="modal-content">${html}</div>`;
+            document.body.appendChild(modal);
+
+            const cancel = () => {
+                document.body.removeChild(modal);
+                resolve(null);
+            };
+
+            modal.querySelector('.btn-cancel').onclick = cancel;
+            modal.querySelector('.modal-backdrop').onclick = cancel;
+
+            modal.querySelector('.btn-confirm').onclick = () => {
+                const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
+                const sections = Array.from(checkboxes).map(cb => cb.value);
+                document.body.removeChild(modal);
+                resolve(sections);
+            };
+        });
     }
 
     async importConfig() {
@@ -2665,14 +2718,16 @@ class OnlyBackupApp {
                 const text = await file.text();
                 const config = JSON.parse(text);
 
-                if (!confirm(`Importare configurazione?\n\n- ${config.jobs?.length || 0} job\n- ${config.users?.length || 0} utenti\n\nATTENZIONE: Gli elementi esistenti con lo stesso ID verranno sovrascritti.`)) {
-                    return;
-                }
+                // Mostra dialog con checkbox per selezionare sezioni da importare
+                const availableSections = config.sections || ['jobs', 'users', 'clients'];
+                const sections = await this.showImportDialog(config, availableSections);
+
+                if (!sections || sections.length === 0) return;
 
                 const response = await fetch('/api/config/import', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(config)
+                    body: JSON.stringify({ config, sections })
                 });
 
                 const data = await response.json();
@@ -2692,6 +2747,62 @@ class OnlyBackupApp {
             }
         };
         input.click();
+    }
+
+    showImportDialog(config, availableSections) {
+        return new Promise((resolve) => {
+            const jobsCount = config.jobs?.length || 0;
+            const usersCount = config.users?.length || 0;
+            const clientsCount = config.clients?.length || 0;
+
+            const checkboxes = [];
+            if (availableSections.includes('jobs')) {
+                checkboxes.push(`<label><input type="checkbox" value="jobs" checked> Job (${jobsCount})</label>`);
+            }
+            if (availableSections.includes('users')) {
+                checkboxes.push(`<label><input type="checkbox" value="users" checked> Utenti (${usersCount})</label>`);
+            }
+            if (availableSections.includes('clients')) {
+                checkboxes.push(`<label><input type="checkbox" value="clients" checked> Client (${clientsCount})</label>`);
+            }
+
+            const html = `
+                <div style="padding: 20px;">
+                    <h3 style="margin: 0 0 20px 0;">Seleziona cosa importare</h3>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        ${checkboxes.join('')}
+                    </div>
+                    <p style="margin-top: 16px; color: var(--text-muted); font-size: 0.875rem;">
+                        ⚠️ Gli elementi esistenti con lo stesso ID verranno sovrascritti
+                    </p>
+                    <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
+                        <button class="btn-cancel btn btn-outline btn-small">Annulla</button>
+                        <button class="btn-confirm btn btn-primary btn-small">Importa</button>
+                    </div>
+                </div>
+            `;
+
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.style.display = 'flex';
+            modal.innerHTML = `<div class="modal-backdrop"></div><div class="modal-content">${html}</div>`;
+            document.body.appendChild(modal);
+
+            const cancel = () => {
+                document.body.removeChild(modal);
+                resolve(null);
+            };
+
+            modal.querySelector('.btn-cancel').onclick = cancel;
+            modal.querySelector('.modal-backdrop').onclick = cancel;
+
+            modal.querySelector('.btn-confirm').onclick = () => {
+                const checkboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
+                const sections = Array.from(checkboxes).map(cb => cb.value);
+                document.body.removeChild(modal);
+                resolve(sections);
+            };
+        });
     }
 
     filterClients(searchTerm) {

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnlyBackup - Impostazioni Server</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/email-settings-styles.css">
+</head>
+<body>
+    <div class="email-settings-page">
+        <div class="settings-container">
+            <div class="settings-header">
+                <h1>⚙️ Impostazioni Server</h1>
+                <a href="/" class="btn btn-secondary">← Torna alla Dashboard</a>
+            </div>
+
+            <div id="statusMessage"></div>
+
+            <div class="settings-content">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="email">Notifiche Email</button>
+                    <button class="tab-btn" data-tab="maintenance">Manutenzione</button>
+                    <button class="tab-btn" data-tab="server">Server</button>
+                </div>
+
+                <!-- Tab Email (da email-settings.html) -->
+                <div id="emailTab" class="tab-content active">
+                    <iframe src="/email-settings.html" style="width: 100%; height: calc(100vh - 250px); border: none;"></iframe>
+                </div>
+
+                <!-- Tab Manutenzione -->
+                <div id="maintenanceTab" class="tab-content">
+                    <div class="form-section">
+                        <h4>Gestione Log</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                            Elimina tutti i log di backup salvati. I job e la loro configurazione non verranno eliminati.
+                        </p>
+                        <button type="button" class="btn btn-danger" onclick="deleteAllLogs()">
+                            🗑️ Elimina Tutti i Log
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab Server -->
+                <div id="serverTab" class="tab-content">
+                    <div class="form-section">
+                        <h4>Riavvio Server</h4>
+                        <div class="info-box">
+                            <p>
+                                <strong>Attenzione:</strong> Il riavvio del server interromperà tutti i backup in esecuzione.
+                                Assicurati che non ci siano operazioni critiche in corso.
+                            </p>
+                        </div>
+                        <button type="button" class="btn btn-danger" onclick="rebootServer()">
+                            🔄 Riavvia Server
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/server-settings.js"></script>
+</body>
+</html>

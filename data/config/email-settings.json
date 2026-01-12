@@ -1,0 +1,29 @@
+{
+  "enabled": false,
+  "smtp": {
+    "host": "",
+    "port": 587,
+    "secure": false,
+    "auth": {
+      "type": "basic",
+      "user": "",
+      "pass": ""
+    },
+    "oauth2": {
+      "clientId": "",
+      "clientSecret": "",
+      "refreshToken": "",
+      "accessToken": ""
+    }
+  },
+  "from": "",
+  "recipients": [],
+  "events": {
+    "backup_failed": true,
+    "backup_partial": true,
+    "backup_critical": true,
+    "backup_warning": true,
+    "agent_offline": true,
+    "agent_online": false
+  }
+}
