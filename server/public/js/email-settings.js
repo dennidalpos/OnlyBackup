@@ -3,6 +3,7 @@ let currentSettings = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadEmailSettings();
+    handleOAuthCallback();
     setupTemplateCopy();
 });
 
@@ -91,6 +92,69 @@ function toggleAuthType() {
         basicFields.classList.remove('hidden');
         oauth2Fields.classList.add('hidden');
     }
+}
+
+async function startOAuthLogin(provider) {
+    try {
+        document.getElementById('authType').value = 'oauth2';
+        toggleAuthType();
+
+        const clientId = document.getElementById('oauth2ClientId').value.trim();
+        const clientSecret = document.getElementById('oauth2ClientSecret').value.trim();
+        const authUser = document.getElementById('oauth2User').value.trim();
+
+        if (!clientId || !clientSecret) {
+            showMessage('warning', 'Inserisci Client ID e Client Secret per avviare OAuth.');
+            return;
+        }
+
+        if (!authUser) {
+            showMessage('warning', 'Inserisci l’email dell’account da collegare.');
+            return;
+        }
+
+        const response = await fetch('/api/email/oauth/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                provider,
+                clientId,
+                clientSecret,
+                authUser,
+                returnTo: window.location.pathname
+            })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || 'Errore avvio OAuth');
+        }
+
+        window.location.href = data.url;
+    } catch (error) {
+        console.error('Errore OAuth start:', error);
+        showMessage('error', error.message || 'Impossibile avviare OAuth');
+    }
+}
+
+function handleOAuthCallback() {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('oauth');
+
+    if (!status) {
+        return;
+    }
+
+    if (status === 'success') {
+        const provider = params.get('provider') || 'OAuth';
+        showMessage('success', `Collegamento ${provider} completato. Refresh token salvato.`);
+    } else {
+        const message = params.get('message') || 'Errore durante il login OAuth.';
+        showMessage('error', message);
+    }
+
+    window.history.replaceState({}, document.title, window.location.pathname);
 }
 
 async function saveEmailSettings() {

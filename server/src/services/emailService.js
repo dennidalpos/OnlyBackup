@@ -309,6 +309,10 @@ Questo è un messaggio automatico generato da OnlyBackup.`
     return settings;
   }
 
+  getRawSettings() {
+    return JSON.parse(JSON.stringify(this.settings || {}));
+  }
+
   getTemplates() {
     return this.templates;
   }

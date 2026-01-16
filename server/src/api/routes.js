@@ -13,6 +13,65 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
   const BACKUP_ANALYZE_CACHE_TTL_MS = 30000;
   const responseCache = new Map();
   const backupAnalyzeCache = new Map();
+  const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+  const oauthStateStore = new Map();
+
+  const base64UrlEncode = (buffer) => buffer.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  const createCodeVerifier = () => base64UrlEncode(crypto.randomBytes(32));
+
+  const createCodeChallenge = (verifier) => base64UrlEncode(crypto.createHash('sha256').update(verifier).digest());
+
+  const cleanupOauthStates = () => {
+    const now = Date.now();
+    for (const [key, value] of oauthStateStore.entries()) {
+      if (!value || now - value.createdAt > OAUTH_STATE_TTL_MS) {
+        oauthStateStore.delete(key);
+      }
+    }
+  };
+
+  const getOAuthConfig = (provider) => {
+    if (provider === 'google') {
+      return {
+        authorizeUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+        tokenUrl: 'https://oauth2.googleapis.com/token',
+        scope: 'https://mail.google.com/ https://www.googleapis.com/auth/userinfo.email'
+      };
+    }
+
+    if (provider === 'microsoft') {
+      return {
+        authorizeUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+        tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+        scope: 'offline_access https://outlook.office.com/SMTP.Send'
+      };
+    }
+
+    return null;
+  };
+
+  const buildOAuthRedirect = (returnTo, params) => {
+    const safeReturnTo = typeof returnTo === 'string' && returnTo.startsWith('/') ? returnTo : '/email-settings.html';
+    const search = new URLSearchParams(params);
+    return `${safeReturnTo}?${search.toString()}`;
+  };
+
+  const exchangeOAuthCode = async (tokenUrl, payload) => {
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(payload)
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      const errorMessage = data.error_description || data.error || 'Errore scambio token';
+      throw new Error(errorMessage);
+    }
+
+    return data;
+  };
 
   const normalizeWindowsPath = (pathStr) => {
     if (!pathStr) return '';
@@ -1901,6 +1960,187 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     } catch (error) {
       logger.error('Errore aggiornamento template email', { error: error.message });
       res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  router.post('/api/email/oauth/start', requireAuth, (req, res) => {
+    try {
+      cleanupOauthStates();
+      const { provider, clientId, clientSecret, authUser, returnTo } = req.body || {};
+      const config = getOAuthConfig(provider);
+
+      if (!config) {
+        return res.status(400).json({ error: 'Provider OAuth non supportato' });
+      }
+
+      const emailService = req.app.get('emailService');
+      if (!emailService) {
+        return res.status(500).json({ error: 'Servizio email non disponibile' });
+      }
+
+      const currentSettings = emailService.getRawSettings();
+      const resolvedClientId = clientId || currentSettings?.smtp?.oauth2?.clientId;
+      const resolvedClientSecret = clientSecret || currentSettings?.smtp?.oauth2?.clientSecret;
+      const resolvedAuthUser = authUser || currentSettings?.smtp?.auth?.user;
+
+      if (!resolvedClientId || !resolvedClientSecret) {
+        return res.status(400).json({ error: 'Client ID e Client Secret sono obbligatori' });
+      }
+
+      if (!resolvedAuthUser) {
+        return res.status(400).json({ error: 'Email account obbligatoria' });
+      }
+
+      const codeVerifier = createCodeVerifier();
+      const codeChallenge = createCodeChallenge(codeVerifier);
+      const state = base64UrlEncode(crypto.randomBytes(16));
+      const redirectUri = `${req.protocol}://${req.get('host')}/api/email/oauth/callback`;
+
+      oauthStateStore.set(state, {
+        provider,
+        clientId: resolvedClientId,
+        clientSecret: resolvedClientSecret,
+        authUser: resolvedAuthUser,
+        codeVerifier,
+        redirectUri,
+        returnTo,
+        createdAt: Date.now()
+      });
+
+      const params = new URLSearchParams({
+        client_id: resolvedClientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: config.scope,
+        state,
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256'
+      });
+
+      if (provider === 'google') {
+        params.set('access_type', 'offline');
+        params.set('prompt', 'consent');
+        params.set('login_hint', resolvedAuthUser);
+      }
+
+      if (provider === 'microsoft') {
+        params.set('response_mode', 'query');
+        params.set('login_hint', resolvedAuthUser);
+      }
+
+      const url = `${config.authorizeUrl}?${params.toString()}`;
+      res.json({ url });
+    } catch (error) {
+      logger.error('Errore avvio OAuth email', { error: error.message });
+      res.status(500).json({ error: 'Errore avvio OAuth email' });
+    }
+  });
+
+  router.get('/api/email/oauth/callback', requireAuth, async (req, res) => {
+    const { code, state, error, error_description } = req.query || {};
+
+    if (error) {
+      const stateData = state ? oauthStateStore.get(state) : null;
+      if (stateData) {
+        oauthStateStore.delete(state);
+      }
+      return res.redirect(buildOAuthRedirect(stateData?.returnTo, {
+        oauth: 'error',
+        message: error_description || error
+      }));
+    }
+
+    if (!code || !state) {
+      return res.redirect(buildOAuthRedirect(null, {
+        oauth: 'error',
+        message: 'Codice OAuth non valido'
+      }));
+    }
+
+    const stateData = oauthStateStore.get(state);
+    if (!stateData) {
+      return res.redirect(buildOAuthRedirect(null, {
+        oauth: 'error',
+        message: 'Sessione OAuth scaduta'
+      }));
+    }
+
+    oauthStateStore.delete(state);
+
+    try {
+      const config = getOAuthConfig(stateData.provider);
+      if (!config) {
+        return res.redirect(buildOAuthRedirect(stateData.returnTo, {
+          oauth: 'error',
+          message: 'Provider OAuth non supportato'
+        }));
+      }
+
+      const tokenData = await exchangeOAuthCode(config.tokenUrl, {
+        client_id: stateData.clientId,
+        client_secret: stateData.clientSecret,
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: stateData.redirectUri,
+        code_verifier: stateData.codeVerifier
+      });
+
+      const emailService = req.app.get('emailService');
+      if (!emailService) {
+        return res.redirect(buildOAuthRedirect(stateData.returnTo, {
+          oauth: 'error',
+          message: 'Servizio email non disponibile'
+        }));
+      }
+
+      const currentSettings = emailService.getRawSettings();
+      const fallbackRefreshToken = currentSettings?.smtp?.oauth2?.refreshToken;
+      const refreshToken = tokenData.refresh_token || fallbackRefreshToken;
+
+      if (!refreshToken) {
+        return res.redirect(buildOAuthRedirect(stateData.returnTo, {
+          oauth: 'error',
+          message: 'Refresh token non ricevuto. Ripetere il consenso.'
+        }));
+      }
+
+      const updatedSettings = {
+        ...currentSettings,
+        smtp: {
+          ...currentSettings.smtp,
+          auth: {
+            ...currentSettings.smtp?.auth,
+            type: 'oauth2',
+            user: stateData.authUser
+          },
+          oauth2: {
+            ...currentSettings.smtp?.oauth2,
+            clientId: stateData.clientId,
+            clientSecret: stateData.clientSecret,
+            refreshToken,
+            accessToken: tokenData.access_token || currentSettings.smtp?.oauth2?.accessToken || ''
+          }
+        }
+      };
+
+      const result = emailService.updateSettings(updatedSettings);
+      if (!result.success) {
+        return res.redirect(buildOAuthRedirect(stateData.returnTo, {
+          oauth: 'error',
+          message: result.error || 'Errore salvataggio impostazioni OAuth'
+        }));
+      }
+
+      return res.redirect(buildOAuthRedirect(stateData.returnTo, {
+        oauth: 'success',
+        provider: stateData.provider
+      }));
+    } catch (err) {
+      logger.error('Errore callback OAuth email', { error: err.message });
+      return res.redirect(buildOAuthRedirect(stateData?.returnTo, {
+        oauth: 'error',
+        message: err.message || 'Errore callback OAuth'
+      }));
     }
   });
 

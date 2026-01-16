@@ -450,6 +450,14 @@
                                     <label for="oauth2RefreshToken">Refresh Token</label>
                                     <input type="text" id="oauth2RefreshToken" name="smtp.oauth2.refreshToken">
                                 </div>
+                                <div class="form-group">
+                                    <label>Collega account con OAuth</label>
+                                    <div class="oauth-actions">
+                                        <button type="button" class="btn btn-outline" onclick="startOAuthLogin('google')">Connetti Google</button>
+                                        <button type="button" class="btn btn-outline" onclick="startOAuthLogin('microsoft')">Connetti Microsoft 365</button>
+                                    </div>
+                                    <small class="oauth-hint">Inserisci Client ID, Client Secret e Email account prima di avviare il login.</small>
+                                </div>
                             </div>
                         </div>
 

@@ -1774,6 +1774,20 @@ h1, h2, h3, h4, h5, h6 {
     justify-content: flex-end;
 }
 
+.oauth-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.oauth-hint {
+    display: block;
+    margin-top: 8px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
 .template-editor {
     margin-top: 20px;
 }
