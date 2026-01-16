@@ -319,7 +319,7 @@ Questo è un messaggio automatico generato da OnlyBackup.`
     Object.keys(data).forEach(key => {
       const value = data[key];
       const regex = new RegExp(`{{${key}}}`, 'g');
-      result = result.replace(regex, value || '');
+      result = result.replace(regex, value ?? '');
     });
 
     const ifRegex = /{{#if (\w+)}}([\s\S]*?){{\/if}}/g;
@@ -336,7 +336,7 @@ Questo è un messaggio automatico generato da OnlyBackup.`
         let itemResult = itemTemplate;
         const thisRegex = /{{this\.(\w+)}}/g;
         itemResult = itemResult.replace(thisRegex, (m, prop) => {
-          return item[prop] || '';
+          return item[prop] ?? '';
         });
         itemResult = itemResult.replace(/{{this}}/g, item.toString());
         return itemResult;

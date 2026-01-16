@@ -280,6 +280,61 @@
             color: var(--text-secondary);
         }
 
+        .template-help {
+            display: grid;
+            gap: 16px;
+        }
+
+        .template-help h5 {
+            margin: 0 0 8px 0;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+        }
+
+        .template-help ol {
+            margin: 0;
+            padding-left: 20px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .template-help li {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 10px;
+            align-items: center;
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+        }
+
+        .copy-token {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            color: var(--primary-color);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            white-space: nowrap;
+        }
+
+        .copy-token:hover {
+            background: var(--surface-hover);
+            border-color: var(--primary-color);
+        }
+
+        .copy-token:active {
+            transform: translateY(1px);
+        }
+
+        .template-help small {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
         .hidden {
             display: none !important;
         }
@@ -448,8 +503,104 @@
                 <div id="templatesTab" class="tab-content">
                     <div class="form-section">
                         <div class="info-box">
-                            <p><strong>Placeholder disponibili:</strong> {{hostname}}, {{job_id}}, {{run_id}}, {{timestamp}}, {{status}}<br>
-                            <strong>Condizioni:</strong> {{#if variabile}}...{{/if}} | <strong>Liste:</strong> {{#each array}}{{this.campo}}{{/each}}</p>
+                            <div class="template-help">
+                                <div>
+                                    <h5>Placeholder (clicca per copiare)</h5>
+                                    <ol>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{hostname}}">{{hostname}}</button>
+                                            <span>Nome host del client/agent.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{job_id}}">{{job_id}}</button>
+                                            <span>ID del job associato al backup.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{run_id}}">{{run_id}}</button>
+                                            <span>ID univoco della run.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{timestamp}}">{{timestamp}}</button>
+                                            <span>Data e ora dell’evento nel formato locale.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{status}}">{{status}}</button>
+                                            <span>Stato finale del backup (success/partial/failed).</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{target_path}}">{{target_path}}</button>
+                                            <span>Percorso di destinazione dell’ultimo backup.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{last_seen}}">{{last_seen}}</button>
+                                            <span>Ultimo contatto dell’agent (eventi online/offline).</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{offline_duration}}">{{offline_duration}}</button>
+                                            <span>Durata dell’offline dell’agent in minuti/ore.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{error_message}}">{{error_message}}</button>
+                                            <span>Dettaglio errore critico (template critical).</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.total_files}}">{{stats.total_files}}</button>
+                                            <span>Numero totale di file processati.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.copied_files}}">{{stats.copied_files}}</button>
+                                            <span>File copiati con successo.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.skipped_files}}">{{stats.skipped_files}}</button>
+                                            <span>File saltati/ignorati.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.failed_files}}">{{stats.failed_files}}</button>
+                                            <span>File falliti durante il backup.</span>
+                                        </li>
+                                    </ol>
+                                </div>
+                                <div>
+                                    <h5>Condizioni</h5>
+                                    <ol>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if warnings}}&#10;...&#10;{{/if}}">{{#if warnings}}...{{/if}}</button>
+                                            <span>Mostra un blocco solo se l’array warning è presente.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if errors}}&#10;...&#10;{{/if}}">{{#if errors}}...{{/if}}</button>
+                                            <span>Mostra un blocco solo se esistono errori.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if stats}}&#10;...&#10;{{/if}}">{{#if stats}}...{{/if}}</button>
+                                            <span>Mostra un blocco solo se sono presenti statistiche.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if jobs}}&#10;...&#10;{{/if}}">{{#if jobs}}...{{/if}}</button>
+                                            <span>Mostra un blocco solo se sono presenti job.</span>
+                                        </li>
+                                    </ol>
+                                </div>
+                                <div>
+                                    <h5>Liste</h5>
+                                    <ol>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#each errors}}&#10;- {{this.message}}&#10;{{/each}}">{{#each errors}}{{this.message}}{{/each}}</button>
+                                            <span>Elenco dei messaggi di errore.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#each warnings}}&#10;- {{this.message}}&#10;{{/each}}">{{#each warnings}}{{this.message}}{{/each}}</button>
+                                            <span>Elenco degli avvisi del backup.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#each jobs}}&#10;- {{this}}&#10;{{/each}}">{{#each jobs}}{{this}}{{/each}}</button>
+                                            <span>Lista dei job impattati (eventi agent offline).</span>
+                                        </li>
+                                    </ol>
+                                    <small>Consiglio: incolla i blocchi nel corpo dell’email e personalizza il testo.</small>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="form-group">

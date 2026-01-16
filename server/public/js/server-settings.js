@@ -7,6 +7,7 @@ let currentSettings = null;
 // Inizializzazione
 document.addEventListener('DOMContentLoaded', async () => {
     await loadEmailSettings();
+    setupTemplateCopy();
 });
 
 // Gestione tab
@@ -637,6 +638,53 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function setupTemplateCopy() {
+    document.addEventListener('click', async (event) => {
+        const target = event.target.closest('[data-copy]');
+        if (!target) {
+            return;
+        }
+
+        const text = target.getAttribute('data-copy');
+        if (!text) {
+            return;
+        }
+
+        const copied = await copyToClipboard(text);
+        if (copied) {
+            showMessage('success', 'Placeholder copiato negli appunti');
+        } else {
+            showMessage('warning', 'Impossibile copiare: seleziona e copia manualmente');
+        }
+    });
+}
+
+async function copyToClipboard(text) {
+    if (navigator.clipboard?.writeText) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const success = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return success;
+    } catch (error) {
+        return false;
+    }
 }
 
 // ===========================

@@ -62,7 +62,10 @@ Sistema di backup centralizzato per ambienti Windows con architettura server/age
    ```
 5. **Accesso dashboard:** `http://<host>:<porta>` (default admin/admin).
 6. **Installazione come servizio (NSSM):** usare `nssm install OnlyBackupServer "C:\\Program Files\\nodejs\\node.exe"` con `AppDirectory` impostata su `server` e `CONFIG_PATH` puntato al file di configurazione.
-7. **Variabili utili di avvio server:**
+7. **Script helper (PowerShell):**
+   - Installazione: `.\scripts\Install-OnlyBackupServerService.ps1 -ConfigPath "<percorso\\config.json>"`
+   - Disinstallazione: `.\scripts\Uninstall-OnlyBackupServerService.ps1`
+8. **Variabili utili di avvio server:**
    - `CONFIG_PATH` per puntare un file di configurazione alternativo.
    - `NODE_ENV` per cambiare ambiente (`development` o `production`).
 
@@ -118,6 +121,8 @@ File: `OnlyBackupAgent.exe.config`
 - ServerPort: porta server (default 8080)
 - AgentPort: porta locale agent (default 8081)
 - HeartbeatInterval: frequenza heartbeat in ms (default 30000)
+
+Per i dettagli operativi dell’agent (componenti, struttura del progetto, build e troubleshooting), consultare `agent/README.md`.
 
 ## 5. Configurazione
 - **`config.json` server (estratto):**
@@ -204,9 +209,13 @@ Dalla dashboard accedere a **📧 Email** nella barra superiore per configurare:
 
 ### Template Email Personalizzabili
 Ogni tipo di evento ha un template modificabile (soggetto + corpo) con supporto per:
-- **Placeholder:** `{{hostname}}`, `{{job_id}}`, `{{run_id}}`, `{{timestamp}}`, `{{status}}`
-- **Condizioni:** `{{#if variabile}}...{{/if}}`
-- **Iterazioni:** `{{#each array}}{{this.campo}}{{/each}}`
+- **Placeholder principali:** `{{hostname}}`, `{{job_id}}`, `{{run_id}}`, `{{timestamp}}`, `{{status}}`, `{{target_path}}`
+- **Placeholder agent:** `{{last_seen}}`, `{{offline_duration}}`
+- **Placeholder statistiche:** `{{stats.total_files}}`, `{{stats.copied_files}}`, `{{stats.skipped_files}}`, `{{stats.failed_files}}`
+- **Condizioni:** `{{#if variabile}}...{{/if}}` (es. `warnings`, `errors`, `stats`, `jobs`)
+- **Iterazioni:** `{{#each array}}{{this.campo}}{{/each}}` (es. `errors`, `warnings`, `jobs`)
+
+Nella sezione Template Email della dashboard è disponibile un elenco ordinato di placeholder/condizioni/liste: cliccando un elemento, il testo viene copiato negli appunti per un inserimento rapido nel corpo dell’email.
 
 ### Configurazione Rapida
 1. Gmail con App Password:

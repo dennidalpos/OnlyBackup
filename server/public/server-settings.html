@@ -155,8 +155,104 @@
                     <div class="form-section" style="margin-top: 40px; border-top: 2px solid var(--border-color); padding-top: 30px;">
                         <h4>Template Email</h4>
                         <div class="info-box">
-                            <p><strong>Placeholder disponibili:</strong> {{hostname}}, {{job_id}}, {{run_id}}, {{timestamp}}, {{status}}<br>
-                            <strong>Condizioni:</strong> {{#if variabile}}...{{/if}} | <strong>Liste:</strong> {{#each array}}{{this.campo}}{{/each}}</p>
+                            <div class="template-help">
+                                <div>
+                                    <h5>Placeholder (clicca per copiare)</h5>
+                                    <ol>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{hostname}}">{{hostname}}</button>
+                                            <span>Nome host del client/agent.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{job_id}}">{{job_id}}</button>
+                                            <span>ID del job associato al backup.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{run_id}}">{{run_id}}</button>
+                                            <span>ID univoco della run.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{timestamp}}">{{timestamp}}</button>
+                                            <span>Data e ora dell’evento nel formato locale.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{status}}">{{status}}</button>
+                                            <span>Stato finale del backup (success/partial/failed).</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{target_path}}">{{target_path}}</button>
+                                            <span>Percorso di destinazione dell’ultimo backup.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{last_seen}}">{{last_seen}}</button>
+                                            <span>Ultimo contatto dell’agent (eventi online/offline).</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{offline_duration}}">{{offline_duration}}</button>
+                                            <span>Durata dell’offline dell’agent in minuti/ore.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{error_message}}">{{error_message}}</button>
+                                            <span>Dettaglio errore critico (template critical).</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.total_files}}">{{stats.total_files}}</button>
+                                            <span>Numero totale di file processati.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.copied_files}}">{{stats.copied_files}}</button>
+                                            <span>File copiati con successo.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.skipped_files}}">{{stats.skipped_files}}</button>
+                                            <span>File saltati/ignorati.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.failed_files}}">{{stats.failed_files}}</button>
+                                            <span>File falliti durante il backup.</span>
+                                        </li>
+                                    </ol>
+                                </div>
+                                <div>
+                                    <h5>Condizioni</h5>
+                                    <ol>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if warnings}}&#10;...&#10;{{/if}}">{{#if warnings}}...{{/if}}</button>
+                                            <span>Mostra un blocco solo se l’array warning è presente.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if errors}}&#10;...&#10;{{/if}}">{{#if errors}}...{{/if}}</button>
+                                            <span>Mostra un blocco solo se esistono errori.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if stats}}&#10;...&#10;{{/if}}">{{#if stats}}...{{/if}}</button>
+                                            <span>Mostra un blocco solo se sono presenti statistiche.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if jobs}}&#10;...&#10;{{/if}}">{{#if jobs}}...{{/if}}</button>
+                                            <span>Mostra un blocco solo se sono presenti job.</span>
+                                        </li>
+                                    </ol>
+                                </div>
+                                <div>
+                                    <h5>Liste</h5>
+                                    <ol>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#each errors}}&#10;- {{this.message}}&#10;{{/each}}">{{#each errors}}{{this.message}}{{/each}}</button>
+                                            <span>Elenco dei messaggi di errore.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#each warnings}}&#10;- {{this.message}}&#10;{{/each}}">{{#each warnings}}{{this.message}}{{/each}}</button>
+                                            <span>Elenco degli avvisi del backup.</span>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#each jobs}}&#10;- {{this}}&#10;{{/each}}">{{#each jobs}}{{this}}{{/each}}</button>
+                                            <span>Lista dei job impattati (eventi agent offline).</span>
+                                        </li>
+                                    </ol>
+                                    <small>Consiglio: incolla i blocchi nel corpo dell’email e personalizza il testo.</small>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="form-group">
