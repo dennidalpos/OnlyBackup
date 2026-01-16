@@ -161,8 +161,10 @@ class Storage {
 
       // Emit event se completato
       if (run.status && run.status !== 'running') {
-        const duration = run.end_time && run.start_time
-          ? new Date(run.end_time).getTime() - new Date(run.start_time).getTime()
+        const endTime = run.end || run.end_time || null;
+        const startTime = run.start || run.start_time || null;
+        const duration = endTime && startTime
+          ? new Date(endTime).getTime() - new Date(startTime).getTime()
           : null;
         eventBus.emitBackupCompleted(run.run_id, run.status, run.stats, duration);
       }
