@@ -1521,12 +1521,48 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
   router.delete('/api/clients/:hostname', requireAuth, async (req, res) => {
     try {
       const hostname = req.params.hostname;
-      const result = storage.deleteClient(hostname);
+      const target = (hostname || '').toLowerCase();
+      const hostnamesToDelete = new Set([hostname]);
+
+      const jobs = storage.loadAllJobs();
+      const runs = storage.loadAllRuns();
+      const heartbeats = storage.loadAllAgentHeartbeats();
+
+      jobs.forEach(job => {
+        if (job?.client_hostname && job.client_hostname.toLowerCase() === target) {
+          hostnamesToDelete.add(job.client_hostname);
+        }
+      });
+
+      runs.forEach(run => {
+        if (run?.client_hostname && run.client_hostname.toLowerCase() === target) {
+          hostnamesToDelete.add(run.client_hostname);
+        }
+      });
+
+      heartbeats.forEach(hb => {
+        if (hb?.hostname && hb.hostname.toLowerCase() === target) {
+          hostnamesToDelete.add(hb.hostname);
+        }
+      });
+
+      const aggregate = {
+        jobsDeleted: 0,
+        runsDeleted: 0,
+        heartbeatDeleted: false
+      };
+
+      hostnamesToDelete.forEach(entry => {
+        const result = storage.deleteClient(entry);
+        aggregate.jobsDeleted += result.jobsDeleted || 0;
+        aggregate.runsDeleted += result.runsDeleted || 0;
+        aggregate.heartbeatDeleted = aggregate.heartbeatDeleted || result.heartbeatDeleted;
+      });
 
       await scheduler.reloadJobs();
 
       logger.logApiCall('DELETE', `/api/clients/${hostname}`, req.username, 200);
-      res.json({ success: true, result });
+      res.json({ success: true, result: aggregate });
     } catch (error) {
       logger.error('Errore deregistrazione client', { hostname: req.params.hostname, error: error.message });
       res.status(500).json({ error: 'Errore interno' });
