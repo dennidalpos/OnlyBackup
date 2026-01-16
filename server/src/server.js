@@ -136,6 +136,8 @@ class OnlyBackupServer {
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
     this.app.use(cookieParser());
+    this.app.set('trust proxy', true);
+    this.app.set('config', this.config);
 
     this.app.use((err, req, res, next) => {
       if (err instanceof SyntaxError && 'body' in err) {

@@ -128,7 +128,12 @@ Per i dettagli operativi dell’agent (componenti, struttura del progetto, build
 - **`config.json` server (estratto):**
   ```json
   {
-    "server": { "host": "0.0.0.0", "port": 8080, "environment": "production" },
+    "server": {
+      "host": "0.0.0.0",
+      "port": 8080,
+      "environment": "production",
+      "publicUrl": "https://backup.example.com"
+    },
     "dataRoot": "./data",
     "logging": { "level": "info", "console": true, "file": true, "maxFiles": 180, "maxSize": "10m", "retentionDays": 180, "cleanupIntervalHours": 6 },
     "auth": { "sessionTimeout": 3600000, "passwordMinLength": 8, "secureCookies": false },
@@ -137,6 +142,7 @@ Per i dettagli operativi dell’agent (componenti, struttura del progetto, build
   ```
 - **`dataRoot` predefinito:** se omesso, viene usata la cartella `data` accanto al file di configurazione.
 - **Utenti e autenticazione:** credenziali in `data/users/users.json` (ricreare admin/admin eliminando il file con servizio fermo). Sessione basata su cookie; impostare `secureCookies` su `true` con HTTPS.
+- **OAuth email (Google/Microsoft):** se il server è pubblicato dietro HTTPS o reverse proxy, impostare `server.publicUrl` con l’URL pubblico (serve per costruire la redirect URI OAuth HTTPS).
 - **Sicurezza:** proteggere `dataRoot` con ACL NTFS, usare account servizio dedicati, considerare BitLocker/HTTPS e firewall restrittivi. Le credenziali dei job sono salvate in chiaro nei JSON: limitare l'accesso ai file.
 - **Configurazioni avanzate suggerite:**
   - `logging.maxFiles` e `logging.retentionDays` per ridurre lo spazio su disco dei log.
@@ -217,13 +223,67 @@ Ogni tipo di evento ha un template modificabile (soggetto + corpo) con supporto 
 
 Nella sezione Template Email della dashboard è disponibile un elenco ordinato di placeholder/condizioni/liste: cliccando un elemento, il testo viene copiato negli appunti per un inserimento rapido nel corpo dell’email.
 
-### Configurazione Rapida
+### Configurazione Rapida (SMTP Basic)
 1. Gmail con App Password:
    - Host: `smtp.gmail.com`, Porta: `587`, Auth: Basic
    - Generare App Password da impostazioni account Google
 2. Office 365:
    - Host: `smtp.office365.com`, Porta: `587`, Auth: Basic
    - Usare password account o App Password se MFA attivo
+
+### Configurazione OAuth (Google / Microsoft 365) - passaggi completi
+Per account con MFA o policy che bloccano Basic auth, usare OAuth. Serve che il server sia accessibile via HTTPS (o tramite reverse proxy HTTPS) perché i provider richiedono redirect URI sicure.
+
+#### 1) Preparare l’URL pubblico HTTPS
+Nel `config.json` del server aggiungere/valorizzare `server.publicUrl` con l’URL pubblico HTTPS del server (es. `https://backup.example.com`). Questo valore è usato per costruire la redirect URI OAuth.
+
+Esempio:
+```json
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "environment": "production",
+    "publicUrl": "https://backup.example.com"
+  }
+}
+```
+
+Se il server è dietro reverse proxy, assicurarsi che l’URL pubblico punti al proxy HTTPS che inoltra al server HTTP interno.
+
+#### 2) Registrare l’app Google (OAuth)
+1. Vai su **Google Cloud Console** → **APIs & Services** → **Credentials**.
+2. Crea un **OAuth Client ID** (tipo **Web application**).
+3. Aggiungi **Authorized redirect URI**:
+   - `https://<tuo-dominio>/api/email/oauth/callback`
+4. Copia **Client ID** e **Client Secret**.
+5. Assicurati di aver abilitato le API Gmail (se richiesto dal tuo tenant).
+
+#### 3) Registrare l’app Microsoft 365 (OAuth)
+1. Vai su **Microsoft Entra Admin Center** → **App registrations** → **New registration**.
+2. Dai un nome all’app e scegli i tipi di account (single-tenant o multi-tenant).
+3. Imposta **Redirect URI** (Web):
+   - `https://<tuo-dominio>/api/email/oauth/callback`
+4. Copia **Application (client) ID** (Client ID).
+5. Vai su **Certificates & secrets** → **New client secret** e copia il **Client Secret**.
+6. Vai su **API permissions** → **Add a permission** → **APIs my organization uses** → **Office 365 Exchange Online**.
+7. Aggiungi il permesso **SMTP.Send** (Delegated).
+8. (Se richiesto) esegui **Grant admin consent** per l’organizzazione.
+
+#### 4) Configurare OnlyBackup (UI)
+1. Apri la pagina **📧 Email** nella dashboard.
+2. Seleziona **OAuth2 (Office 365/Google)** come tipo di autenticazione.
+3. Compila:
+   - **Email account** (indirizzo dell’utente da autorizzare)
+   - **Client ID**
+   - **Client Secret**
+4. Clicca **Connetti Google** o **Connetti Microsoft 365**.
+5. Completa il login sul provider e autorizza l’app.
+6. Al ritorno in OnlyBackup, il **Refresh Token** verrà salvato automaticamente.
+7. Salva la configurazione email.
+
+#### 5) Verifica
+Usa il pulsante **Invia Email di Test** per verificare la configurazione.
 
 ### Test
 Pulsante "Invia Email di Test" disponibile per verificare la configurazione prima del salvataggio.
