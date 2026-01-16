@@ -73,6 +73,18 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     return data;
   };
 
+  const getPublicBaseUrl = (req) => {
+    const config = req.app.get('config');
+    const configuredUrl = config?.server?.publicUrl;
+    if (configuredUrl) {
+      return configuredUrl.replace(/\/$/, '');
+    }
+
+    const proto = req.get('x-forwarded-proto') || req.protocol;
+    const host = req.get('x-forwarded-host') || req.get('host');
+    return `${proto}://${host}`;
+  };
+
   const normalizeWindowsPath = (pathStr) => {
     if (!pathStr) return '';
 
@@ -1994,7 +2006,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       const codeVerifier = createCodeVerifier();
       const codeChallenge = createCodeChallenge(codeVerifier);
       const state = base64UrlEncode(crypto.randomBytes(16));
-      const redirectUri = `${req.protocol}://${req.get('host')}/api/email/oauth/callback`;
+      const redirectUri = `${getPublicBaseUrl(req)}/api/email/oauth/callback`;
 
       oauthStateStore.set(state, {
         provider,

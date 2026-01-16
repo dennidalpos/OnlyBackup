@@ -128,7 +128,12 @@ Per i dettagli operativi dell’agent (componenti, struttura del progetto, build
 - **`config.json` server (estratto):**
   ```json
   {
-    "server": { "host": "0.0.0.0", "port": 8080, "environment": "production" },
+    "server": {
+      "host": "0.0.0.0",
+      "port": 8080,
+      "environment": "production",
+      "publicUrl": "https://backup.example.com"
+    },
     "dataRoot": "./data",
     "logging": { "level": "info", "console": true, "file": true, "maxFiles": 180, "maxSize": "10m", "retentionDays": 180, "cleanupIntervalHours": 6 },
     "auth": { "sessionTimeout": 3600000, "passwordMinLength": 8, "secureCookies": false },
@@ -137,6 +142,7 @@ Per i dettagli operativi dell’agent (componenti, struttura del progetto, build
   ```
 - **`dataRoot` predefinito:** se omesso, viene usata la cartella `data` accanto al file di configurazione.
 - **Utenti e autenticazione:** credenziali in `data/users/users.json` (ricreare admin/admin eliminando il file con servizio fermo). Sessione basata su cookie; impostare `secureCookies` su `true` con HTTPS.
+- **OAuth email (Google/Microsoft):** se il server è pubblicato dietro HTTPS o reverse proxy, impostare `server.publicUrl` con l’URL pubblico (serve per costruire la redirect URI OAuth HTTPS).
 - **Sicurezza:** proteggere `dataRoot` con ACL NTFS, usare account servizio dedicati, considerare BitLocker/HTTPS e firewall restrittivi. Le credenziali dei job sono salvate in chiaro nei JSON: limitare l'accesso ai file.
 - **Configurazioni avanzate suggerite:**
   - `logging.maxFiles` e `logging.retentionDays` per ridurre lo spazio su disco dei log.
