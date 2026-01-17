@@ -220,6 +220,7 @@ Ogni tipo di evento ha un template modificabile (soggetto + corpo) con supporto 
 - **Placeholder statistiche:** `{{stats.total_files}}`, `{{stats.copied_files}}`, `{{stats.skipped_files}}`, `{{stats.failed_files}}`
 - **Condizioni:** `{{#if variabile}}...{{/if}}` (es. `warnings`, `errors`, `stats`, `jobs`)
 - **Iterazioni:** `{{#each array}}{{this.campo}}{{/each}}` (es. `errors`, `warnings`, `jobs`)
+- **Placeholder annidati:** supporto alla notazione con punto per oggetti complessi (es. `{{stats.total_files}}`).
 
 Nella sezione Template Email della dashboard è disponibile un elenco ordinato di placeholder/condizioni/liste: cliccando un elemento, il testo viene copiato negli appunti per un inserimento rapido nel corpo dell’email.
 
