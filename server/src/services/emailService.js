@@ -228,7 +228,8 @@ Questo è un messaggio automatico generato da OnlyBackup.`
       const transportOptions = {
         host: this.settings.smtp.host,
         port: this.settings.smtp.port,
-        secure: this.settings.smtp.secure
+        secure: this.settings.smtp.secure,
+        ignoreTLS: Boolean(this.settings.smtp.ignore_tls)
       };
 
       const authConfig = this.settings.smtp?.auth || {};

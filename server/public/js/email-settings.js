@@ -60,6 +60,7 @@ function populateEmailSettings(settings) {
     document.getElementById('smtpHost').value = settings.smtp?.host || '';
     document.getElementById('smtpPort').value = settings.smtp?.port || 587;
     document.getElementById('smtpSecure').checked = settings.smtp?.secure || false;
+    document.getElementById('smtpIgnoreTls').checked = settings.smtp?.ignore_tls || false;
     document.getElementById('authType').value = settings.smtp?.auth?.type || 'basic';
     document.getElementById('smtpUser').value = settings.smtp?.auth?.user || '';
     document.getElementById('smtpPass').value = settings.smtp?.auth?.pass === '********' ? '' : settings.smtp?.auth?.pass || '';
@@ -174,6 +175,7 @@ async function saveEmailSettings() {
                 host: document.getElementById('smtpHost').value,
                 port: parseInt(document.getElementById('smtpPort').value) || 587,
                 secure: document.getElementById('smtpSecure').checked,
+                ignore_tls: document.getElementById('smtpIgnoreTls').checked,
                 auth: {
                     type: authType,
                     user: authType === 'oauth2'
