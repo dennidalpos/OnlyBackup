@@ -231,7 +231,9 @@ Questo è un messaggio automatico generato da OnlyBackup.`
         secure: this.settings.smtp.secure
       };
 
-      if (this.settings.smtp.auth.type === 'oauth2') {
+      const authType = this.settings.smtp?.auth?.type || 'basic';
+
+      if (authType === 'oauth2') {
         transportOptions.auth = {
           type: 'OAuth2',
           user: this.settings.smtp.auth.user,
@@ -240,7 +242,7 @@ Questo è un messaggio automatico generato da OnlyBackup.`
           refreshToken: this.settings.smtp.oauth2.refreshToken,
           accessToken: this.settings.smtp.oauth2.accessToken
         };
-      } else {
+      } else if (authType !== 'none') {
         transportOptions.auth = {
           user: this.settings.smtp.auth.user,
           pass: this.settings.smtp.auth.pass
@@ -467,8 +469,14 @@ OnlyBackup Server`
 
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      this.logger.error('Errore invio email di test', { error: error.message });
-      return { success: false, error: error.message };
+      const baseMessage = error.message || 'Errore invio email di test';
+      const shouldSuggestSystemCa = /self[-\s]?signed certificate/i.test(baseMessage);
+      const hint = shouldSuggestSystemCa
+        ? ' Certificato self-signed: se la CA è installata localmente, avvia Node.js con --use-system-ca.'
+        : '';
+      const errorMessage = `${baseMessage}${hint}`;
+      this.logger.error('Errore invio email di test', { error: errorMessage });
+      return { success: false, error: errorMessage };
     }
   }
 

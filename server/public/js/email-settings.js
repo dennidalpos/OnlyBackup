@@ -88,6 +88,9 @@ function toggleAuthType() {
     if (authType === 'oauth2') {
         basicFields.classList.add('hidden');
         oauth2Fields.classList.remove('hidden');
+    } else if (authType === 'none') {
+        basicFields.classList.add('hidden');
+        oauth2Fields.classList.add('hidden');
     } else {
         basicFields.classList.remove('hidden');
         oauth2Fields.classList.add('hidden');
@@ -173,7 +176,11 @@ async function saveEmailSettings() {
                 secure: document.getElementById('smtpSecure').checked,
                 auth: {
                     type: authType,
-                    user: authType === 'oauth2' ? document.getElementById('oauth2User').value : document.getElementById('smtpUser').value,
+                    user: authType === 'oauth2'
+                        ? document.getElementById('oauth2User').value
+                        : authType === 'basic'
+                            ? document.getElementById('smtpUser').value
+                            : '',
                     pass: authType === 'basic' ? document.getElementById('smtpPass').value : ''
                 },
                 oauth2: authType === 'oauth2' ? {

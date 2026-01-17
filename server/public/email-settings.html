@@ -416,6 +416,7 @@
                             <div class="form-group">
                                 <label for="authType">Tipo autenticazione</label>
                                 <select id="authType" name="smtp.auth.type" onchange="toggleAuthType()">
+                                    <option value="none">Nessuna (SMTP non autenticato)</option>
                                     <option value="basic">Basic (Username/Password)</option>
                                     <option value="oauth2">OAuth2 (Office 365/Google)</option>
                                 </select>
