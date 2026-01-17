@@ -2642,7 +2642,9 @@ class OnlyBackupApp {
                 const url = URL.createObjectURL(dataBlob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `OnlyBackup-config-${new Date().toISOString().split('T')[0]}.json`;
+                const now = new Date();
+                const formattedDate = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}`;
+                link.download = `OnlyBackup-${formattedDate}.json`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
