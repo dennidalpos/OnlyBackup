@@ -228,22 +228,26 @@ Questo è un messaggio automatico generato da OnlyBackup.`
       const transportOptions = {
         host: this.settings.smtp.host,
         port: this.settings.smtp.port,
-        secure: this.settings.smtp.secure
+        secure: this.settings.smtp.secure,
+        ignoreTLS: Boolean(this.settings.smtp.ignore_tls)
       };
 
-      if (this.settings.smtp.auth.type === 'oauth2') {
+      const authConfig = this.settings.smtp?.auth || {};
+      const authType = authConfig.type || (authConfig.user || authConfig.pass ? 'basic' : 'none');
+
+      if (authType === 'oauth2') {
         transportOptions.auth = {
           type: 'OAuth2',
-          user: this.settings.smtp.auth.user,
+          user: authConfig.user,
           clientId: this.settings.smtp.oauth2.clientId,
           clientSecret: this.settings.smtp.oauth2.clientSecret,
           refreshToken: this.settings.smtp.oauth2.refreshToken,
           accessToken: this.settings.smtp.oauth2.accessToken
         };
-      } else {
+      } else if (authType === 'basic' && authConfig.user && authConfig.pass) {
         transportOptions.auth = {
-          user: this.settings.smtp.auth.user,
-          pass: this.settings.smtp.auth.pass
+          user: authConfig.user,
+          pass: authConfig.pass
         };
       }
 
@@ -467,8 +471,14 @@ OnlyBackup Server`
 
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      this.logger.error('Errore invio email di test', { error: error.message });
-      return { success: false, error: error.message };
+      const baseMessage = error.message || 'Errore invio email di test';
+      const shouldSuggestSystemCa = /self[-\s]?signed certificate/i.test(baseMessage);
+      const hint = shouldSuggestSystemCa
+        ? ' self-signed certificate; if the root CA is installed locally, try running Node.js with --use-system-ca. Otherwise, install the CA locally or set NODE_EXTRA_CA_CERTS to the CA bundle path.'
+        : '';
+      const errorMessage = `${baseMessage}${hint}`;
+      this.logger.error('Errore invio email di test', { error: errorMessage });
+      return { success: false, error: errorMessage };
     }
   }
 

@@ -455,6 +455,39 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     }
   };
 
+  const readLogIndexPaths = (filePath) => {
+    if (!filePath) {
+      return [];
+    }
+
+    try {
+      if (!fs.existsSync(filePath)) {
+        return [];
+      }
+
+      const raw = fs.readFileSync(filePath, 'utf8');
+      const payload = JSON.parse(raw);
+      const candidates = [];
+
+      if (payload?.log_path) {
+        candidates.push(payload.log_path);
+      }
+
+      if (Array.isArray(payload?.operations)) {
+        payload.operations.forEach(op => {
+          if (op?.log_path) {
+            candidates.push(op.log_path);
+          }
+        });
+      }
+
+      return candidates.filter(Boolean);
+    } catch (error) {
+      logger.warn('Impossibile leggere indice log', { filePath, error: error.message });
+      return [];
+    }
+  };
+
   const findLatestRunLog = (hostname, jobId) => {
     try {
       const runs = storage
@@ -1273,20 +1306,24 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       const paginatedRuns = runs.slice(offset, offset + limit);
       const payload = paginatedRuns
         .map(run => {
+          const runIndexPaths = new Set(readLogIndexPaths(run.run_log_index));
           const mappings = (run.mappings || [])
             .map((mapping, index) => {
               const normalizedIndex = Number.isFinite(Number(mapping.index)) ? Number(mapping.index) : index;
-              const logCandidates = [];
+              const logCandidates = new Set();
 
               if (mapping.log_path) {
-                logCandidates.push(mapping.log_path);
+                logCandidates.add(mapping.log_path);
               }
 
-              if (logCandidates.length === 0 && run.log_path) {
-                logCandidates.push(run.log_path);
+              if (run.log_path) {
+                logCandidates.add(run.log_path);
               }
 
-              const logs = logCandidates
+              readLogIndexPaths(mapping.run_log_index).forEach(candidate => logCandidates.add(candidate));
+              runIndexPaths.forEach(candidate => logCandidates.add(candidate));
+
+              const logs = Array.from(logCandidates)
                 .map(candidate => readLogFile(candidate, run.run_id, { tailLines }))
                 .filter(Boolean);
 
@@ -1620,7 +1657,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
   router.get('/api/config/export', requireAuth, (req, res) => {
     try {
       // Sezioni richieste (default: tutte)
-      const sectionsParam = req.query.sections || 'jobs,users,clients';
+      const sectionsParam = req.query.sections || 'jobs,users,clients,email';
       const sections = sectionsParam.split(',').map(s => s.trim());
 
       const buildExportPayload = () => ({
@@ -1664,6 +1701,17 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         config.sections.push('clients');
       }
 
+      if (sections.includes('email')) {
+        const emailService = req.app.get('emailService');
+        if (emailService) {
+          config.email = {
+            settings: emailService.getRawSettings(),
+            templates: emailService.getTemplates()
+          };
+          config.sections.push('email');
+        }
+      }
+
       logger.logApiCall('GET', '/api/config/export', req.username, 200);
       res.json(config);
     } catch (error) {
@@ -1681,9 +1729,9 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       }
 
       // Sezioni da importare (default: tutte le presenti nel config)
-      const sectionsToImport = sections || config.sections || ['jobs', 'users', 'clients'];
+      const sectionsToImport = sections || config.sections || ['jobs', 'users', 'clients', 'email'];
 
-      let imported = { jobs: 0, users: 0, clients: 0 };
+      let imported = { jobs: 0, users: 0, clients: 0, email: 0 };
 
       // Import users
       if (sectionsToImport.includes('users') && Array.isArray(config.users)) {
@@ -1715,6 +1763,19 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
             storage.saveAgentHeartbeat(client.heartbeat);
           }
           imported.clients++;
+        }
+      }
+
+      if (sectionsToImport.includes('email') && config.email) {
+        const emailService = req.app.get('emailService');
+        if (emailService) {
+          if (config.email.settings) {
+            emailService.updateSettings(config.email.settings);
+          }
+          if (config.email.templates) {
+            emailService.updateTemplates(config.email.templates);
+          }
+          imported.email = 1;
         }
       }
 

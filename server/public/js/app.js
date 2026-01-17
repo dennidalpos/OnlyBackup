@@ -2091,13 +2091,18 @@ class OnlyBackupApp {
 
     renderRunsList() {
         const container = document.getElementById('runsList');
+        const maxRunsToShow = 10;
 
         if (this.runs.length === 0) {
             container.innerHTML = '<div class="info-message">Nessuna esecuzione disponibile</div>';
             return;
         }
 
-        container.innerHTML = this.runs.slice(0, 50).map(run => {
+        const limitedNotice = this.runs.length > maxRunsToShow
+            ? '<div class="info-message">Mostrati ultimi 10 log. Usa "Log completi" per vedere lo storico completo.</div>'
+            : '';
+
+        container.innerHTML = limitedNotice + this.runs.slice(0, maxRunsToShow).map(run => {
             const duration = run.end
                 ? `${Math.round((new Date(run.end) - new Date(run.start)) / 1000)}s`
                 : 'In corso...';
@@ -2652,7 +2657,13 @@ class OnlyBackupApp {
 
                 const jobsCount = config.jobs?.length || 0;
                 const usersCount = config.users?.length || 0;
-                this.showToast('success', 'Export completato', `Esportate sezioni: ${sections.join(', ')} (${jobsCount} job, ${usersCount} utenti)`);
+                const hasEmail = Boolean(config.email);
+                const details = [
+                    `${jobsCount} job`,
+                    `${usersCount} utenti`,
+                    hasEmail ? 'impostazioni email' : null
+                ].filter(Boolean).join(', ');
+                this.showToast('success', 'Export completato', `Esportate sezioni: ${sections.join(', ')} (${details})`);
             } else {
                 this.showToast('error', 'Errore', config.error || 'Impossibile esportare la configurazione');
             }
@@ -2676,6 +2687,9 @@ class OnlyBackupApp {
                         </label>
                         <label style="display: flex; align-items: center; gap: 10px;">
                             <input type="checkbox" value="clients" checked> Client
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" value="email" checked> Email
                         </label>
                     </div>
                     <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
@@ -2721,7 +2735,7 @@ class OnlyBackupApp {
                 const config = JSON.parse(text);
 
                 // Mostra dialog con checkbox per selezionare sezioni da importare
-                const availableSections = config.sections || ['jobs', 'users', 'clients'];
+                const availableSections = config.sections || ['jobs', 'users', 'clients', 'email'];
                 const sections = await this.showImportDialog(config, availableSections);
 
                 if (!sections || sections.length === 0) return;
@@ -2735,7 +2749,8 @@ class OnlyBackupApp {
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    this.showToast('success', 'Import completato', `Importati: ${data.imported.jobs} job, ${data.imported.users} utenti`);
+                    const emailImported = data.imported.email ? ', impostazioni email' : '';
+                    this.showToast('success', 'Import completato', `Importati: ${data.imported.jobs} job, ${data.imported.users} utenti${emailImported}`);
                     await this.loadClients();
                     if (this.selectedClient) {
                         await this.loadClientJobs();
@@ -2756,6 +2771,7 @@ class OnlyBackupApp {
             const jobsCount = config.jobs?.length || 0;
             const usersCount = config.users?.length || 0;
             const clientsCount = config.clients?.length || 0;
+            const hasEmail = Boolean(config.email);
 
             const checkboxes = [];
             if (availableSections.includes('jobs')) {
@@ -2766,6 +2782,9 @@ class OnlyBackupApp {
             }
             if (availableSections.includes('clients')) {
                 checkboxes.push(`<label><input type="checkbox" value="clients" checked> Client (${clientsCount})</label>`);
+            }
+            if (availableSections.includes('email')) {
+                checkboxes.push(`<label><input type="checkbox" value="email" checked> Email (${hasEmail ? '1' : '0'})</label>`);
             }
 
             const html = `

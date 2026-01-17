@@ -60,6 +60,7 @@ function populateEmailSettings(settings) {
     document.getElementById('smtpHost').value = settings.smtp?.host || '';
     document.getElementById('smtpPort').value = settings.smtp?.port || 587;
     document.getElementById('smtpSecure').checked = settings.smtp?.secure || false;
+    document.getElementById('smtpIgnoreTls').checked = settings.smtp?.ignore_tls || false;
     document.getElementById('authType').value = settings.smtp?.auth?.type || 'basic';
     document.getElementById('smtpUser').value = settings.smtp?.auth?.user || '';
     document.getElementById('smtpPass').value = settings.smtp?.auth?.pass === '********' ? '' : settings.smtp?.auth?.pass || '';
@@ -88,6 +89,9 @@ function toggleAuthType() {
     if (authType === 'oauth2') {
         basicFields.classList.add('hidden');
         oauth2Fields.classList.remove('hidden');
+    } else if (authType === 'none') {
+        basicFields.classList.add('hidden');
+        oauth2Fields.classList.add('hidden');
     } else {
         basicFields.classList.remove('hidden');
         oauth2Fields.classList.add('hidden');
@@ -171,9 +175,14 @@ async function saveEmailSettings() {
                 host: document.getElementById('smtpHost').value,
                 port: parseInt(document.getElementById('smtpPort').value) || 587,
                 secure: document.getElementById('smtpSecure').checked,
+                ignore_tls: document.getElementById('smtpIgnoreTls').checked,
                 auth: {
                     type: authType,
-                    user: authType === 'oauth2' ? document.getElementById('oauth2User').value : document.getElementById('smtpUser').value,
+                    user: authType === 'oauth2'
+                        ? document.getElementById('oauth2User').value
+                        : authType === 'basic'
+                            ? document.getElementById('smtpUser').value
+                            : '',
                     pass: authType === 'basic' ? document.getElementById('smtpPass').value : ''
                 },
                 oauth2: authType === 'oauth2' ? {

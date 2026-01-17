@@ -406,6 +406,7 @@ function populateEmailSettings(settings) {
     document.getElementById('smtpHost').value = settings.smtp?.host || '';
     document.getElementById('smtpPort').value = settings.smtp?.port || 587;
     document.getElementById('smtpSecure').checked = settings.smtp?.secure || false;
+    document.getElementById('smtpIgnoreTls').checked = settings.smtp?.ignore_tls || false;
     document.getElementById('authType').value = settings.smtp?.auth?.type || 'basic';
     document.getElementById('smtpUser').value = settings.smtp?.auth?.user || '';
     document.getElementById('smtpPass').value = settings.smtp?.auth?.pass === '********' ? '' : settings.smtp?.auth?.pass || '';
@@ -434,6 +435,9 @@ function toggleAuthType() {
     if (authType === 'oauth2') {
         basicFields.classList.add('hidden');
         oauth2Fields.classList.remove('hidden');
+    } else if (authType === 'none') {
+        basicFields.classList.add('hidden');
+        oauth2Fields.classList.add('hidden');
     } else {
         basicFields.classList.remove('hidden');
         oauth2Fields.classList.add('hidden');
@@ -517,9 +521,14 @@ async function saveEmailSettings() {
                 host: document.getElementById('smtpHost').value,
                 port: parseInt(document.getElementById('smtpPort').value) || 587,
                 secure: document.getElementById('smtpSecure').checked,
+                ignore_tls: document.getElementById('smtpIgnoreTls').checked,
                 auth: {
                     type: authType,
-                    user: authType === 'oauth2' ? document.getElementById('oauth2User').value : document.getElementById('smtpUser').value,
+                    user: authType === 'oauth2'
+                        ? document.getElementById('oauth2User').value
+                        : authType === 'basic'
+                            ? document.getElementById('smtpUser').value
+                            : '',
                     pass: authType === 'basic' ? document.getElementById('smtpPass').value : ''
                 },
                 oauth2: authType === 'oauth2' ? {
@@ -783,7 +792,13 @@ async function exportConfig() {
 
             const jobsCount = config.jobs?.length || 0;
             const usersCount = config.users?.length || 0;
-            showMessage('success', `Export completato: ${sections.join(', ')} (${jobsCount} job, ${usersCount} utenti)`);
+            const hasEmail = Boolean(config.email);
+            const details = [
+                `${jobsCount} job`,
+                `${usersCount} utenti`,
+                hasEmail ? 'impostazioni email' : null
+            ].filter(Boolean).join(', ');
+            showMessage('success', `Export completato: ${sections.join(', ')} (${details})`);
         } else {
             showMessage('error', config.error || 'Impossibile esportare la configurazione');
         }
@@ -807,6 +822,9 @@ function showExportDialog() {
                     </label>
                     <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
                         <input type="checkbox" value="clients" checked style="width: 18px; height: 18px;"> Client
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" value="email" checked style="width: 18px; height: 18px;"> Email
                     </label>
                 </div>
                 <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
@@ -852,7 +870,7 @@ async function importConfig() {
             const config = JSON.parse(text);
 
             // Mostra dialog con checkbox per selezionare sezioni da importare
-            const availableSections = config.sections || ['jobs', 'users', 'clients'];
+            const availableSections = config.sections || ['jobs', 'users', 'clients', 'email'];
             const sections = await showImportDialog(config, availableSections);
 
             if (!sections || sections.length === 0) return;
@@ -867,7 +885,8 @@ async function importConfig() {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                showMessage('success', `Import completato: ${data.imported.jobs} job, ${data.imported.users} utenti`);
+                const emailImported = data.imported.email ? ', impostazioni email' : '';
+                showMessage('success', `Import completato: ${data.imported.jobs} job, ${data.imported.users} utenti${emailImported}`);
                 // Ricarica la pagina dopo 2 secondi per aggiornare i dati
                 setTimeout(() => {
                     window.location.reload();
@@ -888,6 +907,7 @@ function showImportDialog(config, availableSections) {
         const jobsCount = config.jobs?.length || 0;
         const usersCount = config.users?.length || 0;
         const clientsCount = config.clients?.length || 0;
+        const hasEmail = Boolean(config.email);
 
         const checkboxes = [];
         if (availableSections.includes('jobs')) {
@@ -898,6 +918,9 @@ function showImportDialog(config, availableSections) {
         }
         if (availableSections.includes('clients')) {
             checkboxes.push(`<label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="clients" checked style="width: 18px; height: 18px;"> Client (${clientsCount})</label>`);
+        }
+        if (availableSections.includes('email')) {
+            checkboxes.push(`<label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="email" checked style="width: 18px; height: 18px;"> Email (${hasEmail ? '1' : '0'})</label>`);
         }
 
         const html = `
