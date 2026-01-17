@@ -2091,13 +2091,18 @@ class OnlyBackupApp {
 
     renderRunsList() {
         const container = document.getElementById('runsList');
+        const maxRunsToShow = 10;
 
         if (this.runs.length === 0) {
             container.innerHTML = '<div class="info-message">Nessuna esecuzione disponibile</div>';
             return;
         }
 
-        container.innerHTML = this.runs.slice(0, 50).map(run => {
+        const limitedNotice = this.runs.length > maxRunsToShow
+            ? '<div class="info-message">Mostrati ultimi 10 log. Usa "Log completi" per vedere lo storico completo.</div>'
+            : '';
+
+        container.innerHTML = limitedNotice + this.runs.slice(0, maxRunsToShow).map(run => {
             const duration = run.end
                 ? `${Math.round((new Date(run.end) - new Date(run.start)) / 1000)}s`
                 : 'In corso...';
