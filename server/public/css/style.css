@@ -106,6 +106,37 @@ h1, h2, h3, h4, h5, h6 {
     text-align: center;
     color: var(--text-primary);
 }
+.loading-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--bg-color) 0%, var(--bg-dark) 100%);
+}
+.loading-card {
+    background: var(--panel-bg);
+    padding: 2rem 2.5rem;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    text-align: center;
+    min-width: 280px;
+}
+.loading-mark {
+    font-size: 2.25rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+.loading-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+    color: var(--text-primary);
+}
+.loading-subtitle {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
 .subtitle {
     text-align: center;
     color: var(--text-secondary);
@@ -1844,18 +1875,16 @@ h1, h2, h3, h4, h5, h6 {
 
 .template-help ol {
     margin: 0;
-    padding-left: 20px;
-    display: grid;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
     gap: 8px;
 }
 
 .template-help li {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 10px;
+    display: inline-flex;
     align-items: center;
-    font-size: 0.8125rem;
-    color: var(--text-secondary);
 }
 
 .copy-token {

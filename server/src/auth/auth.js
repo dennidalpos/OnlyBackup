@@ -7,6 +7,7 @@ class AuthManager {
     this.logger = logger;
     this.config = config;
     this.sessions = new Map();
+    this.persistSessions = Boolean(this.config?.auth?.persistSessions);
     this.initDefaultAdmin();
     this.loadSessions();
   }
@@ -29,6 +30,11 @@ class AuthManager {
   }
 
   loadSessions() {
+    if (!this.persistSessions) {
+      this.storage.saveSessions({});
+      this.logger.info('Persistenza sessioni disabilitata: sessioni azzerate all\'avvio');
+      return;
+    }
     const sessions = this.storage.loadSessions();
     if (sessions) {
       // Converti da oggetto a Map
@@ -40,6 +46,9 @@ class AuthManager {
   }
 
   saveSessions() {
+    if (!this.persistSessions) {
+      return;
+    }
     // Converti Map a oggetto per JSON
     const sessionsObj = {};
     this.sessions.forEach((session, sessionId) => {

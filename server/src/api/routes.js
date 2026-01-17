@@ -782,6 +782,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     const validation = authManager.validateSession(sessionId);
 
     if (!validation.valid) {
+      res.clearCookie('sessionId', buildSessionCookieOptions(req));
       return res.status(401).json({ error: 'Sessione non valida o scaduta' });
     }
 

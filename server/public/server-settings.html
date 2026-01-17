@@ -176,56 +176,43 @@
                                     <h5>Placeholder (clicca per copiare)</h5>
                                     <ol>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{hostname}}">{{hostname}}</button>
-                                            <span>Nome host del client/agent.</span>
+                                            <button type="button" class="copy-token" data-copy="{{hostname}}" title="Nome host del client/agent." aria-label="Nome host del client/agent.">{{hostname}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{job_id}}">{{job_id}}</button>
-                                            <span>ID del job associato al backup.</span>
+                                            <button type="button" class="copy-token" data-copy="{{job_id}}" title="ID del job associato al backup." aria-label="ID del job associato al backup.">{{job_id}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{run_id}}">{{run_id}}</button>
-                                            <span>ID univoco della run.</span>
+                                            <button type="button" class="copy-token" data-copy="{{run_id}}" title="ID univoco della run." aria-label="ID univoco della run.">{{run_id}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{timestamp}}">{{timestamp}}</button>
-                                            <span>Data e ora dell’evento nel formato locale.</span>
+                                            <button type="button" class="copy-token" data-copy="{{timestamp}}" title="Data e ora dell’evento nel formato locale." aria-label="Data e ora dell’evento nel formato locale.">{{timestamp}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{status}}">{{status}}</button>
-                                            <span>Stato finale del backup (success/partial/failed).</span>
+                                            <button type="button" class="copy-token" data-copy="{{status}}" title="Stato finale del backup (success/partial/failed)." aria-label="Stato finale del backup (success/partial/failed).">{{status}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{target_path}}">{{target_path}}</button>
-                                            <span>Percorso di destinazione dell’ultimo backup.</span>
+                                            <button type="button" class="copy-token" data-copy="{{target_path}}" title="Percorso di destinazione dell’ultimo backup." aria-label="Percorso di destinazione dell’ultimo backup.">{{target_path}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{last_seen}}">{{last_seen}}</button>
-                                            <span>Ultimo contatto dell’agent (eventi online/offline).</span>
+                                            <button type="button" class="copy-token" data-copy="{{last_seen}}" title="Ultimo contatto dell’agent (eventi online/offline)." aria-label="Ultimo contatto dell’agent (eventi online/offline).">{{last_seen}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{offline_duration}}">{{offline_duration}}</button>
-                                            <span>Durata dell’offline dell’agent in minuti/ore.</span>
+                                            <button type="button" class="copy-token" data-copy="{{offline_duration}}" title="Durata dell’offline dell’agent in minuti/ore." aria-label="Durata dell’offline dell’agent in minuti/ore.">{{offline_duration}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{error_message}}">{{error_message}}</button>
-                                            <span>Dettaglio errore critico (template critical).</span>
+                                            <button type="button" class="copy-token" data-copy="{{error_message}}" title="Dettaglio errore critico (template critical)." aria-label="Dettaglio errore critico (template critical).">{{error_message}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{stats.total_files}}">{{stats.total_files}}</button>
-                                            <span>Numero totale di file processati.</span>
+                                            <button type="button" class="copy-token" data-copy="{{stats.total_files}}" title="Numero totale di file processati." aria-label="Numero totale di file processati.">{{stats.total_files}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{stats.copied_files}}">{{stats.copied_files}}</button>
-                                            <span>File copiati con successo.</span>
+                                            <button type="button" class="copy-token" data-copy="{{stats.copied_files}}" title="File copiati con successo." aria-label="File copiati con successo.">{{stats.copied_files}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{stats.skipped_files}}">{{stats.skipped_files}}</button>
-                                            <span>File saltati/ignorati.</span>
+                                            <button type="button" class="copy-token" data-copy="{{stats.skipped_files}}" title="File saltati/ignorati." aria-label="File saltati/ignorati.">{{stats.skipped_files}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{stats.failed_files}}">{{stats.failed_files}}</button>
-                                            <span>File falliti durante il backup.</span>
+                                            <button type="button" class="copy-token" data-copy="{{stats.failed_files}}" title="File falliti durante il backup." aria-label="File falliti durante il backup.">{{stats.failed_files}}</button>
                                         </li>
                                     </ol>
                                 </div>
@@ -233,20 +220,16 @@
                                     <h5>Condizioni</h5>
                                     <ol>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{#if warnings}}&#10;...&#10;{{/if}}">{{#if warnings}}...{{/if}}</button>
-                                            <span>Mostra un blocco solo se l’array warning è presente.</span>
+                                            <button type="button" class="copy-token" data-copy="{{#if warnings}}&#10;...&#10;{{/if}}" title="Mostra un blocco solo se l’array warning è presente." aria-label="Mostra un blocco solo se l’array warning è presente.">{{#if warnings}}...{{/if}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{#if errors}}&#10;...&#10;{{/if}}">{{#if errors}}...{{/if}}</button>
-                                            <span>Mostra un blocco solo se esistono errori.</span>
+                                            <button type="button" class="copy-token" data-copy="{{#if errors}}&#10;...&#10;{{/if}}" title="Mostra un blocco solo se esistono errori." aria-label="Mostra un blocco solo se esistono errori.">{{#if errors}}...{{/if}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{#if stats}}&#10;...&#10;{{/if}}">{{#if stats}}...{{/if}}</button>
-                                            <span>Mostra un blocco solo se sono presenti statistiche.</span>
+                                            <button type="button" class="copy-token" data-copy="{{#if stats}}&#10;...&#10;{{/if}}" title="Mostra un blocco solo se sono presenti statistiche." aria-label="Mostra un blocco solo se sono presenti statistiche.">{{#if stats}}...{{/if}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{#if jobs}}&#10;...&#10;{{/if}}">{{#if jobs}}...{{/if}}</button>
-                                            <span>Mostra un blocco solo se sono presenti job.</span>
+                                            <button type="button" class="copy-token" data-copy="{{#if jobs}}&#10;...&#10;{{/if}}" title="Mostra un blocco solo se sono presenti job." aria-label="Mostra un blocco solo se sono presenti job.">{{#if jobs}}...{{/if}}</button>
                                         </li>
                                     </ol>
                                 </div>
@@ -254,16 +237,13 @@
                                     <h5>Liste</h5>
                                     <ol>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{#each errors}}&#10;- {{this.message}}&#10;{{/each}}">{{#each errors}}{{this.message}}{{/each}}</button>
-                                            <span>Elenco dei messaggi di errore.</span>
+                                            <button type="button" class="copy-token" data-copy="{{#each errors}}&#10;- {{this.message}}&#10;{{/each}}" title="Elenco dei messaggi di errore." aria-label="Elenco dei messaggi di errore.">{{#each errors}}{{this.message}}{{/each}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{#each warnings}}&#10;- {{this.message}}&#10;{{/each}}">{{#each warnings}}{{this.message}}{{/each}}</button>
-                                            <span>Elenco degli avvisi del backup.</span>
+                                            <button type="button" class="copy-token" data-copy="{{#each warnings}}&#10;- {{this.message}}&#10;{{/each}}" title="Elenco degli avvisi del backup." aria-label="Elenco degli avvisi del backup.">{{#each warnings}}{{this.message}}{{/each}}</button>
                                         </li>
                                         <li>
-                                            <button type="button" class="copy-token" data-copy="{{#each jobs}}&#10;- {{this}}&#10;{{/each}}">{{#each jobs}}{{this}}{{/each}}</button>
-                                            <span>Lista dei job impattati (eventi agent offline).</span>
+                                            <button type="button" class="copy-token" data-copy="{{#each jobs}}&#10;- {{this}}&#10;{{/each}}" title="Lista dei job impattati (eventi agent offline)." aria-label="Lista dei job impattati (eventi agent offline).">{{#each jobs}}{{this}}{{/each}}</button>
                                         </li>
                                     </ol>
                                     <small>Consiglio: incolla i blocchi nel corpo dell’email e personalizza il testo.</small>
