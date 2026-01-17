@@ -37,6 +37,7 @@ class OnlyBackupApp {
 
     async init() {
         this.setupEventListeners();
+        this.showScreen('loadingScreen');
         await this.checkAuthStatus();
     }
 
@@ -340,11 +341,11 @@ class OnlyBackupApp {
                     this.showDashboard();
                 }
             } else {
-                this.showPublicStats();
+                this.showLogin();
             }
         } catch (error) {
             console.error('Errore verifica autenticazione:', error);
-            this.showPublicStats();
+            this.showLogin();
         }
     }
 
@@ -445,7 +446,7 @@ class OnlyBackupApp {
                 clearTimeout(this.clientsPollingTimer);
                 this.clientsPollingTimer = null;
             }
-            this.showPublicStats();
+            this.showLogin();
         } catch (error) {
             console.error('Errore logout:', error);
         }

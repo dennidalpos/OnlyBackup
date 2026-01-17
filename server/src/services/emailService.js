@@ -457,7 +457,7 @@ Questo è un messaggio automatico generato da OnlyBackup.`
 
 Se ricevi questa email, la configurazione SMTP è corretta.
 
-Timestamp: ${new Date().toISOString()}
+Timestamp: ${this.formatTimestamp(new Date())}
 
 OnlyBackup Server`
       };
@@ -514,6 +514,16 @@ OnlyBackup Server`
       this.logger.error('Errore notifica stato backup', { error: error.message });
       return { success: false, error: error.message };
     }
+  }
+
+  formatTimestamp(date) {
+    const pad = value => String(value).padStart(2, '0');
+    const day = pad(date.getDate());
+    const month = pad(date.getMonth() + 1);
+    const year = date.getFullYear();
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    return `${day}-${month}-${year} ${hours}:${minutes}`;
   }
 
   async notifyAgentStatus(hostname, status, lastSeen, jobs = []) {
