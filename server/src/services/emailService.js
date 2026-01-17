@@ -320,12 +320,6 @@ Questo è un messaggio automatico generato da OnlyBackup.`
   replacePlaceholders(template, data) {
     let result = template;
 
-    Object.keys(data).forEach(key => {
-      const value = data[key];
-      const regex = new RegExp(`{{${key}}}`, 'g');
-      result = result.replace(regex, value ?? '');
-    });
-
     const ifRegex = /{{#if (\w+)}}([\s\S]*?){{\/if}}/g;
     result = result.replace(ifRegex, (match, condition, content) => {
       return data[condition] ? content : '';
@@ -345,6 +339,34 @@ Questo è un messaggio automatico generato da OnlyBackup.`
         itemResult = itemResult.replace(/{{this}}/g, item.toString());
         return itemResult;
       }).join('');
+    });
+
+    const getValueByPath = (obj, path) => {
+      if (!path) {
+        return undefined;
+      }
+      return path.split('.').reduce((acc, key) => {
+        if (acc === null || acc === undefined) {
+          return undefined;
+        }
+        return acc[key];
+      }, obj);
+    };
+
+    const placeholderRegex = /{{(?!#|\/)([^}]+)}}/g;
+    result = result.replace(placeholderRegex, (match, key) => {
+      const trimmedKey = key.trim();
+      if (trimmedKey === 'this' || trimmedKey.startsWith('this.')) {
+        return match;
+      }
+      const value = getValueByPath(data, trimmedKey);
+      if (value === undefined || value === null) {
+        return '';
+      }
+      if (typeof value === 'object') {
+        return JSON.stringify(value);
+      }
+      return String(value);
     });
 
     return result;

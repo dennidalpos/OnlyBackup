@@ -71,6 +71,8 @@ scripts/wix/payload/*.exe
 *.rar
 
 # Data (runtime)
+data/config/
 data/logs/
 data/state/
+data/users/
 C:/Temp/OnlyBackup_*.log

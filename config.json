@@ -6,7 +6,7 @@
   },
   "dataRoot": "./data",
   "logging": {
-    "level": "info",
+    "level": "warn",
     "console": true,
     "file": true,
     "maxFiles": 180,
@@ -17,10 +17,10 @@
   "auth": {
     "sessionTimeout": 3600000,
     "passwordMinLength": 8,
-    "secureCookies": false
+    "secureCookies": true
   },
   "scheduler": {
     "checkInterval": 60000,
-    "enableFileWatcher": true
+    "enableFileWatcher": false
   }
 }
