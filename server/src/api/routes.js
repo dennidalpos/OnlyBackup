@@ -1624,10 +1624,14 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       const sectionsParam = req.query.sections || 'jobs,users,clients';
       const sections = sectionsParam.split(',').map(s => s.trim());
 
-      const config = {
+      const buildExportPayload = () => ({
         version: '1.0',
         exportDate: new Date().toISOString(),
         sections: []
+      });
+
+      const config = {
+        ...buildExportPayload()
       };
 
       // Export jobs
@@ -1640,12 +1644,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       // Export users
       if (sections.includes('users')) {
         const users = authManager.getAllUsers();
-        config.users = users.map(u => ({
-          username: u.username,
-          passwordHash: u.passwordHash,
-          role: u.role,
-          mustChangePassword: u.mustChangePassword
-        }));
+        config.users = users;
         config.sections.push('users');
       }
 
@@ -1658,7 +1657,11 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         allJobs.forEach(job => clientHostnames.add(job.client_hostname));
         heartbeats.forEach(hb => clientHostnames.add(hb.hostname));
 
-        config.clients = Array.from(clientHostnames);
+        const heartbeatMap = new Map(heartbeats.map(hb => [hb.hostname, hb]));
+        config.clients = Array.from(clientHostnames).map(hostname => ({
+          hostname,
+          heartbeat: heartbeatMap.get(hostname) || null
+        }));
         config.sections.push('clients');
       }
 
@@ -1705,7 +1708,15 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
 
       // Import clients (count only)
       if (sectionsToImport.includes('clients') && Array.isArray(config.clients)) {
-        imported.clients = config.clients.length;
+        for (const client of config.clients) {
+          if (!client || !client.hostname) {
+            continue;
+          }
+          if (client.heartbeat && client.heartbeat.hostname) {
+            storage.saveAgentHeartbeat(client.heartbeat);
+          }
+          imported.clients++;
+        }
       }
 
       await scheduler.reloadJobs();
