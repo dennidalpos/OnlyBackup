@@ -472,7 +472,7 @@ OnlyBackup Server`
       const baseMessage = error.message || 'Errore invio email di test';
       const shouldSuggestSystemCa = /self[-\s]?signed certificate/i.test(baseMessage);
       const hint = shouldSuggestSystemCa
-        ? ' Certificato self-signed: se la CA è installata localmente, avvia Node.js con --use-system-ca.'
+        ? ' self-signed certificate; if the root CA is installed locally, try running Node.js with --use-system-ca. Certificato self-signed: se la CA è installata localmente, avvia Node.js con --use-system-ca.'
         : '';
       const errorMessage = `${baseMessage}${hint}`;
       this.logger.error('Errore invio email di test', { error: errorMessage });
