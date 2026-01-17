@@ -231,21 +231,22 @@ Questo è un messaggio automatico generato da OnlyBackup.`
         secure: this.settings.smtp.secure
       };
 
-      const authType = this.settings.smtp?.auth?.type || 'basic';
+      const authConfig = this.settings.smtp?.auth || {};
+      const authType = authConfig.type || (authConfig.user || authConfig.pass ? 'basic' : 'none');
 
       if (authType === 'oauth2') {
         transportOptions.auth = {
           type: 'OAuth2',
-          user: this.settings.smtp.auth.user,
+          user: authConfig.user,
           clientId: this.settings.smtp.oauth2.clientId,
           clientSecret: this.settings.smtp.oauth2.clientSecret,
           refreshToken: this.settings.smtp.oauth2.refreshToken,
           accessToken: this.settings.smtp.oauth2.accessToken
         };
-      } else if (authType !== 'none') {
+      } else if (authType === 'basic' && authConfig.user && authConfig.pass) {
         transportOptions.auth = {
-          user: this.settings.smtp.auth.user,
-          pass: this.settings.smtp.auth.pass
+          user: authConfig.user,
+          pass: authConfig.pass
         };
       }
 
