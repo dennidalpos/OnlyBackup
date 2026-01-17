@@ -455,6 +455,39 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     }
   };
 
+  const readLogIndexPaths = (filePath) => {
+    if (!filePath) {
+      return [];
+    }
+
+    try {
+      if (!fs.existsSync(filePath)) {
+        return [];
+      }
+
+      const raw = fs.readFileSync(filePath, 'utf8');
+      const payload = JSON.parse(raw);
+      const candidates = [];
+
+      if (payload?.log_path) {
+        candidates.push(payload.log_path);
+      }
+
+      if (Array.isArray(payload?.operations)) {
+        payload.operations.forEach(op => {
+          if (op?.log_path) {
+            candidates.push(op.log_path);
+          }
+        });
+      }
+
+      return candidates.filter(Boolean);
+    } catch (error) {
+      logger.warn('Impossibile leggere indice log', { filePath, error: error.message });
+      return [];
+    }
+  };
+
   const findLatestRunLog = (hostname, jobId) => {
     try {
       const runs = storage
@@ -1273,20 +1306,24 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       const paginatedRuns = runs.slice(offset, offset + limit);
       const payload = paginatedRuns
         .map(run => {
+          const runIndexPaths = new Set(readLogIndexPaths(run.run_log_index));
           const mappings = (run.mappings || [])
             .map((mapping, index) => {
               const normalizedIndex = Number.isFinite(Number(mapping.index)) ? Number(mapping.index) : index;
-              const logCandidates = [];
+              const logCandidates = new Set();
 
               if (mapping.log_path) {
-                logCandidates.push(mapping.log_path);
+                logCandidates.add(mapping.log_path);
               }
 
-              if (logCandidates.length === 0 && run.log_path) {
-                logCandidates.push(run.log_path);
+              if (run.log_path) {
+                logCandidates.add(run.log_path);
               }
 
-              const logs = logCandidates
+              readLogIndexPaths(mapping.run_log_index).forEach(candidate => logCandidates.add(candidate));
+              runIndexPaths.forEach(candidate => logCandidates.add(candidate));
+
+              const logs = Array.from(logCandidates)
                 .map(candidate => readLogFile(candidate, run.run_id, { tailLines }))
                 .filter(Boolean);
 
