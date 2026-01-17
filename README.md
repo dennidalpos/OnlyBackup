@@ -107,7 +107,7 @@ Il servizio `OnlyBackupAgent` viene installato e avviato automaticamente.
 2. Riavviare il sistema se richiesto
 3. Installare la nuova versione
 
-Consultare `scripts/MSI-INSTALLATION-GUIDE.md` per troubleshooting e casi d'uso avanzati.
+Per troubleshooting e casi d'uso avanzati, seguire le indicazioni sintetizzate nelle sezioni "MSI agent" e "Script PowerShell principali".
 
 #### Modalità Console (Debug)
 ```powershell
@@ -122,7 +122,25 @@ File: `OnlyBackupAgent.exe.config`
 - AgentPort: porta locale agent (default 8081)
 - HeartbeatInterval: frequenza heartbeat in ms (default 30000)
 
-Per i dettagli operativi dell’agent (componenti, struttura del progetto, build e troubleshooting), consultare `agent/README.md`.
+### Dettagli agent (sintesi)
+- **Struttura progetto:** soluzione `OnlyBackupAgent.sln`, entry point in `OnlyBackupAgent/Program.cs`, logica servizio in `OnlyBackupAgent/Service`, API HTTP in `OnlyBackupAgent/Communication`, engine file system in `OnlyBackupAgent/FileSystem`.
+- **Build:** compilare in Release con Visual Studio (.NET Framework 4.6.2).
+- **Configurazione runtime:** `OnlyBackupAgent.exe.config` con `ServerHost`, `ServerPort`, `AgentPort`, `HeartbeatInterval`.
+- **Servizio Windows:** nome `OnlyBackupAgent`, usa `robocopy` per COPY/SYNC e retention.
+
+### MSI agent (sintesi operativa)
+- **Versione di riferimento:** 1.0.3.0 con nuovo `UpgradeCode` (richiede disinstallazione manuale delle versioni precedenti 1.0.0.x–1.0.2.x).
+- **Installazione standard:** `msiexec /i OnlyBackupAgent.msi /qn ADDLOCAL=ALL /l*v C:\Temp\install.log`.
+- **Upgrade 1.0.3.0+:** `msiexec /i OnlyBackupAgent_vX.msi /qn ADDLOCAL=ALL`.
+- **Disinstallazione:** `msiexec /x OnlyBackupAgent.msi /qn`.
+- **Troubleshooting rapido:** se il servizio non compare, eseguire `Force-Cleanup.ps1`, riavviare e reinstallare con `ADDLOCAL=ALL`.
+
+### Script PowerShell principali (sintesi)
+- `scripts/Build-AgentMsi.ps1`: build MSI e configurazione host server.
+- `scripts/Install-WithVerboseLog.ps1`: installazione/disinstallazione con log dettagliati.
+- `scripts/Quick-Check.ps1`: verifica file/servizio/registro.
+- `scripts/Force-Cleanup.ps1`: pulizia forzata di installazioni orfane.
+- `scripts/Install-OnlyBackupServerService.ps1` e `scripts/Uninstall-OnlyBackupServerService.ps1`: gestione servizio server.
 
 ## 5. Configurazione
 - **`config.json` server (estratto):**
@@ -135,13 +153,13 @@ Per i dettagli operativi dell’agent (componenti, struttura del progetto, build
       "publicUrl": "https://backup.example.com"
     },
     "dataRoot": "./data",
-    "logging": { "level": "info", "console": true, "file": true, "maxFiles": 180, "maxSize": "10m", "retentionDays": 180, "cleanupIntervalHours": 6 },
-    "auth": { "sessionTimeout": 3600000, "passwordMinLength": 8, "secureCookies": false },
-    "scheduler": { "checkInterval": 60000, "enableFileWatcher": true }
+    "logging": { "level": "warn", "console": true, "file": true, "maxFiles": 180, "maxSize": "10m", "retentionDays": 180, "cleanupIntervalHours": 6 },
+    "auth": { "sessionTimeout": 3600000, "passwordMinLength": 8, "secureCookies": true },
+    "scheduler": { "checkInterval": 60000, "enableFileWatcher": false }
   }
   ```
 - **`dataRoot` predefinito:** se omesso, viene usata la cartella `data` accanto al file di configurazione.
-- **Utenti e autenticazione:** credenziali in `data/users/users.json` (ricreare admin/admin eliminando il file con servizio fermo). Sessione basata su cookie; impostare `secureCookies` su `true` con HTTPS.
+- **Utenti e autenticazione:** credenziali in `data/users/users.json` (ricreare admin/admin eliminando il file con servizio fermo). Sessione basata su cookie; mantenere `secureCookies` su `true` in produzione con HTTPS.
 - **OAuth email (Google/Microsoft):** se il server è pubblicato dietro HTTPS o reverse proxy, impostare `server.publicUrl` con l’URL pubblico (serve per costruire la redirect URI OAuth HTTPS).
 - **Sicurezza:** proteggere `dataRoot` con ACL NTFS, usare account servizio dedicati, considerare BitLocker/HTTPS e firewall restrittivi. Le credenziali dei job sono salvate in chiaro nei JSON: limitare l'accesso ai file.
 - **Configurazioni avanzate suggerite:**
@@ -321,6 +339,7 @@ Note: l'agent applica retention log a 20 MB e le eliminazioni da UI rimuovono an
 - Aggiornamenti agent: fermare il servizio, opzionale backup di `OnlyBackupAgent.exe.config`, installare nuovo MSI, verificare riavvio del servizio.
 - **Ripristino rapido:** conservare copie di `config.json` e `data/` per ricostruire server e dashboard senza perdere storici.
 - **Rotazione log lato agent:** verificare periodicamente le cartelle `data/logs` per evitare crescite anomale in caso di problemi di rete.
+- **Linee guida repository:** mantenere la documentazione in italiano, aggiornare principalmente il `README.md` e non aggiungere changelog.
 
 ## 15. Troubleshooting
 - **Agent offline:** verificare servizio `OnlyBackupAgent`, configurazione host/porte, firewall outbound, DNS; usare `Get-EventLog` per dettagli.
