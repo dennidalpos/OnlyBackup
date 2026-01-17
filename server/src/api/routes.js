@@ -532,11 +532,12 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     return normalized;
   };
 
-  const buildSessionCookieOptions = () => {
+  const buildSessionCookieOptions = (req) => {
     const secureSetting = authManager?.config?.auth?.secureCookies;
+    const isHttps = req?.secure || req?.get('x-forwarded-proto') === 'https';
     const secure = typeof secureSetting === 'boolean'
-      ? secureSetting
-      : process.env.NODE_ENV === 'production';
+      ? secureSetting && isHttps
+      : process.env.NODE_ENV === 'production' && isHttps;
 
     return {
       httpOnly: true,
@@ -546,8 +547,6 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       maxAge: 24 * 60 * 60 * 1000
     };
   };
-
-  const sessionCookieOptions = buildSessionCookieOptions();
 
   const computeEtag = (payload) => {
     return `"${crypto.createHash('sha1').update(payload).digest('hex')}"`;
@@ -864,7 +863,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         return res.status(401).json({ error: result.reason });
       }
 
-      res.cookie('sessionId', result.sessionId, sessionCookieOptions);
+      res.cookie('sessionId', result.sessionId, buildSessionCookieOptions(req));
 
       logger.logApiCall('POST', '/api/auth/login', username, 200);
 
@@ -885,7 +884,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     if (sessionId) {
       authManager.logout(sessionId);
     }
-    res.clearCookie('sessionId', sessionCookieOptions);
+    res.clearCookie('sessionId', buildSessionCookieOptions(req));
     res.json({ success: true });
   });
 
