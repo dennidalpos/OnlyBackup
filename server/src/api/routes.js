@@ -1620,7 +1620,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
   router.get('/api/config/export', requireAuth, (req, res) => {
     try {
       // Sezioni richieste (default: tutte)
-      const sectionsParam = req.query.sections || 'jobs,users,clients';
+      const sectionsParam = req.query.sections || 'jobs,users,clients,email';
       const sections = sectionsParam.split(',').map(s => s.trim());
 
       const buildExportPayload = () => ({
@@ -1664,6 +1664,17 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         config.sections.push('clients');
       }
 
+      if (sections.includes('email')) {
+        const emailService = req.app.get('emailService');
+        if (emailService) {
+          config.email = {
+            settings: emailService.getRawSettings(),
+            templates: emailService.getTemplates()
+          };
+          config.sections.push('email');
+        }
+      }
+
       logger.logApiCall('GET', '/api/config/export', req.username, 200);
       res.json(config);
     } catch (error) {
@@ -1681,9 +1692,9 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       }
 
       // Sezioni da importare (default: tutte le presenti nel config)
-      const sectionsToImport = sections || config.sections || ['jobs', 'users', 'clients'];
+      const sectionsToImport = sections || config.sections || ['jobs', 'users', 'clients', 'email'];
 
-      let imported = { jobs: 0, users: 0, clients: 0 };
+      let imported = { jobs: 0, users: 0, clients: 0, email: 0 };
 
       // Import users
       if (sectionsToImport.includes('users') && Array.isArray(config.users)) {
@@ -1715,6 +1726,19 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
             storage.saveAgentHeartbeat(client.heartbeat);
           }
           imported.clients++;
+        }
+      }
+
+      if (sectionsToImport.includes('email') && config.email) {
+        const emailService = req.app.get('emailService');
+        if (emailService) {
+          if (config.email.settings) {
+            emailService.updateSettings(config.email.settings);
+          }
+          if (config.email.templates) {
+            emailService.updateTemplates(config.email.templates);
+          }
+          imported.email = 1;
         }
       }
 
