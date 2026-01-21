@@ -13,7 +13,7 @@ class AlertService {
       const existingAlert = this.storage.findAlertByKey(type, key);
       if (existingAlert) {
         this.logger.debug('Alert già esistente', { type, key });
-        return existingAlert;
+        return { ...existingAlert, isNew: false };
       }
     }
 
@@ -38,7 +38,7 @@ class AlertService {
     // Emit event via SSE
     eventBus.emitAlertCreated(alert);
 
-    return alert;
+    return { ...alert, isNew: true };
   }
 
   resolveAlert(alertId) {

@@ -230,18 +230,21 @@ class JobExecutor {
       this.storage.saveRun(run);
 
       // Gestione alert
+      let shouldNotifyEmail = true;
       if (this.alertService) {
         if (run.status === 'failed') {
-          this.alertService.createBackupFailedAlert(run, job);
+          const alert = this.alertService.createBackupFailedAlert(run, job);
+          shouldNotifyEmail = alert?.isNew ?? true;
         } else if (run.status === 'partial') {
-          this.alertService.createBackupPartialAlert(run, job);
+          const alert = this.alertService.createBackupPartialAlert(run, job);
+          shouldNotifyEmail = alert?.isNew ?? true;
         } else if (run.status === 'success') {
           // Risolvi eventuali alert precedenti per questo job
           this.alertService.resolveBackupAlert(job.client_hostname, job.job_id);
         }
       }
 
-      if (this.emailService && (run.status === 'failed' || run.status === 'partial')) {
+      if (this.emailService && (run.status === 'failed' || run.status === 'partial') && shouldNotifyEmail) {
         this.emailService.notifyBackupStatus(run, job).catch(err => {
           this.logger.warn('Errore invio notifica email backup', { error: err.message });
         });
@@ -280,11 +283,13 @@ class JobExecutor {
       await this.rollbackFailedRun(job, run, error);
 
       // Crea alert per backup fallito
+      let shouldNotifyEmail = true;
       if (this.alertService) {
-        this.alertService.createBackupFailedAlert(run, job);
+        const alert = this.alertService.createBackupFailedAlert(run, job);
+        shouldNotifyEmail = alert?.isNew ?? true;
       }
 
-      if (this.emailService) {
+      if (this.emailService && shouldNotifyEmail) {
         this.emailService.notifyBackupStatus(run, job).catch(err => {
           this.logger.warn('Errore invio notifica email backup', { error: err.message });
         });

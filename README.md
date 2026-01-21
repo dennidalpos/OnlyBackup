@@ -230,6 +230,7 @@ Dalla dashboard accedere a **📧 Email** nella barra superiore per configurare:
   - Avvisi backup (warning)
   - Agent offline
   - Agent tornato online (opzionale)
+- **Frequenza notifiche:** per ogni tipo di alert viene inviata una sola email alla creazione dell’alert; nuove email arrivano solo dopo la risoluzione dell’alert e un successivo nuovo evento dello stesso tipo.
 
 ### Template Email Personalizzabili
 Ogni tipo di evento ha un template modificabile (soggetto + corpo) con supporto per:
