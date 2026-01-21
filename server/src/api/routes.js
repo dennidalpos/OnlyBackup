@@ -85,6 +85,45 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     return `${proto}://${host}`;
   };
 
+  const getLoginUrl = (req) => {
+    const config = req.app.get('config');
+    const configuredUrl = config?.auth?.loginUrl;
+    if (typeof configuredUrl === 'string' && configuredUrl.trim()) {
+      return configuredUrl.trim();
+    }
+    return '/api/auth/login';
+  };
+
+  const getLogRetentionDays = (req) => {
+    const config = req.app.get('config');
+    const configuredRetention = config?.logging?.retentionDays;
+    if (Number.isFinite(configuredRetention)) {
+      return configuredRetention;
+    }
+    return 180;
+  };
+
+  const updateLogRetention = (req, retentionDays) => {
+    const config = req.app.get('config');
+    const configPath = req.app.get('configPath');
+    if (!configPath) {
+      return { success: false, error: 'Percorso configurazione non disponibile' };
+    }
+
+    const updatedConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    updatedConfig.logging = {
+      ...(updatedConfig.logging || {}),
+      retentionDays
+    };
+    fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2), 'utf8');
+
+    if (!config.logging) {
+      config.logging = {};
+    }
+    config.logging.retentionDays = retentionDays;
+    return { success: true };
+  };
+
   const normalizeWindowsPath = (pathStr) => {
     if (!pathStr) return '';
 
@@ -922,6 +961,10 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     }
     res.clearCookie('sessionId', buildSessionCookieOptions(req));
     res.json({ success: true });
+  });
+
+  router.get('/api/public/auth-config', (req, res) => {
+    res.json({ loginUrl: getLoginUrl(req) });
   });
 
   router.post('/api/auth/change-password', requireAuth, (req, res) => {
@@ -2325,6 +2368,22 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     }
   });
 
+  router.delete('/api/alerts/history', requireAuth, (req, res) => {
+    try {
+      const alertService = req.app.get('alertService');
+      if (!alertService) {
+        return res.status(500).json({ error: 'Servizio alert non disponibile' });
+      }
+
+      const deletedCount = alertService.clearResolvedAlerts();
+      logger.logApiCall('DELETE', '/api/alerts/history', req.username, 200);
+      res.json({ success: true, deletedCount });
+    } catch (error) {
+      logger.error('Errore eliminazione storico alerts', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
   router.post('/api/alerts/:alertId/resolve', requireAuth, (req, res) => {
     try {
       const alertService = req.app.get('alertService');
@@ -2370,6 +2429,40 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
   });
 
   // Server management API
+  router.get('/api/server/log-retention', requireAuth, (req, res) => {
+    try {
+      const retentionDays = getLogRetentionDays(req);
+      logger.logApiCall('GET', '/api/server/log-retention', req.username, 200);
+      res.json({ retentionDays });
+    } catch (error) {
+      logger.error('Errore recupero retention log', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  router.put('/api/server/log-retention', requireAuth, (req, res) => {
+    try {
+      const { retentionDays } = req.body || {};
+      const parsedRetention = Number(retentionDays);
+      const allowedValues = new Set([0, 30, 180, 365]);
+
+      if (!allowedValues.has(parsedRetention)) {
+        return res.status(400).json({ error: 'Valore ritenzione non valido' });
+      }
+
+      const updateResult = updateLogRetention(req, parsedRetention);
+      if (!updateResult.success) {
+        return res.status(500).json({ error: updateResult.error || 'Errore aggiornamento configurazione' });
+      }
+
+      logger.logApiCall('PUT', '/api/server/log-retention', req.username, 200);
+      res.json({ success: true, retentionDays: parsedRetention });
+    } catch (error) {
+      logger.error('Errore aggiornamento retention log', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
   router.post('/api/server/reboot', requireAuth, async (req, res) => {
     try {
       // Solo admin possono riavviare il server

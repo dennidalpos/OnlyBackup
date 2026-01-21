@@ -79,6 +79,14 @@ class AlertService {
     return result;
   }
 
+  clearResolvedAlerts() {
+    const deletedCount = this.storage.deleteResolvedAlerts();
+    if (deletedCount > 0) {
+      this.logger.info('Storico alert eliminato', { deletedCount });
+    }
+    return deletedCount;
+  }
+
   // Helper methods for common alert types
   createBackupFailedAlert(run, job) {
     const key = `backup_failed_${job.client_hostname}_${job.job_id}`;

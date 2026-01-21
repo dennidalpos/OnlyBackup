@@ -27,6 +27,7 @@ class OnlyBackupServer {
     this.scheduler = null;
     this.app = null;
     this.server = null;
+    this.configPath = null;
   }
 
   async start() {
@@ -99,6 +100,7 @@ class OnlyBackupServer {
 
     const configData = fs.readFileSync(configPath, 'utf8');
     this.config = JSON.parse(configData);
+    this.configPath = configPath;
 
     const configDir = path.dirname(configPath);
     if (this.config.dataRoot && !path.isAbsolute(this.config.dataRoot)) {
@@ -138,6 +140,7 @@ class OnlyBackupServer {
     this.app.use(cookieParser());
     this.app.set('trust proxy', true);
     this.app.set('config', this.config);
+    this.app.set('configPath', this.configPath);
 
     this.app.use((err, req, res, next) => {
       if (err instanceof SyntaxError && 'body' in err) {

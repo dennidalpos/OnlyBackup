@@ -285,6 +285,27 @@
                 <!-- Tab Manutenzione -->
                 <div id="maintenanceTab" class="tab-content">
                     <div class="form-section">
+                        <h4>Ritenzione Log</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                            Imposta per quanto tempo conservare i log dei backup.
+                        </p>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="logRetention">Durata</label>
+                                <select id="logRetention">
+                                    <option value="30">1 mese</option>
+                                    <option value="180">6 mesi</option>
+                                    <option value="365">12 mesi</option>
+                                    <option value="0">Non cancellare log</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="saveLogRetention()">
+                            💾 Salva Ritenzione Log
+                        </button>
+                    </div>
+
+                    <div class="form-section">
                         <h4>Import/Export Configurazione</h4>
                         <p style="color: var(--text-secondary); margin-bottom: 20px;">
                             Esporta o importa la configurazione completa del sistema (job, utenti, client).

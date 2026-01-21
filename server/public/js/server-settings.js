@@ -7,6 +7,7 @@ let currentSettings = null;
 // Inizializzazione
 document.addEventListener('DOMContentLoaded', async () => {
     await loadEmailSettings();
+    await loadLogRetention();
     handleOAuthCallback();
     setupTemplateCopy();
 });
@@ -33,6 +34,51 @@ function switchTab(tabName) {
     const targetTab = document.getElementById(`${tabName}Tab`);
     if (targetTab) {
         targetTab.classList.add('active');
+    }
+}
+
+async function loadLogRetention() {
+    try {
+        const response = await fetch('/api/server/log-retention');
+        const data = await response.json();
+
+        if (!response.ok) {
+            return;
+        }
+
+        const select = document.getElementById('logRetention');
+        if (select && Number.isFinite(data.retentionDays)) {
+            select.value = String(data.retentionDays);
+        }
+    } catch (error) {
+        console.error('Errore caricamento retention log:', error);
+    }
+}
+
+async function saveLogRetention() {
+    const select = document.getElementById('logRetention');
+    if (!select) {
+        return;
+    }
+
+    try {
+        const retentionDays = Number(select.value);
+        const response = await fetch('/api/server/log-retention', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ retentionDays })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showMessage('success', '✅ Ritenzione log aggiornata');
+        } else {
+            showMessage('error', '❌ Errore aggiornamento ritenzione log: ' + (data.error || 'Errore sconosciuto'));
+        }
+    } catch (error) {
+        console.error('Errore aggiornamento retention log:', error);
+        showMessage('error', '❌ Errore di rete');
     }
 }
 

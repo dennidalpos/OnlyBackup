@@ -79,6 +79,34 @@ async function loadHistoryAlerts() {
     }
 }
 
+async function clearAlertHistory() {
+    if (!confirm('Vuoi cancellare lo storico degli alert risolti? Questa operazione è irreversibile.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/alerts/history', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showMessage('success', `✅ Storico alert cancellato (${data.deletedCount || 0})`);
+            historyAlerts = [];
+            renderHistoryAlerts();
+        } else {
+            showMessage('error', '❌ Errore cancellazione storico: ' + (data.error || 'Errore sconosciuto'));
+        }
+    } catch (error) {
+        console.error('Errore cancellazione storico alert:', error);
+        showMessage('error', '❌ Errore di rete');
+    }
+}
+
 // Render alert attivi
 function renderActiveAlerts() {
     const container = document.getElementById('activeAlertsContainer');

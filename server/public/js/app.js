@@ -32,12 +32,14 @@ class OnlyBackupApp {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 10;
         this.sseEnabled = true;
+        this.loginUrl = '/api/auth/login';
         this.init();
     }
 
     async init() {
         this.setupEventListeners();
         this.showScreen('loadingScreen');
+        await this.loadAuthConfig();
         await this.checkAuthStatus();
     }
 
@@ -349,13 +351,28 @@ class OnlyBackupApp {
         }
     }
 
+    async loadAuthConfig() {
+        try {
+            const response = await fetch('/api/public/auth-config');
+            if (!response.ok) {
+                return;
+            }
+            const data = await response.json();
+            if (data && typeof data.loginUrl === 'string' && data.loginUrl.trim()) {
+                this.loginUrl = data.loginUrl.trim();
+            }
+        } catch (error) {
+            console.warn('Impossibile caricare configurazione login:', error);
+        }
+    }
+
     async handleLogin() {
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
         const errorDiv = document.getElementById('loginError');
 
         try {
-            const response = await fetch('/api/auth/login', {
+            const response = await fetch(this.loginUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })

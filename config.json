@@ -17,7 +17,8 @@
   "auth": {
     "sessionTimeout": 3600000,
     "passwordMinLength": 8,
-    "secureCookies": true
+    "secureCookies": true,
+    "loginUrl": "/api/auth/login"
   },
   "scheduler": {
     "checkInterval": 60000,

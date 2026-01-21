@@ -612,6 +612,37 @@ class Storage {
     }
   }
 
+  deleteResolvedAlerts() {
+    const alertsDir = path.join(this.dataRoot, 'state', 'alerts');
+    let deletedCount = 0;
+
+    try {
+      if (!fs.existsSync(alertsDir)) {
+        return 0;
+      }
+
+      const files = fs.readdirSync(alertsDir);
+      for (const file of files) {
+        if (path.extname(file) !== '.json') {
+          continue;
+        }
+
+        const alertId = path.basename(file, '.json');
+        const alert = this.loadAlert(alertId);
+        if (alert && alert.resolved) {
+          if (this.deleteAlert(alertId)) {
+            deletedCount += 1;
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error('Errore eliminazione storico alert', { error: error.message });
+      return 0;
+    }
+
+    return deletedCount;
+  }
+
   findAlertByKey(type, key) {
     const alerts = this.loadAllAlerts(true);
     return alerts.find(alert => alert.type === type && alert.key === key);

@@ -154,12 +154,13 @@ File: `OnlyBackupAgent.exe.config`
     },
     "dataRoot": "./data",
     "logging": { "level": "warn", "console": true, "file": true, "maxFiles": 180, "maxSize": "10m", "retentionDays": 180, "cleanupIntervalHours": 6 },
-    "auth": { "sessionTimeout": 3600000, "passwordMinLength": 8, "secureCookies": true },
+    "auth": { "sessionTimeout": 3600000, "passwordMinLength": 8, "secureCookies": true, "loginUrl": "/api/auth/login" },
     "scheduler": { "checkInterval": 60000, "enableFileWatcher": false }
   }
   ```
 - **`dataRoot` predefinito:** se omesso, viene usata la cartella `data` accanto al file di configurazione.
 - **Utenti e autenticazione:** credenziali in `data/users/users.json` (ricreare admin/admin eliminando il file con servizio fermo). Sessione basata su cookie; mantenere `secureCookies` su `true` in produzione con HTTPS.
+- **Login esterno opzionale:** per usare un endpoint di login diverso (es. reverse proxy o servizio esterno), impostare `auth.loginUrl` con l'URL completo o relativo dell'endpoint da usare.
 - **OAuth email (Google/Microsoft):** se il server è pubblicato dietro HTTPS o reverse proxy, impostare `server.publicUrl` con l’URL pubblico (serve per costruire la redirect URI OAuth HTTPS).
 - **Sicurezza:** proteggere `dataRoot` con ACL NTFS, usare account servizio dedicati, considerare BitLocker/HTTPS e firewall restrittivi. Le credenziali dei job sono salvate in chiaro nei JSON: limitare l'accesso ai file.
 - **Configurazioni avanzate suggerite:**

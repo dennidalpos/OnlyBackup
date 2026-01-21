@@ -41,6 +41,15 @@
 
                 <!-- Tab Storico -->
                 <div id="historyTab" class="tab-content">
+                    <div class="form-section" style="margin-bottom: 20px;">
+                        <h4>Storico Alert</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: 16px;">
+                            Cancella tutti gli alert risolti presenti nello storico.
+                        </p>
+                        <button type="button" class="btn btn-danger" onclick="clearAlertHistory()">
+                            🗑️ Cancella Storico
+                        </button>
+                    </div>
                     <div id="historyAlertsContainer">
                         <div class="loading-spinner">Caricamento...</div>
                     </div>
