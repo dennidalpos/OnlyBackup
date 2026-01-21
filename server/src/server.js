@@ -222,21 +222,25 @@ class OnlyBackupServer {
             .filter(j => j.client_hostname === hb.hostname);
 
           // Crea alert per agent offline
+          let shouldNotifyEmail = true;
           if (this.alertService) {
-            this.alertService.createAgentOfflineAlert(
+            const alert = this.alertService.createAgentOfflineAlert(
               hb.hostname,
               jobs.map(j => j.job_id)
             );
+            shouldNotifyEmail = alert?.isNew ?? true;
           }
 
-          this.emailService.notifyAgentStatus(
-            hb.hostname,
-            'offline',
-            hb.timestamp,
-            jobs.map(j => j.job_id)
-          ).catch(err => {
-            this.logger.warn('Errore invio notifica email agent offline', { error: err.message });
-          });
+          if (this.emailService && shouldNotifyEmail) {
+            this.emailService.notifyAgentStatus(
+              hb.hostname,
+              'offline',
+              hb.timestamp,
+              jobs.map(j => j.job_id)
+            ).catch(err => {
+              this.logger.warn('Errore invio notifica email agent offline', { error: err.message });
+            });
+          }
 
           const updatedHeartbeat = { ...hb, status: 'offline' };
           this.storage.saveAgentHeartbeat(updatedHeartbeat);

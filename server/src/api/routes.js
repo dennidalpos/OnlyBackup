@@ -858,12 +858,14 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     if (wasOffline && heartbeat.status === 'online') {
       // Agent tornato online - risolvi alert offline
       const alertService = req.app.get('alertService');
+      let shouldNotifyEmail = true;
       if (alertService) {
-        alertService.resolveAgentOfflineAlert(hostname);
+        const resolved = alertService.resolveAgentOfflineAlert(hostname);
+        shouldNotifyEmail = resolved !== false;
       }
 
       const emailService = req.app.get('emailService');
-      if (emailService) {
+      if (emailService && shouldNotifyEmail) {
         const jobs = storage.loadAllJobs()
           .filter(j => j.client_hostname === hostname)
           .map(j => j.job_id);
