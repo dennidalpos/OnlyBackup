@@ -1724,7 +1724,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
   router.get('/api/config/export', requireAuth, (req, res) => {
     try {
       // Sezioni richieste (default: tutte)
-      const sectionsParam = req.query.sections || 'jobs,users,clients,email,server';
+      const sectionsParam = req.query.sections || 'email,server';
       const sections = sectionsParam.split(',').map(s => s.trim());
 
       const buildExportPayload = () => ({
@@ -1809,7 +1809,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       }
 
       // Sezioni da importare (default: tutte le presenti nel config)
-      const sectionsToImport = sections || config.sections || ['jobs', 'users', 'clients', 'email', 'server'];
+      const sectionsToImport = sections || config.sections || ['email', 'server'];
 
       let imported = { jobs: 0, users: 0, clients: 0, email: 0, server: 0 };
 
