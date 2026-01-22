@@ -1805,6 +1805,57 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     }
   });
 
+  router.get('/api/logs/retention', requireAuth, (req, res) => {
+    try {
+      const config = req.app.get('config');
+      const retentionDays = Number.isFinite(Number(config?.logging?.retentionDays))
+        ? Number(config.logging.retentionDays)
+        : 0;
+
+      logger.logApiCall('GET', '/api/logs/retention', req.username, 200);
+      res.json({ retentionDays });
+    } catch (error) {
+      logger.error('Errore recupero retention log', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  router.put('/api/logs/retention', requireAuth, (req, res) => {
+    try {
+      const retentionDays = Number(req.body?.retentionDays);
+      if (!Number.isFinite(retentionDays) || retentionDays < 0) {
+        return res.status(400).json({ error: 'Valore retentionDays non valido' });
+      }
+
+      const configPath = req.app.get('configPath');
+      if (!configPath) {
+        return res.status(500).json({ error: 'Percorso configurazione non disponibile' });
+      }
+
+      const configData = fs.readFileSync(configPath, 'utf8');
+      const diskConfig = JSON.parse(configData);
+      diskConfig.logging = diskConfig.logging || {};
+      diskConfig.logging.retentionDays = retentionDays;
+      fs.writeFileSync(configPath, JSON.stringify(diskConfig, null, 2), 'utf8');
+
+      const runtimeConfig = req.app.get('config');
+      if (runtimeConfig) {
+        runtimeConfig.logging = runtimeConfig.logging || {};
+        runtimeConfig.logging.retentionDays = retentionDays;
+      }
+
+      if (logger?.updateLogRetention) {
+        logger.updateLogRetention(retentionDays);
+      }
+
+      logger.logApiCall('PUT', '/api/logs/retention', req.username, 200);
+      res.json({ success: true, retentionDays });
+    } catch (error) {
+      logger.error('Errore aggiornamento retention log', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
   // SSE Manager
   const sseManager = require('../events/sseManager');
 
@@ -2321,6 +2372,22 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       res.json({ alerts });
     } catch (error) {
       logger.error('Errore recupero storico alerts', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  router.delete('/api/alerts/history', requireAuth, (req, res) => {
+    try {
+      const alertService = req.app.get('alertService');
+      if (!alertService) {
+        return res.status(500).json({ error: 'Servizio alert non disponibile' });
+      }
+
+      const deletedCount = alertService.deleteAllAlerts();
+      logger.logApiCall('DELETE', '/api/alerts/history', req.username, 200);
+      res.json({ success: true, deletedCount });
+    } catch (error) {
+      logger.error('Errore eliminazione storico alerts', { error: error.message });
       res.status(500).json({ error: 'Errore interno' });
     }
   });

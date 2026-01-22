@@ -30,7 +30,6 @@
                 <div class="tabs">
                     <button class="tab-btn active" data-tab="email">Notifiche Email</button>
                     <button class="tab-btn" data-tab="maintenance">Manutenzione</button>
-                    <button class="tab-btn" data-tab="server">Server</button>
                 </div>
 
                 <!-- Tab Email -->
@@ -300,6 +299,35 @@
                     </div>
 
                     <div class="form-section">
+                        <h4>Storico Alert</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                            Cancella lo storico degli alert risolti e attivi. Gli alert futuri continueranno ad arrivare.
+                        </p>
+                        <button type="button" class="btn btn-danger" onclick="deleteAlertHistory()">
+                            🧹 Cancella Storico Alert
+                        </button>
+                    </div>
+
+                    <div class="form-section">
+                        <h4>Ritenzione Log</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                            Imposta per quanto tempo mantenere i log salvati sul server. La regola viene applicata a tutti i log.
+                        </p>
+                        <div class="form-group">
+                            <label for="logRetentionDays">Conservazione log</label>
+                            <select id="logRetentionDays">
+                                <option value="30">1 mese</option>
+                                <option value="180">6 mesi</option>
+                                <option value="365">12 mesi</option>
+                                <option value="0">Non cancellare log</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="saveLogRetention()">
+                            💾 Salva Ritenzione Log
+                        </button>
+                    </div>
+
+                    <div class="form-section">
                         <h4>Gestione Log</h4>
                         <p style="color: var(--text-secondary); margin-bottom: 20px;">
                             Elimina tutti i log di backup salvati. I job e la loro configurazione non verranno eliminati.
@@ -308,10 +336,7 @@
                             🗑️ Elimina Tutti i Log
                         </button>
                     </div>
-                </div>
 
-                <!-- Tab Server -->
-                <div id="serverTab" class="tab-content">
                     <div class="form-section">
                         <h4>Riavvio Server</h4>
                         <div class="info-box">
