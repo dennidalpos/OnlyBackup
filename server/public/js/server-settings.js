@@ -836,11 +836,13 @@ async function exportConfig() {
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
 
+            const jobsCount = config.jobs?.length || 0;
+            const usersCount = config.users?.length || 0;
             const hasEmail = Boolean(config.email);
-            const hasServerSettings = Boolean(config.serverSettings);
             const details = [
-                hasEmail ? 'impostazioni email' : null,
-                hasServerSettings ? 'impostazioni server' : null
+                `${jobsCount} job`,
+                `${usersCount} utenti`,
+                hasEmail ? 'impostazioni email' : null
             ].filter(Boolean).join(', ');
             showMessage('success', `Export completato: ${sections.join(', ')} (${details})`);
         } else {
@@ -859,10 +861,16 @@ function showExportDialog() {
                 <h3 style="margin: 0 0 20px 0;">Seleziona cosa esportare</h3>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                        <input type="checkbox" value="email" checked style="width: 18px; height: 18px;"> Email
+                        <input type="checkbox" value="jobs" checked style="width: 18px; height: 18px;"> Job
                     </label>
                     <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                        <input type="checkbox" value="server" checked style="width: 18px; height: 18px;"> Server
+                        <input type="checkbox" value="users" checked style="width: 18px; height: 18px;"> Utenti
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" value="clients" checked style="width: 18px; height: 18px;"> Client
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" value="email" checked style="width: 18px; height: 18px;"> Email
                     </label>
                 </div>
                 <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
@@ -908,7 +916,7 @@ async function importConfig() {
             const config = JSON.parse(text);
 
             // Mostra dialog con checkbox per selezionare sezioni da importare
-            const allowedSections = ['email', 'server'];
+            const allowedSections = ['jobs', 'users', 'clients', 'email', 'server'];
             const availableSections = (config.sections || allowedSections).filter(section => allowedSections.includes(section));
             const sections = await showImportDialog(config, availableSections);
 
@@ -924,11 +932,8 @@ async function importConfig() {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                const importedParts = [];
-                if (data.imported.email) importedParts.push('impostazioni email');
-                if (data.imported.server) importedParts.push('impostazioni server');
-                const details = importedParts.length > 0 ? importedParts.join(', ') : 'nessuna impostazione';
-                showMessage('success', `Import completato: ${details}`);
+                const emailImported = data.imported.email ? ', impostazioni email' : '';
+                showMessage('success', `Import completato: ${data.imported.jobs} job, ${data.imported.users} utenti${emailImported}`);
                 // Ricarica la pagina dopo 2 secondi per aggiornare i dati
                 setTimeout(() => {
                     window.location.reload();
@@ -946,15 +951,23 @@ async function importConfig() {
 
 function showImportDialog(config, availableSections) {
     return new Promise((resolve) => {
+        const jobsCount = config.jobs?.length || 0;
+        const usersCount = config.users?.length || 0;
+        const clientsCount = config.clients?.length || 0;
         const hasEmail = Boolean(config.email);
-        const hasServerSettings = Boolean(config.serverSettings);
 
         const checkboxes = [];
+        if (availableSections.includes('jobs')) {
+            checkboxes.push(`<label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="jobs" checked style="width: 18px; height: 18px;"> Job (${jobsCount})</label>`);
+        }
+        if (availableSections.includes('users')) {
+            checkboxes.push(`<label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="users" checked style="width: 18px; height: 18px;"> Utenti (${usersCount})</label>`);
+        }
+        if (availableSections.includes('clients')) {
+            checkboxes.push(`<label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="clients" checked style="width: 18px; height: 18px;"> Client (${clientsCount})</label>`);
+        }
         if (availableSections.includes('email')) {
             checkboxes.push(`<label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="email" checked style="width: 18px; height: 18px;"> Email (${hasEmail ? '1' : '0'})</label>`);
-        }
-        if (availableSections.includes('server')) {
-            checkboxes.push(`<label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="server" checked style="width: 18px; height: 18px;"> Server (${hasServerSettings ? '1' : '0'})</label>`);
         }
 
         const html = `
