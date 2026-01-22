@@ -77,7 +77,12 @@ class Logger {
   }
 
   scheduleLogCleanup() {
-    const retentionDays = this.config.logging?.retentionDays || 180;
+    const retentionDays = Number(this.config.logging?.retentionDays || 0);
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+
     if (!retentionDays || retentionDays <= 0) {
       return;
     }
@@ -87,10 +92,6 @@ class Logger {
 
     this.cleanupObsoleteLogs(retentionDays);
 
-    if (this.cleanupTimer) {
-      clearInterval(this.cleanupTimer);
-    }
-
     this.cleanupTimer = setInterval(() => {
       this.cleanupObsoleteLogs(retentionDays);
     }, intervalMs);
@@ -98,11 +99,9 @@ class Logger {
 
   cleanupObsoleteLogs(retentionDays) {
     const logsDir = path.join(this.config.dataRoot, 'logs');
-    const jobLogsDir = path.join(logsDir, 'jobs');
     const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
 
     this.removeOldLogFiles(logsDir, cutoff, (file) => file.endsWith('.log') || file.endsWith('.log.gz'));
-    this.removeOldLogFiles(jobLogsDir, cutoff);
   }
 
   removeOldLogFiles(directory, cutoffMs, predicate = null) {
@@ -110,19 +109,24 @@ class Logger {
       return;
     }
 
-    for (const file of fs.readdirSync(directory)) {
-      const fullPath = path.join(directory, file);
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const fullPath = path.join(directory, entry.name);
 
       try {
+        if (entry.isDirectory()) {
+          this.removeOldLogFiles(fullPath, cutoffMs, predicate);
+          continue;
+        }
+
+        if (!entry.isFile()) {
+          continue;
+        }
+
+        if (predicate && !predicate(entry.name)) {
+          continue;
+        }
+
         const stat = fs.statSync(fullPath);
-        if (!stat.isFile()) {
-          continue;
-        }
-
-        if (predicate && !predicate(file)) {
-          continue;
-        }
-
         if (stat.mtimeMs < cutoffMs) {
           fs.unlinkSync(fullPath);
         }
@@ -132,6 +136,15 @@ class Logger {
         }
       }
     }
+  }
+
+  updateLogRetention(retentionDays) {
+    if (!this.config.logging) {
+      this.config.logging = {};
+    }
+
+    this.config.logging.retentionDays = retentionDays;
+    this.scheduleLogCleanup();
   }
 
   info(message, meta = {}) {

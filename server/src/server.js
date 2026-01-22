@@ -27,6 +27,7 @@ class OnlyBackupServer {
     this.scheduler = null;
     this.app = null;
     this.server = null;
+    this.configPath = null;
   }
 
   async start() {
@@ -97,6 +98,7 @@ class OnlyBackupServer {
       );
     }
 
+    this.configPath = configPath;
     const configData = fs.readFileSync(configPath, 'utf8');
     this.config = JSON.parse(configData);
 
@@ -152,6 +154,7 @@ class OnlyBackupServer {
     this.app.set('emailService', this.emailService);
     this.app.set('alertService', this.alertService);
     this.app.set('serverService', this.serverService);
+    this.app.set('configPath', this.configPath);
 
     setupRoutes(this.app, this.authManager, this.storage, this.scheduler, this.logger);
 

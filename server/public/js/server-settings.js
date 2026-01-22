@@ -7,6 +7,7 @@ let currentSettings = null;
 // Inizializzazione
 document.addEventListener('DOMContentLoaded', async () => {
     await loadEmailSettings();
+    await loadLogRetention();
     handleOAuthCallback();
     setupTemplateCopy();
 });
@@ -64,6 +65,92 @@ async function deleteAllLogs() {
         }
     } catch (error) {
         console.error('Errore eliminazione log:', error);
+        showMessage('error', '❌ Errore di rete');
+    }
+}
+
+// Elimina storico alert
+async function deleteAlertHistory() {
+    if (!confirm('Sei sicuro di voler cancellare lo storico degli alert?\n\nQuesta operazione rimuove sia gli alert risolti che quelli ancora attivi.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/alerts/history', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            showMessage('success', `✅ Storico alert cancellato (${data.deletedCount})`);
+        } else {
+            showMessage('error', '❌ Errore cancellazione storico alert: ' + (data.error || 'Errore sconosciuto'));
+        }
+    } catch (error) {
+        console.error('Errore cancellazione storico alert:', error);
+        showMessage('error', '❌ Errore di rete');
+    }
+}
+
+// Carica retention log
+async function loadLogRetention() {
+    try {
+        const response = await fetch('/api/logs/retention', {
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                window.location.href = '/';
+                return;
+            }
+            throw new Error('Errore caricamento retention log');
+        }
+
+        const data = await response.json();
+        const retentionSelect = document.getElementById('logRetentionDays');
+        if (retentionSelect) {
+            const retentionValue = String(Number(data.retentionDays || 0));
+            const optionExists = Array.from(retentionSelect.options).some(option => option.value === retentionValue);
+            retentionSelect.value = optionExists ? retentionValue : '0';
+        }
+    } catch (error) {
+        console.error('Errore caricamento retention log:', error);
+        showMessage('error', 'Impossibile caricare la ritenzione log');
+    }
+}
+
+// Salva retention log
+async function saveLogRetention() {
+    const retentionSelect = document.getElementById('logRetentionDays');
+    if (!retentionSelect) {
+        return;
+    }
+
+    const retentionDays = Number(retentionSelect.value);
+
+    try {
+        const response = await fetch('/api/logs/retention', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ retentionDays })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            showMessage('success', '✅ Ritenzione log aggiornata');
+        } else {
+            showMessage('error', '❌ Errore aggiornamento ritenzione log: ' + (data.error || 'Errore sconosciuto'));
+        }
+    } catch (error) {
+        console.error('Errore aggiornamento ritenzione log:', error);
         showMessage('error', '❌ Errore di rete');
     }
 }
