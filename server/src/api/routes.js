@@ -124,6 +124,27 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     return { success: true };
   };
 
+  const updateAuthLoginUrl = (req, loginUrl) => {
+    const config = req.app.get('config');
+    const configPath = req.app.get('configPath');
+    if (!configPath) {
+      return { success: false, error: 'Percorso configurazione non disponibile' };
+    }
+
+    const updatedConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    updatedConfig.auth = {
+      ...(updatedConfig.auth || {}),
+      loginUrl
+    };
+    fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2), 'utf8');
+
+    if (!config.auth) {
+      config.auth = {};
+    }
+    config.auth.loginUrl = loginUrl;
+    return { success: true };
+  };
+
   const normalizeWindowsPath = (pathStr) => {
     if (!pathStr) return '';
 
@@ -1703,7 +1724,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
   router.get('/api/config/export', requireAuth, (req, res) => {
     try {
       // Sezioni richieste (default: tutte)
-      const sectionsParam = req.query.sections || 'jobs,users,clients,email';
+      const sectionsParam = req.query.sections || 'jobs,users,clients,email,server';
       const sections = sectionsParam.split(',').map(s => s.trim());
 
       const buildExportPayload = () => ({
@@ -1758,6 +1779,19 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
         }
       }
 
+      if (sections.includes('server')) {
+        const serverConfig = req.app.get('config') || {};
+        config.serverSettings = {
+          logging: {
+            retentionDays: serverConfig.logging?.retentionDays ?? 180
+          },
+          auth: {
+            loginUrl: serverConfig.auth?.loginUrl || '/api/auth/login'
+          }
+        };
+        config.sections.push('server');
+      }
+
       logger.logApiCall('GET', '/api/config/export', req.username, 200);
       res.json(config);
     } catch (error) {
@@ -1775,9 +1809,9 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
       }
 
       // Sezioni da importare (default: tutte le presenti nel config)
-      const sectionsToImport = sections || config.sections || ['jobs', 'users', 'clients', 'email'];
+      const sectionsToImport = sections || config.sections || ['jobs', 'users', 'clients', 'email', 'server'];
 
-      let imported = { jobs: 0, users: 0, clients: 0, email: 0 };
+      let imported = { jobs: 0, users: 0, clients: 0, email: 0, server: 0 };
 
       // Import users
       if (sectionsToImport.includes('users') && Array.isArray(config.users)) {
@@ -1822,6 +1856,29 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
             emailService.updateTemplates(config.email.templates);
           }
           imported.email = 1;
+        }
+      }
+
+      if (sectionsToImport.includes('server') && config.serverSettings) {
+        const retentionDays = config.serverSettings.logging?.retentionDays;
+        const loginUrl = config.serverSettings.auth?.loginUrl;
+        let serverUpdated = false;
+
+        if (Number.isFinite(retentionDays)) {
+          const allowedValues = new Set([0, 30, 180, 365]);
+          if (allowedValues.has(retentionDays)) {
+            const updateResult = updateLogRetention(req, retentionDays);
+            serverUpdated = serverUpdated || updateResult.success;
+          }
+        }
+
+        if (typeof loginUrl === 'string' && loginUrl.trim()) {
+          const updateResult = updateAuthLoginUrl(req, loginUrl.trim());
+          serverUpdated = serverUpdated || updateResult.success;
+        }
+
+        if (serverUpdated) {
+          imported.server = 1;
         }
       }
 
