@@ -114,6 +114,13 @@ class OnlyBackupServer {
       ...(this.config.server || {})
     };
 
+    this.config.auth = {
+      sessionTimeout: 3600000,
+      passwordMinLength: 8,
+      persistSessions: false,
+      ...(this.config.auth || {})
+    };
+
     if (!this.config.dataRoot) {
       this.config.dataRoot = path.join(configDir, 'data');
     }
