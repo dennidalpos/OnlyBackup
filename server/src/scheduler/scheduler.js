@@ -228,7 +228,9 @@ class Scheduler {
     for (let dayOffset = 0; dayOffset < 14; dayOffset++) {
       const dayOfWeek = candidateDay.getDay();
 
-      if (scheduledDays.includes(dayOfWeek)) {
+      const adjustedDay = dayOfWeek === 0 ? 7 : dayOfWeek;
+
+      if (scheduledDays.includes(adjustedDay)) {
         for (const time of sortedTimes) {
           const [hours, minutes] = time.split(':').map(Number);
           const nextRun = new Date(candidateDay);
