@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnlyBackup - Dashboard</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div id="loadingScreen" class="screen">
+        <div class="loading-container">
+            <div class="loading-card">
+                <div class="loading-mark">OB</div>
+                <div class="loading-title">OnlyBackup</div>
+                <div class="loading-subtitle">Verifica sessione in corso...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loginScreen" class="screen hidden">
+        <div class="login-container">
+            <div class="login-box">
+                <h1>OnlyBackup</h1>
+                <p class="subtitle">Sistema di Backup Centralizzato</p>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username" required autofocus autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required autocomplete="current-password">
+                    </div>
+                    <div id="loginError" class="error-message"></div>
+                    <button type="submit" class="btn btn-primary">Accedi</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="changePasswordScreen" class="screen hidden">
+        <div class="login-container">
+            <div class="login-box">
+                <h2>Cambio Password</h2>
+                <p class="subtitle">Modifica la password di default per continuare.</p>
+                <form id="changePasswordForm">
+                    <div class="form-group">
+                        <label for="oldPassword">Password attuale</label>
+                        <input type="password" id="oldPassword" name="oldPassword" required autocomplete="current-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">Nuova password</label>
+                        <input type="password" id="newPassword" name="newPassword" required autocomplete="new-password" minlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Conferma password</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password">
+                    </div>
+                    <div id="changePasswordError" class="error-message"></div>
+                    <button type="submit" class="btn btn-primary">Cambia Password</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="publicStatsScreen" class="screen hidden">
+        <div class="public-stats-container">
+            <h1>OnlyBackup - Stato Sistema</h1>
+            <div class="stats-grid">
+                <div class="stat-card success">
+                    <h3>Backup OK (24h)</h3>
+                    <div class="stat-value" id="backupsOk">-</div>
+                </div>
+                <div class="stat-card error">
+                    <h3>Backup Falliti (24h)</h3>
+                    <div class="stat-value" id="backupsFailed">-</div>
+                </div>
+                <div class="stat-card online">
+                    <h3>Client Online</h3>
+                    <div class="stat-value" id="clientsOnline">-</div>
+                </div>
+                <div class="stat-card offline">
+                    <h3>Client Offline</h3>
+                    <div class="stat-value" id="clientsOffline">-</div>
+                </div>
+            </div>
+            <button onclick="app.showLogin()" class="btn btn-primary">Accedi come Admin</button>
+        </div>
+    </div>
+
+    <div id="mainDashboard" class="screen hidden">
+        <div class="dashboard-shell">
+            <header class="topbar">
+                <div class="brand">
+                    <div class="brand-mark">OB</div>
+                    <div>
+                        <div class="brand-title">OnlyBackup</div>
+                        <div class="brand-subtitle">Control Center</div>
+                    </div>
+                </div>
+                <div class="user-info">
+                    <a href="/alerts.html" class="btn btn-outline btn-small" title="Alert di sistema">🔔 Alert</a>
+                    <a href="/server-settings.html" class="btn btn-outline btn-small" title="Impostazioni server">⚙️ Impostazioni</a>
+                    <button onclick="app.resetPassword()" class="btn btn-outline btn-small" title="Cambia password">🔑</button>
+                    <span class="user-chip" id="currentUser">-</span>
+                    <button onclick="app.logout()" class="btn btn-outline btn-small">Logout</button>
+                </div>
+            </header>
+
+            <div class="dashboard-layout">
+                <aside class="layout-panel sidebar-panel">
+                    <div class="panel-header">
+                        <div>
+                            <p class="eyebrow">Agent</p>
+                            <h2>Client</h2>
+                        </div>
+                        <div class="panel-actions">
+                            <button onclick="app.refreshClients()" class="btn btn-icon" title="Aggiorna lista client">&#8635;</button>
+                        </div>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" id="clientSearchInput" placeholder="Cerca client..." oninput="app.filterClients(this.value)">
+                    </div>
+                    <div class="panel-state" id="clientsState">
+                        <div class="state-row" data-state="loading"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div></div>
+                        <div class="state-row hidden" data-state="empty">Nessun agent registrato.</div>
+                        <div class="state-row hidden" data-state="error">Impossibile recuperare la lista client.</div>
+                    </div>
+                    <div id="clientsList" class="card-list clients-list" aria-live="polite">
+                        <div class="loading">Caricamento...</div>
+                    </div>
+                </aside>
+
+                <main class="layout-panel main-panel">
+                    <section class="section-row">
+                        <div class="section-heading">
+                            <div>
+                                <p class="eyebrow">Panoramica</p>
+                                <h2 class="section-title">Job & Storico</h2>
+                            </div>
+                        </div>
+                        <div class="summary-grid" id="clientSummary">
+                            <div class="summary-card">
+                                <div class="summary-label">Job Attivi</div>
+                                <div class="summary-value" id="summaryActiveJobs">-</div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-label">Ultimo Backup</div>
+                                <div class="summary-value" id="summaryLastBackup">-</div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-label">Totale Esecuzioni</div>
+                                <div class="summary-value" id="summaryTotalRuns">-</div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="workspace-grid" aria-label="Job workspace">
+                        <div class="workspace-left">
+                            <div class="workspace-card">
+                                <div class="workspace-card-header">
+                                    <div class="workspace-card-title">
+                                        <p class="eyebrow">Gestione</p>
+                                        <h3>Job & Storico</h3>
+                                    </div>
+                                    <div class="client-header-actions">
+                                        <button onclick="app.runAllJobsForClient()" class="btn btn-success btn-small action-group">Esegui Tutti</button>
+                                        <button onclick="app.showCreateJobForm()" class="btn btn-primary btn-small action-group">+ Nuovo Job</button>
+                                        <button onclick="app.clearClientLogs()" class="btn btn-warning btn-small action-group" title="Elimina solo lo storico backup">Elimina Log</button>
+                                        <button onclick="app.deregisterClient()" class="btn btn-danger btn-small action-group" title="Deregistra client e tutti i dati">Deregistra</button>
+                                    </div>
+                                </div>
+                                <div class="client-header-bar">
+                                    <div class="client-header-info">
+                                        <span class="client-header-name truncate" id="selectedClientName">Seleziona un client</span>
+                                        <span class="client-header-status" id="clientHeaderStatus"></span>
+                                    </div>
+                                </div>
+                                <div class="tabs">
+                                    <button class="tab-btn active" onclick="app.showTab('jobs')">Job</button>
+                                    <button class="tab-btn" onclick="app.showTab('runs')">Storico</button>
+                                </div>
+                                <div class="tab-panels">
+                                    <div id="jobsTab" class="tab-content">
+                                        <div id="jobsList" class="jobs-list card-list">
+                                            <div class="loading">Caricamento...</div>
+                                        </div>
+                                        <div class="empty-state hidden" id="jobsEmpty">Nessun job configurato.</div>
+                                    </div>
+                                    <div id="runsTab" class="tab-content hidden">
+                                        <div id="runsList" class="runs-list card-list">
+                                            <div class="loading">Caricamento...</div>
+                                        </div>
+                                        <div class="empty-state hidden" id="runsEmpty">Nessuna esecuzione recente.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="workspace-right">
+                            <div class="job-editor-panel">
+                                <div class="panel-header">
+                                    <div>
+                                        <p class="eyebrow">Editor</p>
+                                        <h3>Job</h3>
+                                    </div>
+                                    <div class="header-actions">
+                                        <button class="btn btn-outline btn-small action-group" id="cancelJobBtn" onclick="app.cancelEditJob()" style="display: none;">Annulla</button>
+                                        <button class="btn btn-outline btn-small action-group" onclick="app.openBackupsList()">Backup presenti</button>
+                                        <button class="btn btn-primary btn-small action-group" onclick="app.handleSaveJob()">Salva</button>
+                                        <button class="btn btn-success btn-small action-group" onclick="app.runEditingJob()">Esegui</button>
+                                        <button class="btn btn-danger btn-small action-group" onclick="app.deleteEditingJob()">Elimina</button>
+                                    </div>
+                                </div>
+                                <div id="jobEditorEmpty" class="info-message">Seleziona un job dalla lista o creane uno nuovo.</div>
+                                <form id="jobEditorForm" class="job-form hidden">
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label for="jobIdField">Job ID</label>
+                                            <input type="text" id="jobIdField" required placeholder="es. BACKUP-DOCS">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Client</label>
+                                            <div class="static-field" id="jobClientName"></div>
+                                        </div>
+                                        <div class="form-group checkbox-inline">
+                                            <input type="checkbox" id="jobEnabledToggle" checked>
+                                            <label for="jobEnabledToggle">Job Attivo</label>
+                                        </div>
+                                    </div>
+
+                                    <div class="section" id="scheduleSection">
+                                        <div class="section-header">
+                                            <h4>Pianificazione</h4>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Giorni della settimana</label>
+                                            <div class="weekdays-grid" id="scheduleDays">
+                                                <label class="weekday-check"><input type="checkbox" value="1"><span>Lun</span></label>
+                                                <label class="weekday-check"><input type="checkbox" value="2"><span>Mar</span></label>
+                                                <label class="weekday-check"><input type="checkbox" value="3"><span>Mer</span></label>
+                                                <label class="weekday-check"><input type="checkbox" value="4"><span>Gio</span></label>
+                                                <label class="weekday-check"><input type="checkbox" value="5"><span>Ven</span></label>
+                                                <label class="weekday-check"><input type="checkbox" value="6"><span>Sab</span></label>
+                                                <label class="weekday-check"><input type="checkbox" value="0"><span>Dom</span></label>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Orari di esecuzione</label>
+                                            <div class="time-list" id="scheduleTimes"></div>
+                                            <div class="time-adder">
+                                                <input type="time" id="newScheduleTime" value="02:00">
+                                                <button type="button" class="btn btn-outline btn-small" onclick="app.addScheduleTime()">+ Aggiungi</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="section" id="mappingsSection">
+                                        <div class="section-header">
+                                            <h4>Mappature Sorgente/Destinazione</h4>
+                                            <button type="button" class="btn btn-outline btn-small" onclick="app.addMapping()">+ Aggiungi</button>
+                                        </div>
+                                        <div id="mappingsContainer" class="mappings-container"></div>
+                                    </div>
+
+                                    <div id="jobFormError" class="error-message"></div>
+                                </form>
+                            </div>
+                        </div>
+                    </section>
+                </main>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="deregisterDialog" class="modal hidden">
+        <div class="modal-backdrop" onclick="app.closeDeregisterDialog()"></div>
+        <div class="modal-content">
+            <h3>Deregistra PC</h3>
+            <div class="dialog-message">
+                <p id="deregisterMessage"></p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="app.closeDeregisterDialog()">Annulla</button>
+                <button type="button" class="btn btn-danger" onclick="app.confirmDeregisterClient()">Deregistra</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="clearLogsDialog" class="modal hidden">
+        <div class="modal-backdrop" onclick="app.closeClearLogsDialog()"></div>
+        <div class="modal-content">
+            <h3>Elimina Storico Backup</h3>
+            <div class="dialog-message">
+                <p id="clearLogsMessage"></p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="app.closeClearLogsDialog()">Annulla</button>
+                <button type="button" class="btn btn-danger" onclick="app.confirmClearClientLogs()">Elimina Log</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="filesystemModal" class="modal hidden">
+        <div class="modal-backdrop" onclick="app.closeFilesystemModal()"></div>
+        <div class="modal-content wide">
+            <h3>Sfoglia Filesystem</h3>
+            <div class="fs-nav-bar">
+                <button type="button" class="btn btn-outline btn-small" onclick="app.navigateFilesystemUp()" id="fsBtnUp">&#8593; Indietro</button>
+                <div class="fs-current-path" id="fsCurrentPath">/</div>
+            </div>
+            <div id="fsEntries" class="filesystem-list"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="app.closeFilesystemModal()">Annulla</button>
+                <button type="button" class="btn btn-primary" onclick="app.selectCurrentPath()" id="fsSelectBtn">Seleziona</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="logViewerModal" class="modal hidden">
+        <div class="modal-backdrop" onclick="app.closeLogViewer()"></div>
+        <div class="modal-content wide">
+            <div class="modal-header">
+                <h3>Log Completi</h3>
+                <button type="button" class="btn btn-outline btn-small" onclick="app.closeLogViewer()">Chiudi</button>
+            </div>
+            <div class="log-viewer" id="logViewerContent">
+                <div class="skeleton skeleton-line"></div>
+                <div class="skeleton skeleton-line"></div>
+                <div class="skeleton skeleton-line"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="backupsModal" class="modal hidden">
+        <div class="modal-backdrop" onclick="app.closeBackupsModal()"></div>
+        <div class="modal-content wide">
+            <div class="modal-header">
+                <h3>Backup presenti</h3>
+                <button type="button" class="btn btn-outline btn-small" onclick="app.closeBackupsModal()">Chiudi</button>
+            </div>
+            <div class="backup-browser" id="backupsModalContent">
+                <div class="info-message">Seleziona un job per visualizzare i backup disponibili.</div>
+            </div>
+        </div>
+    </div>
+
+    <template id="dashboardMockExample">
+        <div class="dashboard-shell">
+            <header class="topbar">
+                <div class="brand"><div class="brand-mark">OB</div><div><div class="brand-title">OnlyBackup</div><div class="brand-subtitle">Control Center</div></div></div>
+                <div class="topbar-stats">
+                    <div class="stat-pill"><span class="pill-label">Client</span><span class="pill-value online">12</span><span class="pill-sep">/</span><span class="pill-value offline">3</span></div>
+                    <div class="stat-pill"><span class="pill-label">Backup 24h</span><span class="pill-value success">42</span><span class="pill-sep">/</span><span class="pill-value failure">1</span></div>
+                </div>
+                <div class="user-info"><span class="user-chip">admin</span></div>
+            </header>
+            <div class="dashboard-layout">
+                <aside class="layout-panel sidebar-panel">
+                    <div class="panel-header"><h2>Client</h2></div>
+                    <div class="card-list">
+                        <div class="card-row"><div class="title truncate" title="PC-001">PC-001</div><div class="badge status-success">Online</div></div>
+                        <div class="card-row"><div class="title truncate" title="PC-002">PC-002</div><div class="badge status-warning">Offline</div></div>
+                    </div>
+                </aside>
+                <main class="layout-panel main-panel">
+                    <div class="summary-grid">
+                        <div class="summary-card"><div class="summary-label">Job Attivi</div><div class="summary-value">4</div></div>
+                        <div class="summary-card"><div class="summary-label">Ultimo Backup</div><div class="summary-value">12:30</div></div>
+                        <div class="summary-card"><div class="summary-label">Totale Esecuzioni</div><div class="summary-value">128</div></div>
+                    </div>
+                    <div class="workspace-grid">
+                        <div class="workspace-left">
+                            <div class="tabs"><button class="tab-btn active">Job</button><button class="tab-btn">Storico</button></div>
+                            <div class="card-list"><div class="card-row"><div><div class="title truncate">Backup Documents</div><div class="subtitle">02:00 ogni giorno</div></div><div class="badge status-success">OK</div></div></div>
+                        </div>
+                        <div class="workspace-right">
+                            <div class="job-editor-panel"><div class="panel-header"><h3>Editor Job</h3></div><div class="info-message">Seleziona un job</div></div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+            <footer class="footer-status"><div class="status-item"><span class="status-dot success"></span><span>Online</span></div></footer>
+        </div>
+    </template>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>

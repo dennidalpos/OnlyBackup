@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnlyBackup - Impostazioni Email</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .email-settings-page {
+            min-height: 100vh;
+            background: var(--bg-color);
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .settings-header {
+            background: var(--panel-bg);
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settings-header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .settings-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .settings-content {
+            background: var(--panel-bg);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--panel-header-bg);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 16px 24px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            transition: all var(--transition-fast);
+            border-bottom: 2px solid transparent;
+            font-family: var(--font-base);
+        }
+
+        .tab-btn:hover {
+            background: var(--surface-hover);
+            color: var(--text-secondary);
+        }
+
+        .tab-btn.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+            background: var(--panel-bg);
+        }
+
+        .tab-content {
+            padding: 30px;
+            display: none;
+            max-height: calc(100vh - 300px);
+            overflow-y: auto;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-section {
+            margin-bottom: 32px;
+            padding-bottom: 32px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .form-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .form-section h4 {
+            margin: 0 0 20px 0;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-primary);
+            font-size: 0.8125rem;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group input[type="password"],
+        .form-group input[type="number"],
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            font-family: var(--font-base);
+            transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+            background: var(--input-bg);
+            color: var(--text-primary);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: var(--focus-ring);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-family: var(--font-mono);
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 6px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr auto;
+            gap: 16px;
+            align-items: start;
+        }
+
+        .form-row .form-group {
+            margin-bottom: 0;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 0;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            margin: 0;
+            accent-color: var(--primary-color);
+        }
+
+        .checkbox-group label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: 400;
+            user-select: none;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 8px 0;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            margin: 0;
+            accent-color: var(--primary-color);
+        }
+
+        .checkbox-label span {
+            font-size: 0.875rem;
+            color: var(--text-primary);
+        }
+
+        .actions-bar {
+            display: flex;
+            gap: 12px;
+            padding: 20px 30px;
+            background: var(--panel-header-bg);
+            border-top: 1px solid var(--border-color);
+            justify-content: flex-end;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 0.8125rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            text-decoration: none;
+            display: inline-block;
+            font-family: var(--font-base);
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+        }
+
+        .btn-outline:hover {
+            background: var(--surface-hover);
+        }
+
+        .btn-secondary {
+            background: var(--secondary-color);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: var(--secondary-hover);
+        }
+
+        .template-editor {
+            margin-top: 20px;
+        }
+
+        .info-box {
+            background: var(--info-bg);
+            border-left: 4px solid var(--info-color);
+            padding: 16px;
+            margin-bottom: 20px;
+            border-radius: var(--radius-sm);
+        }
+
+        .info-box p {
+            margin: 0;
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+        }
+
+        .template-help {
+            display: grid;
+            gap: 16px;
+        }
+
+        .template-help h5 {
+            margin: 0 0 8px 0;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+        }
+
+        .template-help ol {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .template-help li {
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .copy-token {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            color: var(--primary-color);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            white-space: nowrap;
+        }
+
+        .copy-token:hover {
+            background: var(--surface-hover);
+            border-color: var(--primary-color);
+        }
+
+        .copy-token:active {
+            transform: translateY(1px);
+        }
+
+        .template-help small {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .status-message {
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 20px;
+            font-size: 0.875rem;
+        }
+
+        .status-message.success {
+            background: var(--success-bg);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+
+        .status-message.error {
+            background: var(--error-bg);
+            color: var(--error-color);
+            border: 1px solid var(--error-color);
+        }
+
+        .status-message.warning {
+            background: var(--warning-bg);
+            color: var(--warning-color);
+            border: 1px solid var(--warning-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="email-settings-page">
+        <div class="settings-container">
+            <div class="settings-header">
+                <h1>📧 Configurazione Notifiche Email</h1>
+                <a href="/" class="btn btn-secondary">← Torna alla Dashboard</a>
+            </div>
+
+            <div id="statusMessage"></div>
+
+            <div class="settings-content">
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="switchTab('smtp')">Configurazione SMTP</button>
+                    <button class="tab-btn" onclick="switchTab('templates')">Template Email</button>
+                </div>
+
+                <div id="smtpTab" class="tab-content active">
+                    <form id="emailSettingsForm">
+                        <div class="form-section">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="emailEnabled" name="enabled">
+                                <label for="emailEnabled">Abilita notifiche email</label>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Server SMTP</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="smtpHost">Host SMTP</label>
+                                    <input type="text" id="smtpHost" name="smtp.host" placeholder="smtp.gmail.com">
+                                </div>
+                                <div class="form-group">
+                                    <label for="smtpPort">Porta</label>
+                                    <input type="number" id="smtpPort" name="smtp.port" placeholder="587">
+                                </div>
+                                <div class="form-group">
+                                    <label for="smtpSecure" style="margin-bottom: 0;">&nbsp;</label>
+                                    <div class="checkbox-group" style="padding-top: 10px;">
+                                        <input type="checkbox" id="smtpSecure" name="smtp.secure">
+                                        <label for="smtpSecure">SSL/TLS</label>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="smtpIgnoreTls" style="margin-bottom: 0;">&nbsp;</label>
+                                    <div class="checkbox-group" style="padding-top: 10px;">
+                                        <input type="checkbox" id="smtpIgnoreTls" name="smtp.ignore_tls">
+                                        <label for="smtpIgnoreTls">Forza no STARTTLS</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Autenticazione</h4>
+                            <div class="form-group">
+                                <label for="authType">Tipo autenticazione</label>
+                                <select id="authType" name="smtp.auth.type" onchange="toggleAuthType()">
+                                    <option value="none">Nessuna (SMTP non autenticato)</option>
+                                    <option value="basic">Basic (Username/Password)</option>
+                                    <option value="oauth2">OAuth2 (Office 365/Google)</option>
+                                </select>
+                            </div>
+
+                            <div id="basicAuthFields">
+                                <div class="form-group">
+                                    <label for="smtpUser">Username/Email</label>
+                                    <input type="text" id="smtpUser" name="smtp.auth.user" placeholder="user@example.com">
+                                </div>
+                                <div class="form-group">
+                                    <label for="smtpPass">Password</label>
+                                    <input type="password" id="smtpPass" name="smtp.auth.pass" placeholder="Password o App Password">
+                                    <small>Per Gmail/Office365 con MFA, usa una App Password</small>
+                                </div>
+                            </div>
+
+                            <div id="oauth2Fields" class="hidden">
+                                <div class="form-group">
+                                    <label for="oauth2User">Email account</label>
+                                    <input type="text" id="oauth2User" name="smtp.auth.user" placeholder="user@example.com">
+                                </div>
+                                <div class="form-group">
+                                    <label for="oauth2ClientId">Client ID</label>
+                                    <input type="text" id="oauth2ClientId" name="smtp.oauth2.clientId">
+                                </div>
+                                <div class="form-group">
+                                    <label for="oauth2ClientSecret">Client Secret</label>
+                                    <input type="password" id="oauth2ClientSecret" name="smtp.oauth2.clientSecret">
+                                </div>
+                                <div class="form-group">
+                                    <label for="oauth2RefreshToken">Refresh Token</label>
+                                    <input type="text" id="oauth2RefreshToken" name="smtp.oauth2.refreshToken">
+                                </div>
+                                <div class="form-group">
+                                    <label>Collega account con OAuth</label>
+                                    <div class="oauth-actions">
+                                        <button type="button" class="btn btn-outline" onclick="startOAuthLogin('google')">Connetti Google</button>
+                                        <button type="button" class="btn btn-outline" onclick="startOAuthLogin('microsoft')">Connetti Microsoft 365</button>
+                                    </div>
+                                    <small class="oauth-hint">Inserisci Client ID, Client Secret e Email account prima di avviare il login.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Impostazioni Invio</h4>
+                            <div class="form-group">
+                                <label for="emailFrom">Indirizzo mittente</label>
+                                <input type="email" id="emailFrom" name="from" placeholder="onlybackup@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="emailRecipients">Destinatari (uno per riga)</label>
+                                <textarea id="emailRecipients" name="recipients" rows="4" placeholder="admin@example.com&#10;backup@example.com"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Eventi da Notificare</h4>
+                            <div class="checkbox-label">
+                                <input type="checkbox" id="eventBackupFailed" name="events.backup_failed">
+                                <span>Backup falliti</span>
+                            </div>
+                            <div class="checkbox-label">
+                                <input type="checkbox" id="eventBackupPartial" name="events.backup_partial">
+                                <span>Backup parziali</span>
+                            </div>
+                            <div class="checkbox-label">
+                                <input type="checkbox" id="eventBackupCritical" name="events.backup_critical">
+                                <span>Errori critici</span>
+                            </div>
+                            <div class="checkbox-label">
+                                <input type="checkbox" id="eventBackupWarning" name="events.backup_warning">
+                                <span>Avvisi backup</span>
+                            </div>
+                            <div class="checkbox-label">
+                                <input type="checkbox" id="eventAgentOffline" name="events.agent_offline">
+                                <span>Agent offline</span>
+                            </div>
+                            <div class="checkbox-label">
+                                <input type="checkbox" id="eventAgentOnline" name="events.agent_online">
+                                <span>Agent tornato online</span>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div class="actions-bar">
+                        <button type="button" class="btn btn-outline" onclick="testEmail()">Invia Email di Test</button>
+                        <button type="button" class="btn btn-primary" onclick="saveEmailSettings()">Salva Configurazione</button>
+                    </div>
+                </div>
+
+                <div id="templatesTab" class="tab-content">
+                    <div class="form-section">
+                        <div class="info-box">
+                            <div class="template-help">
+                                <div>
+                                    <h5>Placeholder (clicca per copiare)</h5>
+                                    <ol>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{hostname}}" title="Nome host del client/agent." aria-label="Nome host del client/agent.">{{hostname}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{job_id}}" title="ID del job associato al backup." aria-label="ID del job associato al backup.">{{job_id}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{run_id}}" title="ID univoco della run." aria-label="ID univoco della run.">{{run_id}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{timestamp}}" title="Data e ora dell’evento nel formato locale." aria-label="Data e ora dell’evento nel formato locale.">{{timestamp}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{status}}" title="Stato finale del backup (success/partial/failed)." aria-label="Stato finale del backup (success/partial/failed).">{{status}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{target_path}}" title="Percorso di destinazione dell’ultimo backup." aria-label="Percorso di destinazione dell’ultimo backup.">{{target_path}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{last_seen}}" title="Ultimo contatto dell’agent (eventi online/offline)." aria-label="Ultimo contatto dell’agent (eventi online/offline).">{{last_seen}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{offline_duration}}" title="Durata dell’offline dell’agent in minuti/ore." aria-label="Durata dell’offline dell’agent in minuti/ore.">{{offline_duration}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{error_message}}" title="Dettaglio errore critico (template critical)." aria-label="Dettaglio errore critico (template critical).">{{error_message}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.total_files}}" title="Numero totale di file processati." aria-label="Numero totale di file processati.">{{stats.total_files}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.copied_files}}" title="File copiati con successo." aria-label="File copiati con successo.">{{stats.copied_files}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.skipped_files}}" title="File saltati/ignorati." aria-label="File saltati/ignorati.">{{stats.skipped_files}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.failed_files}}" title="File falliti durante il backup." aria-label="File falliti durante il backup.">{{stats.failed_files}}</button>
+                                        </li>
+                                    </ol>
+                                </div>
+                                <div>
+                                    <h5>Condizioni</h5>
+                                    <ol>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if warnings}}&#10;...&#10;{{/if}}" title="Mostra un blocco solo se l’array warning è presente." aria-label="Mostra un blocco solo se l’array warning è presente.">{{#if warnings}}...{{/if}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if errors}}&#10;...&#10;{{/if}}" title="Mostra un blocco solo se esistono errori." aria-label="Mostra un blocco solo se esistono errori.">{{#if errors}}...{{/if}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if stats}}&#10;...&#10;{{/if}}" title="Mostra un blocco solo se sono presenti statistiche." aria-label="Mostra un blocco solo se sono presenti statistiche.">{{#if stats}}...{{/if}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if jobs}}&#10;...&#10;{{/if}}" title="Mostra un blocco solo se sono presenti job." aria-label="Mostra un blocco solo se sono presenti job.">{{#if jobs}}...{{/if}}</button>
+                                        </li>
+                                    </ol>
+                                </div>
+                                <div>
+                                    <h5>Liste</h5>
+                                    <ol>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#each errors}}&#10;- {{this.message}}&#10;{{/each}}" title="Elenco dei messaggi di errore." aria-label="Elenco dei messaggi di errore.">{{#each errors}}{{this.message}}{{/each}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#each warnings}}&#10;- {{this.message}}&#10;{{/each}}" title="Elenco degli avvisi del backup." aria-label="Elenco degli avvisi del backup.">{{#each warnings}}{{this.message}}{{/each}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#each jobs}}&#10;- {{this}}&#10;{{/each}}" title="Lista dei job impattati (eventi agent offline)." aria-label="Lista dei job impattati (eventi agent offline).">{{#each jobs}}{{this}}{{/each}}</button>
+                                        </li>
+                                    </ol>
+                                    <small>Consiglio: incolla i blocchi nel corpo dell’email e personalizza il testo.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="templateSelect">Seleziona template da modificare</label>
+                            <select id="templateSelect" onchange="loadTemplate()">
+                                <option value="">-- Seleziona evento --</option>
+                                <option value="backup_failed">Backup fallito</option>
+                                <option value="backup_partial">Backup parziale</option>
+                                <option value="backup_critical">Errore critico</option>
+                                <option value="backup_warning">Avviso backup</option>
+                                <option value="agent_offline">Agent offline</option>
+                                <option value="agent_online">Agent online</option>
+                            </select>
+                        </div>
+
+                        <div id="templateEditor" class="template-editor hidden">
+                            <div class="form-group">
+                                <label for="templateSubject">Oggetto email</label>
+                                <input type="text" id="templateSubject" placeholder="Oggetto dell'email">
+                            </div>
+                            <div class="form-group">
+                                <label for="templateBody">Corpo email</label>
+                                <textarea id="templateBody" rows="20" placeholder="Corpo dell'email"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="actions-bar" id="templateActions" style="display: none;">
+                        <button type="button" class="btn btn-outline" onclick="resetTemplate()">Ripristina Default</button>
+                        <button type="button" class="btn btn-primary" onclick="saveTemplate()">Salva Template</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/email-settings.js"></script>
+</body>
+</html>

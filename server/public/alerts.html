@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnlyBackup - Alert di Sistema</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="dashboard-shell">
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-mark">OB</div>
+                <div>
+                    <div class="brand-title">OnlyBackup</div>
+                    <div class="brand-subtitle">Control Center</div>
+                </div>
+            </div>
+            <div class="user-info">
+                <span id="alertCount" class="badge"></span>
+                <a href="/server-settings.html" class="btn btn-outline btn-small" title="Impostazioni server">⚙️ Impostazioni</a>
+                <a href="/" class="btn btn-outline btn-small" title="Torna alla Dashboard">← Dashboard</a>
+            </div>
+        </header>
+
+        <div class="settings-container" style="padding: 20px; margin: 0 auto;">
+            <div id="statusMessage"></div>
+
+            <div class="settings-content">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="active">Alert Attivi</button>
+                    <button class="tab-btn" data-tab="history">Storico</button>
+                </div>
+
+                <!-- Tab Alert Attivi -->
+                <div id="activeTab" class="tab-content active">
+                    <div id="activeAlertsContainer">
+                        <div class="loading-spinner">Caricamento...</div>
+                    </div>
+                </div>
+
+                <!-- Tab Storico -->
+                <div id="historyTab" class="tab-content">
+                    <div id="historyAlertsContainer">
+                        <div class="loading-spinner">Caricamento...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/alerts.js"></script>
+</body>
+</html>

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnlyBackup - Impostazioni Server</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="dashboard-shell">
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-mark">OB</div>
+                <div>
+                    <div class="brand-title">OnlyBackup</div>
+                    <div class="brand-subtitle">Control Center</div>
+                </div>
+            </div>
+            <div class="user-info">
+                <a href="/alerts.html" class="btn btn-outline btn-small" title="Alert di sistema">🔔 Alert</a>
+                <a href="/" class="btn btn-outline btn-small" title="Torna alla Dashboard">← Dashboard</a>
+            </div>
+        </header>
+
+        <div class="settings-container" style="padding: 20px; margin: 0 auto;">
+
+            <div id="statusMessage"></div>
+
+            <div class="settings-content">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="email">Notifiche Email</button>
+                    <button class="tab-btn" data-tab="maintenance">Manutenzione</button>
+                </div>
+
+                <!-- Tab Email -->
+                <div id="emailTab" class="tab-content active">
+                    <form id="emailSettingsForm">
+                        <div class="form-section">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="emailEnabled" name="enabled">
+                                <label for="emailEnabled">Abilita notifiche email</label>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Server SMTP</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="smtpHost">Host SMTP</label>
+                                    <input type="text" id="smtpHost" name="smtp.host" placeholder="smtp.gmail.com">
+                                </div>
+                                <div class="form-group">
+                                    <label for="smtpPort">Porta</label>
+                                    <input type="number" id="smtpPort" name="smtp.port" placeholder="587">
+                                </div>
+                                <div class="form-group">
+                                    <label for="smtpSecure" style="margin-bottom: 0;">&nbsp;</label>
+                                    <div class="checkbox-group" style="padding-top: 10px;">
+                                        <input type="checkbox" id="smtpSecure" name="smtp.secure">
+                                        <label for="smtpSecure">SSL/TLS</label>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="smtpIgnoreTls" style="margin-bottom: 0;">&nbsp;</label>
+                                    <div class="checkbox-group" style="padding-top: 10px;">
+                                        <input type="checkbox" id="smtpIgnoreTls" name="smtp.ignore_tls">
+                                        <label for="smtpIgnoreTls">Forza no STARTTLS</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Autenticazione</h4>
+                            <div class="form-group">
+                                <label for="authType">Tipo autenticazione</label>
+                                <select id="authType" name="smtp.auth.type" onchange="toggleAuthType()">
+                                    <option value="none">Nessuna (SMTP non autenticato)</option>
+                                    <option value="basic">Basic (Username/Password)</option>
+                                    <option value="oauth2">OAuth2 (Office 365/Google)</option>
+                                </select>
+                            </div>
+
+                            <div id="basicAuthFields">
+                                <div class="form-group">
+                                    <label for="smtpUser">Username/Email</label>
+                                    <input type="text" id="smtpUser" name="smtp.auth.user" placeholder="user@example.com">
+                                </div>
+                                <div class="form-group">
+                                    <label for="smtpPass">Password</label>
+                                    <input type="password" id="smtpPass" name="smtp.auth.pass" placeholder="Password o App Password">
+                                    <small>Per Gmail/Office365 con MFA, usa una App Password</small>
+                                </div>
+                            </div>
+
+                            <div id="oauth2Fields" class="hidden">
+                                <div class="form-group">
+                                    <label for="oauth2User">Email account</label>
+                                    <input type="text" id="oauth2User" name="smtp.auth.user" placeholder="user@example.com">
+                                </div>
+                                <div class="form-group">
+                                    <label for="oauth2ClientId">Client ID</label>
+                                    <input type="text" id="oauth2ClientId" name="smtp.oauth2.clientId">
+                                </div>
+                                <div class="form-group">
+                                    <label for="oauth2ClientSecret">Client Secret</label>
+                                    <input type="password" id="oauth2ClientSecret" name="smtp.oauth2.clientSecret">
+                                </div>
+                                <div class="form-group">
+                                    <label for="oauth2RefreshToken">Refresh Token</label>
+                                    <input type="text" id="oauth2RefreshToken" name="smtp.oauth2.refreshToken">
+                                </div>
+                                <div class="form-group">
+                                    <label>Collega account con OAuth</label>
+                                    <div class="oauth-actions">
+                                        <button type="button" class="btn btn-outline" onclick="startOAuthLogin('google')">Connetti Google</button>
+                                        <button type="button" class="btn btn-outline" onclick="startOAuthLogin('microsoft')">Connetti Microsoft 365</button>
+                                    </div>
+                                    <small class="oauth-hint">Inserisci Client ID, Client Secret e Email account prima di avviare il login.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Impostazioni Invio</h4>
+                            <div class="form-group">
+                                <label for="emailFrom">Indirizzo mittente</label>
+                                <input type="email" id="emailFrom" name="from" placeholder="onlybackup@example.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="emailRecipients">Destinatari (uno per riga)</label>
+                                <textarea id="emailRecipients" name="recipients" rows="4" placeholder="admin@example.com&#10;backup@example.com"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h4>Eventi da Notificare</h4>
+                            <div class="checkbox-label">
+                                <input type="checkbox" id="eventBackupFailed" name="events.backup_failed">
+                                <span>Backup falliti</span>
+                            </div>
+                            <div class="checkbox-label">
+                                <input type="checkbox" id="eventBackupPartial" name="events.backup_partial">
+                                <span>Backup parziali</span>
+                            </div>
+                            <div class="checkbox-label">
+                                <input type="checkbox" id="eventBackupCritical" name="events.backup_critical">
+                                <span>Errori critici</span>
+                            </div>
+                            <div class="checkbox-label">
+                                <input type="checkbox" id="eventBackupWarning" name="events.backup_warning">
+                                <span>Avvisi backup</span>
+                            </div>
+                            <div class="checkbox-label">
+                                <input type="checkbox" id="eventAgentOffline" name="events.agent_offline">
+                                <span>Agent offline</span>
+                            </div>
+                            <div class="checkbox-label">
+                                <input type="checkbox" id="eventAgentOnline" name="events.agent_online">
+                                <span>Agent tornato online</span>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div class="actions-bar">
+                        <button type="button" class="btn btn-outline" onclick="testEmail()">Invia Email di Test</button>
+                        <button type="button" class="btn btn-primary" onclick="saveEmailSettings()">Salva Configurazione</button>
+                    </div>
+
+                    <div class="form-section" style="margin-top: 40px; border-top: 2px solid var(--border-color); padding-top: 30px;">
+                        <h4>Template Email</h4>
+                        <div class="info-box">
+                            <div class="template-help">
+                                <div>
+                                    <h5>Placeholder (clicca per copiare)</h5>
+                                    <ol>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{hostname}}" title="Nome host del client/agent." aria-label="Nome host del client/agent.">{{hostname}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{job_id}}" title="ID del job associato al backup." aria-label="ID del job associato al backup.">{{job_id}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{run_id}}" title="ID univoco della run." aria-label="ID univoco della run.">{{run_id}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{timestamp}}" title="Data e ora dell’evento nel formato locale." aria-label="Data e ora dell’evento nel formato locale.">{{timestamp}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{status}}" title="Stato finale del backup (success/partial/failed)." aria-label="Stato finale del backup (success/partial/failed).">{{status}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{target_path}}" title="Percorso di destinazione dell’ultimo backup." aria-label="Percorso di destinazione dell’ultimo backup.">{{target_path}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{last_seen}}" title="Ultimo contatto dell’agent (eventi online/offline)." aria-label="Ultimo contatto dell’agent (eventi online/offline).">{{last_seen}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{offline_duration}}" title="Durata dell’offline dell’agent in minuti/ore." aria-label="Durata dell’offline dell’agent in minuti/ore.">{{offline_duration}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{error_message}}" title="Dettaglio errore critico (template critical)." aria-label="Dettaglio errore critico (template critical).">{{error_message}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.total_files}}" title="Numero totale di file processati." aria-label="Numero totale di file processati.">{{stats.total_files}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.copied_files}}" title="File copiati con successo." aria-label="File copiati con successo.">{{stats.copied_files}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.skipped_files}}" title="File saltati/ignorati." aria-label="File saltati/ignorati.">{{stats.skipped_files}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{stats.failed_files}}" title="File falliti durante il backup." aria-label="File falliti durante il backup.">{{stats.failed_files}}</button>
+                                        </li>
+                                    </ol>
+                                </div>
+                                <div>
+                                    <h5>Condizioni</h5>
+                                    <ol>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if warnings}}&#10;...&#10;{{/if}}" title="Mostra un blocco solo se l’array warning è presente." aria-label="Mostra un blocco solo se l’array warning è presente.">{{#if warnings}}...{{/if}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if errors}}&#10;...&#10;{{/if}}" title="Mostra un blocco solo se esistono errori." aria-label="Mostra un blocco solo se esistono errori.">{{#if errors}}...{{/if}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if stats}}&#10;...&#10;{{/if}}" title="Mostra un blocco solo se sono presenti statistiche." aria-label="Mostra un blocco solo se sono presenti statistiche.">{{#if stats}}...{{/if}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#if jobs}}&#10;...&#10;{{/if}}" title="Mostra un blocco solo se sono presenti job." aria-label="Mostra un blocco solo se sono presenti job.">{{#if jobs}}...{{/if}}</button>
+                                        </li>
+                                    </ol>
+                                </div>
+                                <div>
+                                    <h5>Liste</h5>
+                                    <ol>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#each errors}}&#10;- {{this.message}}&#10;{{/each}}" title="Elenco dei messaggi di errore." aria-label="Elenco dei messaggi di errore.">{{#each errors}}{{this.message}}{{/each}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#each warnings}}&#10;- {{this.message}}&#10;{{/each}}" title="Elenco degli avvisi del backup." aria-label="Elenco degli avvisi del backup.">{{#each warnings}}{{this.message}}{{/each}}</button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="copy-token" data-copy="{{#each jobs}}&#10;- {{this}}&#10;{{/each}}" title="Lista dei job impattati (eventi agent offline)." aria-label="Lista dei job impattati (eventi agent offline).">{{#each jobs}}{{this}}{{/each}}</button>
+                                        </li>
+                                    </ol>
+                                    <small>Consiglio: incolla i blocchi nel corpo dell’email e personalizza il testo.</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="templateSelect">Seleziona template da modificare</label>
+                            <select id="templateSelect" onchange="loadTemplate()">
+                                <option value="">-- Seleziona evento --</option>
+                                <option value="backup_failed">Backup fallito</option>
+                                <option value="backup_partial">Backup parziale</option>
+                                <option value="backup_critical">Errore critico</option>
+                                <option value="backup_warning">Avviso backup</option>
+                                <option value="agent_offline">Agent offline</option>
+                                <option value="agent_online">Agent online</option>
+                            </select>
+                        </div>
+
+                        <div id="templateEditor" class="template-editor hidden">
+                            <div class="form-group">
+                                <label for="templateSubject">Oggetto email</label>
+                                <input type="text" id="templateSubject" placeholder="Oggetto dell'email">
+                            </div>
+                            <div class="form-group">
+                                <label for="templateBody">Corpo email</label>
+                                <textarea id="templateBody" rows="20" placeholder="Corpo dell'email"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="actions-bar" id="templateActions" style="display: none;">
+                            <button type="button" class="btn btn-outline" onclick="resetTemplate()">Ripristina Default</button>
+                            <button type="button" class="btn btn-primary" onclick="saveTemplate()">Salva Template</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Manutenzione -->
+                <div id="maintenanceTab" class="tab-content">
+                    <div class="form-section">
+                        <h4>Import/Export Configurazione</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                            Esporta o importa la configurazione completa del sistema (job, utenti, client).
+                        </p>
+                        <div style="display: flex; gap: 12px;">
+                            <button type="button" class="btn btn-primary" onclick="exportConfig()">
+                                ⬇ Esporta Configurazione
+                            </button>
+                            <button type="button" class="btn btn-outline" onclick="importConfig()">
+                                ⬆ Importa Configurazione
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h4>Storico Alert</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                            Cancella lo storico degli alert risolti e attivi. Gli alert futuri continueranno ad arrivare.
+                        </p>
+                        <button type="button" class="btn btn-danger" onclick="deleteAlertHistory()">
+                            🧹 Cancella Storico Alert
+                        </button>
+                    </div>
+
+                    <div class="form-section">
+                        <h4>Ritenzione Log</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                            Imposta per quanto tempo mantenere i log salvati sul server. La regola viene applicata a tutti i log.
+                        </p>
+                        <div class="form-group">
+                            <label for="logRetentionDays">Conservazione log</label>
+                            <select id="logRetentionDays">
+                                <option value="30">1 mese</option>
+                                <option value="180">6 mesi</option>
+                                <option value="365">12 mesi</option>
+                                <option value="0">Non cancellare log</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="saveLogRetention()">
+                            💾 Salva Ritenzione Log
+                        </button>
+                    </div>
+
+                    <div class="form-section">
+                        <h4>Gestione Log</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                            Elimina tutti i log di backup salvati. I job e la loro configurazione non verranno eliminati.
+                        </p>
+                        <button type="button" class="btn btn-danger" onclick="deleteAllLogs()">
+                            🗑️ Elimina Tutti i Log
+                        </button>
+                    </div>
+
+                    <div class="form-section">
+                        <h4>Riavvio Server</h4>
+                        <div class="info-box">
+                            <p>
+                                <strong>Attenzione:</strong> Il riavvio del server interromperà tutti i backup in esecuzione.
+                                Assicurati che non ci siano operazioni critiche in corso.
+                            </p>
+                        </div>
+                        <button type="button" class="btn btn-danger" onclick="rebootServer()">
+                            🔄 Riavvia Server
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/server-settings.js"></script>
+</body>
+</html>

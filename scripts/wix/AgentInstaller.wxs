@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension"
+     xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension">
+
+  <?define ProductName = "OnlyBackup Agent" ?>
+  <?define ProductVersion = "1.0.3.0" ?>
+  <?define Manufacturer = "OnlyBackup" ?>
+  <?define ProductCode = "*" ?>
+  <?define UpgradeCode = "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE" ?>
+
+  <Product Id="$(var.ProductCode)"
+           Name="$(var.ProductName)"
+           Language="1033"
+           Version="$(var.ProductVersion)"
+           Manufacturer="$(var.Manufacturer)"
+           UpgradeCode="$(var.UpgradeCode)">
+
+    <Package InstallerVersion="200"
+             Compressed="yes"
+             InstallScope="perMachine"
+             Description="OnlyBackup Agent - Sistema di backup/restore centralizzato"
+             Comments="Installazione OnlyBackup Agent per Windows"
+             Manufacturer="$(var.Manufacturer)" />
+
+    <Property Id="NETFRAMEWORK462">
+      <RegistrySearch Id="NetFramework462Release"
+                      Root="HKLM"
+                      Key="SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full"
+                      Name="Release"
+                      Type="raw"
+                      Win64="yes" />
+    </Property>
+
+    <!-- MajorUpgrade: gestisce upgrade automatico da versioni precedenti -->
+    <MajorUpgrade DowngradeErrorMessage="Una versione più recente di $(var.ProductName) è già installata. Disinstallare prima di procedere."
+                  AllowSameVersionUpgrades="no"
+                  Schedule="afterInstallInitialize"
+                  AllowDowngrades="no"
+                  MigrateFeatures="yes"
+                  IgnoreRemoveFailure="yes" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Validazioni pre-installazione -->
+    <Condition Message="OnlyBackup Agent richiede privilegi di amministratore per l'installazione.">
+      Privileged
+    </Condition>
+
+    <Condition Message="OnlyBackup Agent richiede Windows 7/Server 2008 R2 o superiore.">
+      <![CDATA[Installed OR (VersionNT >= 601)]]>
+    </Condition>
+
+    <Feature Id="ProductFeature" Title="OnlyBackup Agent" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <!-- ServerComponents rimossi: non necessari per agent-only MSI -->
+      <ComponentRef Id="ServiceComponent" />
+    </Feature>
+
+    <UIRef Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectDir)\License.rtf" Overridable="yes" />
+
+    <Property Id="SERVERHOST" Value="$(var.ServerHost)" />
+
+    <Binary Id="NetFx462Installer" SourceFile="$(var.NetFxInstaller)" />
+    <CustomAction Id="InstallNetFx462"
+                  BinaryKey="NetFx462Installer"
+                  ExeCommand="/passive /norestart"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check" />
+
+    <!-- Custom Action per stop servizio più robusto con timeout -->
+    <CustomAction Id="StopServiceBeforeUpgrade"
+                  Directory="TARGETDIR"
+                  ExeCommand="cmd.exe /c &quot;sc.exe stop OnlyBackupAgent &amp;&amp; timeout /t 5 /nobreak &gt;nul 2&gt;&amp;1&quot;"
+                  Execute="immediate"
+                  Return="ignore"
+                  Impersonate="no" />
+
+    <!-- Custom Action per cleanup registry dinamico di vecchie installazioni -->
+    <CustomAction Id="CleanupOrphanedRegistry"
+                  Directory="TARGETDIR"
+                  ExeCommand="cmd.exe /c &quot;reg delete HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{9C9E5F2A-88E9-4A79-9E8E-5F1EAF9B64A8} /f 2&gt;nul &amp; reg delete HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{7DA33E82-31DD-41F8-896C-59BA2C392F84} /f 2&gt;nul&quot;"
+                  Execute="immediate"
+                  Return="ignore"
+                  Impersonate="no" />
+
+
+    <InstallExecuteSequence>
+      <!-- Stop servizio prima della validazione (solo durante upgrade) -->
+      <Custom Action="StopServiceBeforeUpgrade" Before="InstallValidate">
+        UPGRADINGPRODUCTCODE OR WIX_UPGRADE_DETECTED
+      </Custom>
+
+      <!-- Cleanup registry dopo stop servizio (solo durante upgrade) -->
+      <Custom Action="CleanupOrphanedRegistry" After="StopServiceBeforeUpgrade">
+        UPGRADINGPRODUCTCODE
+      </Custom>
+
+      <!-- RemoveExistingProducts è gestito automaticamente da MajorUpgrade Schedule="afterInstallFinalize" -->
+
+      <!-- .NET Framework install solo su prima installazione -->
+      <Custom Action="InstallNetFx462" After="InstallInitialize">
+        NOT Installed AND (NOT NETFRAMEWORK462 OR NETFRAMEWORK462 &lt; 394802)
+      </Custom>
+    </InstallExecuteSequence>
+
+    <InstallUISequence>
+    </InstallUISequence>
+
+  </Product>
+
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="ManufacturerFolder" Name="OnlyBackup">
+          <Directory Id="INSTALLFOLDER" Name="Agent" />
+        </Directory>
+      </Directory>
+    </Directory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="AgentConfig" Guid="22222222-2222-2222-2222-222222222222">
+        <File Id="AgentConfigFile"
+              Source="$(var.BinDir)\OnlyBackupAgent.exe.config"
+              KeyPath="yes" />
+
+        <util:XmlFile Id="UpdateServerHost"
+                      Action="setValue"
+                      ElementPath="/configuration/appSettings/add[\[]@key='ServerHost'[\]]/@value"
+                      Value="[SERVERHOST]"
+                      File="[INSTALLFOLDER]OnlyBackupAgent.exe.config" />
+      </Component>
+
+      <Component Id="RegistryCleanup" Guid="140C84DB-F8ED-4F4C-A797-67A841DBFD2B">
+        <CreateFolder Directory="INSTALLFOLDER" />
+        <RegistryValue Root="HKLM"
+                       Key="SOFTWARE\OnlyBackupInstaller"
+                       Name="CleanupMarker"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+        <RemoveRegistryKey Root="HKLM"
+                           Key="SOFTWARE\OnlyBackup"
+                           Action="removeOnInstall" />
+        <RemoveRegistryKey Root="HKLM"
+                           Key="SOFTWARE\WOW6432Node\OnlyBackup"
+                           Action="removeOnInstall" />
+      </Component>
+
+    </ComponentGroup>
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="ServiceComponent" Guid="44444444-4444-4444-4444-444444444444" Permanent="no">
+        <File Id="ServiceExecutable"
+              Source="$(var.BinDir)\OnlyBackupAgent.exe"
+              KeyPath="yes" />
+
+        <ServiceInstall Id="ServiceInstaller"
+                        Type="ownProcess"
+                        Name="OnlyBackupAgent"
+                        DisplayName="OnlyBackup Agent"
+                        Description="Agente per il sistema di backup/restore centralizzato OnlyBackup"
+                        Start="auto"
+                        Account="LocalSystem"
+                        ErrorControl="normal"
+                        Vital="yes" />
+
+        <ServiceControl Id="ServiceControl"
+                        Name="OnlyBackupAgent"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
+
+        <fire:FirewallException Id="AgentFirewall"
+                                Name="OnlyBackup Agent"
+                                Port="8081"
+                                Protocol="tcp"
+                                Scope="any"
+                                IgnoreFailure="yes" />
+
+        <!-- Rimozione cartelle install se vuote -->
+        <RemoveFolder Id="RemoveINSTALLFOLDER" Directory="INSTALLFOLDER" On="uninstall" />
+        <RemoveFolder Id="RemoveManufacturerFolder" Directory="ManufacturerFolder" On="uninstall" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+</Wix>
