@@ -64,37 +64,20 @@ class ServerService {
   restartWindows(cwd, nodeArgs) {
     this.logger.info('Riavvio Windows in corso', { cwd });
 
-    // Script PowerShell per riavvio con graceful shutdown
-    const psScript = `
-      Start-Sleep -Seconds 2
-      $processId = ${process.pid}
-
-      # Invia SIGTERM al processo (graceful shutdown)
-      # In Windows, usiamo taskkill senza /F per dare tempo al processo
-      taskkill /PID $processId /T
-
-      # Attendi che il processo termini (max 5 secondi)
-      for ($i = 0; $i -lt 10; $i++) {
-        $proc = Get-Process -Id $processId -ErrorAction SilentlyContinue
-        if (-not $proc) { break }
-        Start-Sleep -Milliseconds 500
-      }
-
-      # Se ancora in esecuzione, forza terminazione
-      $proc = Get-Process -Id $processId -ErrorAction SilentlyContinue
-      if ($proc) {
-        Stop-Process -Id $processId -Force
-      }
-
-      Start-Sleep -Seconds 1
-      Set-Location "${cwd.replace(/\\/g, '\\\\')}"
-      npm start
-    `;
+    const restartScript = path.resolve(cwd, '..', 'scripts', 'Restart-OnlyBackupServer.ps1');
+    const nodeExecutable = process.execPath;
+    const serverScript = nodeArgs[1];
+    const restartArguments = JSON.stringify(nodeArgs.slice(2));
 
     const child = spawn('powershell.exe', [
       '-NoProfile',
       '-ExecutionPolicy', 'Bypass',
-      '-Command', psScript
+      '-File', restartScript,
+      '-ProcessId', String(process.pid),
+      '-WorkingDirectory', cwd,
+      '-NodeExecutable', nodeExecutable,
+      '-ServerScript', serverScript,
+      '-ArgumentsJson', restartArguments
     ], {
       detached: true,
       stdio: 'ignore',
@@ -108,8 +91,6 @@ class ServerService {
       parentPid: process.pid
     });
 
-    // Inizia graceful shutdown del server corrente
-    // Questo permette di salvare sessioni, chiudere connessioni, etc.
     setTimeout(() => {
       this.logger.info('Graceful shutdown iniziato');
       process.emit('SIGTERM');

@@ -1,0 +1,35 @@
+# Project Specification
+
+## Goal
+Fornire un sistema centralizzato di backup e restore per client Windows, composto da un server Node.js con dashboard/API e da un agent Windows eseguibile come servizio o in modalita console.
+
+## Scope
+- Avvio del server HTTP con dashboard web e API REST.
+- Gestione autenticazione, sessioni e configurazione server tramite file.
+- Gestione job di backup pianificati e relativa esecuzione lato server.
+- Registrazione heartbeat degli agent, rilevamento agent offline e generazione alert.
+- Configurazione email, invio notifiche e flusso OAuth per provider supportati.
+- Agent Windows per esecuzione backup/restore e comunicazione con il server.
+- Script operativi PowerShell per installazione servizi e build MSI dell'agent.
+
+## Non Scope
+- Agent Linux o macOS.
+- Storage applicativo basato su database relazionale o servizio cloud gestito.
+- Build/publish self-contained come default.
+- Test automation strutturata o suite dedicata presente nel repository.
+
+## Architecture
+- `server/`: applicazione Node.js basata su Express con entrypoint `server/src/server.js`.
+- `server/src/api/routes.js`: punto di composizione delle API HTTP; le aree operative principali sono distribuite in moduli dedicati sotto `server/src/api/`.
+- `server/src/storage/`: persistenza file-based sotto `dataRoot`, con directory per config, stato, utenti, log e alert.
+- `server/public/`: dashboard HTML/CSS/JS servita come frontend statico, con asset frontend suddivisi in piu file per aree funzionali.
+- `agent/OnlyBackupAgent/`: agent .NET Framework 4.6.2 eseguibile come servizio Windows o console, con componenti di comunicazione HTTP e motore backup basato su filesystem/robocopy.
+- `scripts/`: automazione operativa Windows per installazione del server come servizio NSSM, riavvio server, build MSI, validazione pacchetti e utilita di supporto.
+
+## Constraints
+- Ambiente operativo di riferimento: Windows.
+- Server: Node.js `>= 18`.
+- Agent: .NET Framework 4.6.2.
+- Configurazione server letta da `config.json` nella root o da `CONFIG_PATH`.
+- Persistenza server su filesystem locale; il repository non mostra un database applicativo dedicato.
+- La strategia di riavvio operativa versionata nel repository e allineata a script PowerShell per ambiente Windows.

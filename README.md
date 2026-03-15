@@ -1,95 +1,78 @@
 # OnlyBackup
 
-OnlyBackup è un sistema di backup/restore centralizzato con un server Node.js e un agent Windows. Il server espone API e dashboard, mentre l’agent gira come servizio Windows o in modalità console per eseguire i backup richiesti.【F:server/package.json†L1-L19】【F:agent/OnlyBackupAgent/Program.cs†L1-L89】
+OnlyBackup e un sistema di backup/restore centralizzato con un server Node.js e un agent Windows. Il server espone API e dashboard web; l'agent esegue i job richiesti come servizio Windows o in modalita console.
 
-## Componenti principali
-
-### Server (Node.js)
-- Applicazione Node.js con entrypoint `server/src/server.js`.
-- Avvio tramite script NPM (`npm start`).【F:server/package.json†L1-L12】
-- Configurazione tramite `config.json` nella root del repository (host, port, logging, auth, scheduler, ecc.).【F:config.json†L1-L29】
-
-### Agent (Windows)
-- Servizio Windows installabile o eseguibile in modalità console.
-- Opzioni CLI: `/install`, `/uninstall`, `/console`.【F:agent/OnlyBackupAgent/Program.cs†L1-L89】
-- Configurazione di rete e heartbeat in `App.config` (host/port del server, porta agent, intervallo heartbeat).【F:agent/OnlyBackupAgent/App.config†L1-L9】
-
-## Requisiti
+## Setup
 
 ### Server
-- Node.js `>= 18` (come indicato da `engines`).【F:server/package.json†L27-L29】
-- Dipendenze installate in `server/` tramite `npm install`.【F:server/package.json†L1-L25】
+- Richiede Node.js `>= 18`.
+- Configurare `config.json` nella root del repository.
+- Installare le dipendenze dal progetto server:
+
+```powershell
+Set-Location .\server
+npm install
+```
 
 ### Agent
-- .NET Framework 4.6.2 (come indicato in `App.config`).【F:agent/OnlyBackupAgent/App.config†L7-L9】
+- Richiede .NET Framework 4.6.2.
+- Il progetto dell'agent e in `agent\OnlyBackupAgent`.
+- Per build, packaging MSI e validazione sono presenti script PowerShell in `scripts\`.
 
-## Avvio rapido
+## Run
 
 ### Server
-1. Configura `config.json` nella root del repository.
-2. Installa le dipendenze e avvia:
-   ```bash
-   cd server
-   npm install
-   npm start
-   ```
-   Gli script `start/dev/test` sono definiti nel `package.json`.【F:server/package.json†L1-L12】
+
+```powershell
+Set-Location .\server
+npm start
+```
 
 ### Agent
-1. Compila il progetto `agent/OnlyBackupAgent`.
-2. Esegui l’exe come servizio o in console:
-   - Servizio Windows:
-     ```text
-     OnlyBackupAgent.exe /install
-     ```
-   - Modalità console:
-     ```text
-     OnlyBackupAgent.exe /console
-     ```
-   (Le opzioni supportate sono definite nel `Program.cs`).【F:agent/OnlyBackupAgent/Program.cs†L1-L89】
+- Servizio Windows:
 
-## Configurazione
-
-### `config.json` (Server)
-Configurazione base disponibile nel repository:
-```json
-{
-  "server": { "host": "0.0.0.0", "port": 8080, "environment": "production" },
-  "dataRoot": "./data",
-  "logging": { "level": "warn", "console": true, "file": true, "maxFiles": 180, "maxSize": "10m", "retentionDays": 180, "cleanupIntervalHours": 6 },
-  "auth": { "sessionTimeout": 3600000, "passwordMinLength": 8, "secureCookies": true },
-  "scheduler": { "checkInterval": 60000, "enableFileWatcher": false }
-}
+```text
+OnlyBackupAgent.exe /install
 ```
-I campi sopra sono quelli attualmente presenti nel file di esempio incluso in repo.【F:config.json†L1-L29】
 
-### `App.config` (Agent)
-Impostazioni principali dell’agent:
-- `ServerHost`: host del server OnlyBackup.
-- `ServerPort`: porta del server (default 8080).
-- `AgentPort`: porta su cui l’agent ascolta.
-- `HeartbeatInterval`: intervallo heartbeat in ms.【F:agent/OnlyBackupAgent/App.config†L1-L9】
+- Modalita console:
 
-## Struttura dati (Server)
-
-Il server crea una struttura dati in `dataRoot` con directory predefinite per configurazioni, stato, utenti, log e alert:
-
+```text
+OnlyBackupAgent.exe /console
 ```
-dataRoot/
-  config/
-  state/
-    jobs/
-    runs/
-    agents/
-    scheduler/
-    alerts/
-  users/
-  logs/
-```
-Queste directory sono create automaticamente all’avvio del server.【F:server/src/storage/storage.js†L9-L38】
 
-## Note operative
+## Stack
 
-- L’agent è pensato per ambienti Windows e può essere gestito come servizio o in console.【F:agent/OnlyBackupAgent/Program.cs†L1-L89】
-- Il server utilizza le impostazioni di logging e scheduler definite in `config.json`.【F:config.json†L1-L29】
+- Backend server: Node.js + Express.
+- Frontend dashboard: HTML, CSS, JavaScript statici.
+- Agent: C# su .NET Framework 4.6.2.
+- Automazione operativa primaria: PowerShell.
+
+## Configuration
+
+### `config.json`
+- `server.host`, `server.port`, `server.environment`
+- `dataRoot`
+- `logging`
+- `auth`
+- `scheduler`
+
+### `agent\OnlyBackupAgent\App.config`
+- `ServerHost`
+- `ServerPort`
+- `AgentPort`
+- `HeartbeatInterval`
+
+## Documentation
+
+- `AGENTS.md`
+- `PROJECT_SPEC.md`
+- `PROJECT_STATUS.json`
+
+## Notes
+
+- La persistenza lato server e file-based sotto `dataRoot`.
+- L'ambiente operativo di riferimento del repository e Windows.
+- Il riavvio manuale del server lato Windows e supportato tramite `scripts\Restart-OnlyBackupServer.ps1`.
+- La dashboard web e i route handler server sono stati suddivisi in file modulari per ridurre la dimensione dei file principali.
 
