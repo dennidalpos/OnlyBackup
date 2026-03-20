@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const bcrypt = require('../server/node_modules/bcryptjs');
 
 function resolveConfigPath() {
@@ -78,7 +79,7 @@ function initDefaultAdmin(basePath, password) {
     return;
   }
 
-  const adminPassword = password || process.env.ADMIN_PASSWORD || 'admin';
+  const adminPassword = password || process.env.ONLYBACKUP_INITIAL_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || crypto.randomBytes(12).toString('hex');
   const passwordHash = bcrypt.hashSync(adminPassword, 10);
   const defaultUser = {
     username: 'admin',
@@ -90,7 +91,7 @@ function initDefaultAdmin(basePath, password) {
 
   fs.writeFileSync(usersPath, JSON.stringify([defaultUser], null, 2), 'utf8');
   console.log(
-    `Creato utente admin predefinito in ${usersPath} (password iniziale: ${adminPassword})`
+    `Creato utente admin bootstrap in ${usersPath} (password iniziale: ${adminPassword})`
   );
 }
 

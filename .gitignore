@@ -23,6 +23,8 @@ dist/
 build/
 out/
 output/
+publish/
+tmp/
 
 # Cache
 .cache/
@@ -56,7 +58,8 @@ packages/
 
 # MSI Build
 scripts/wix/payload/*.exe
-!scripts/wix/payload/NDP462-KB3151800-x86-x64-AllOS-ENU.exe
+tools/nssm/*
+!tools/nssm/README.md
 
 # Temp files
 *.tmp

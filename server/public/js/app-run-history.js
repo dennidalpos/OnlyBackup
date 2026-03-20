@@ -17,7 +17,7 @@ OnlyBackupApp.prototype.deleteEditingJob = async function() {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                this.showToast('success', 'Job eliminato', `Il job ${jobId} Ã¨ stato eliminato`);
+                this.showToast('success', 'Job eliminato', `Il job ${jobId} e stato eliminato`);
                 this.editingJob = null;
                 await this.loadClientJobs();
                 this.updateClientSummary();
@@ -41,7 +41,7 @@ OnlyBackupApp.prototype.runJob = async function(jobId) {
             const data = await response.json();
 
             if (response.ok) {
-                this.showToast('info', 'Backup avviato', `Il backup per ${jobId} Ã¨ stato avviato. Controlla lo storico per il risultato.`);
+                this.showToast('info', 'Backup avviato', `Il backup per ${jobId} e stato avviato. Controlla lo storico per il risultato.`);
                 await Promise.all([
                     this.loadClientRuns(),
                     this.loadClients(),
@@ -54,8 +54,8 @@ OnlyBackupApp.prototype.runJob = async function(jobId) {
                     this.loadHeaderStats();
                 }, 2000);
             } else {
-                if (data.error?.includes('giÃ  in esecuzione') || response.status === 409) {
-                    this.showToast('warning', 'Job in corso', `Il job ${jobId} Ã¨ giÃ  in esecuzione`);
+                if (data.error?.includes('gia in esecuzione') || response.status === 409) {
+                    this.showToast('warning', 'Job in corso', `Il job ${jobId} e gia in esecuzione`);
                 } else {
                     this.showToast('error', 'Errore', data.error || 'Impossibile avviare il job');
                 }
@@ -290,7 +290,7 @@ OnlyBackupApp.prototype.renderRunsList = function() {
                     const pathLabel = [m.source_path, m.target_path || m.destination_path]
                         .filter(Boolean)
                         .map(p => this.escapeHtml(p))
-                        .join(' â†’ ');
+                        .join(' -> ');
                     const firstError = (m.errors || []).find(Boolean);
 
                     return `
@@ -303,7 +303,7 @@ OnlyBackupApp.prototype.renderRunsList = function() {
                                 <span class="mapping-status ${statusClass}">${statusLabelFor(statusClass)}</span>
                             </div>
                             ${pathLabel ? `<div class="mapping-path">${pathLabel}</div>` : ''}
-                            <div class="mapping-stats">${statsBits.length ? statsBits.join(' Â· ') : 'Nessuna statistica disponibile'}</div>
+                            <div class="mapping-stats">${statsBits.length ? statsBits.join(' | ') : 'Nessuna statistica disponibile'}</div>
                             ${firstError ? `<div class="mapping-errors">${this.escapeHtml(firstError)}</div>` : ''}
                         </div>
                     `;
@@ -340,7 +340,7 @@ OnlyBackupApp.prototype.renderRunsList = function() {
                     <div class="run-info">
                         <span class="run-info-label">Durata:</span>
                         <span>${duration}</span>
-                        <span class="run-info-label">ModalitÃ :</span>
+                        <span class="run-info-label">Modalita:</span>
                         <span>${this.escapeHtml(modeLabel)}</span>
                         <span class="run-info-label">Dimensione:</span>
                         <span>${this.formatBytes(totalSize)}</span>

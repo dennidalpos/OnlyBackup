@@ -58,6 +58,9 @@
     <Compile Include="Communication\ServerCommunication.cs" />
     <Compile Include="FileSystem\FileSystemOperations.cs" />
     <Compile Include="FileSystem\BackupEngine.cs" />
+    <Compile Include="FileSystem\BackupRetentionManager.cs" />
+    <Compile Include="FileSystem\BackupRunLogger.cs" />
+    <Compile Include="FileSystem\BackupRunLoggingContext.cs" />
     <Compile Include="FileSystem\BackupErrorCodes.cs" />
     <Compile Include="FileSystem\NetworkShareManager.cs" />
     <Compile Include="FileSystem\RobocopyEngine.cs" />

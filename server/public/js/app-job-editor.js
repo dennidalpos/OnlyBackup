@@ -257,7 +257,7 @@ OnlyBackupApp.prototype.handleSaveJob = async function() {
                 this.editJob(jobId);
                 this.updateClientSummary();
                 errorDiv.textContent = '';
-                this.showToast('success', 'Job salvato', `Il job ${jobId} Ã¨ stato salvato`);
+                this.showToast('success', 'Job salvato', `Il job ${jobId} e stato salvato`);
             } else {
                 errorDiv.textContent = data.error || 'Errore salvataggio job';
                 this.showToast('error', 'Errore', data.error || 'Impossibile salvare il job');

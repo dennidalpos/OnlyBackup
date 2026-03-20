@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "set NODE_ENV=development&& node src/server.js",
-    "test": "set NODE_ENV=test&& node src/server.js"
+    "test": "set NODE_ENV=test&& set ONLYBACKUP_INITIAL_ADMIN_PASSWORD=TestOnlyBackup123!&& node ../scripts/Test-ServerSmoke.js"
   },
   "keywords": [
     "backup",
@@ -14,7 +14,7 @@
     "windows",
     "centralizzato"
   ],
-  "author": "OnlyBackup Team",
+  "author": "Danny Perondi",
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^3.0.3",

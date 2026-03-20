@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 
 class AuthManager {
@@ -16,17 +17,31 @@ class AuthManager {
     const users = this.storage.loadUsers();
 
     if (users.length === 0) {
+      const initialPassword = this.resolveInitialAdminPassword();
       const defaultAdmin = {
         username: 'admin',
-        passwordHash: bcrypt.hashSync('admin', 10),
+        passwordHash: bcrypt.hashSync(initialPassword, 10),
         mustChangePassword: true,
         createdAt: new Date().toISOString(),
         role: 'admin'
       };
 
       this.storage.saveUsers([defaultAdmin]);
-      this.logger.info('Utente admin di default creato', { username: 'admin' });
+      this.logger.warn('Utente admin bootstrap creato', {
+        username: 'admin',
+        generatedPassword: !process.env.ONLYBACKUP_INITIAL_ADMIN_PASSWORD && !process.env.ADMIN_PASSWORD,
+        initialPassword
+      });
     }
+  }
+
+  resolveInitialAdminPassword() {
+    const configuredPassword = process.env.ONLYBACKUP_INITIAL_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
+    if (configuredPassword && configuredPassword.trim().length > 0) {
+      return configuredPassword.trim();
+    }
+
+    return crypto.randomBytes(12).toString('hex');
   }
 
   loadSessions() {

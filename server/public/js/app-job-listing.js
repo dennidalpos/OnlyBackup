@@ -269,11 +269,11 @@ OnlyBackupApp.prototype.buildLogViewerSection = function(run, mappingIndex) {
                 <div class="log-run-header">
                     <div>
                         <div class="log-run-title">Run ${this.escapeHtml(run.run_id || '')}</div>
-                        <div class="log-run-meta">${this.escapeHtml(runTime)}${destination ? ` Â· ${destination}` : ''}</div>
+                    <div class="log-run-meta">${this.escapeHtml(runTime)}${destination ? ` | ${destination}` : ''}</div>
                     </div>
                     <div class="log-run-status ${statusClass || 'unknown'}">${this.statusLabelFor(statusClass)}</div>
                 </div>
-                <div class="log-run-meta">${this.escapeHtml(mapping.label || `Mappatura ${(Number(mapping.index) || 0) + 1}`)} Â· ${this.escapeHtml((mapping.mode || 'copy').toUpperCase())}</div>
+                        <div class="log-run-meta">${this.escapeHtml(mapping.label || `Mappatura ${(Number(mapping.index) || 0) + 1}`)} | ${this.escapeHtml((mapping.mode || 'copy').toUpperCase())}</div>
                 ${entries}
             </div>
         `;

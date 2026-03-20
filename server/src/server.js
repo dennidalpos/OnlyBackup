@@ -28,6 +28,9 @@ class OnlyBackupServer {
     this.app = null;
     this.server = null;
     this.configPath = null;
+    this.sessionCleanupTimer = null;
+    this.offlineAgentsTimer = null;
+    this.shutdownHandlersConfigured = false;
   }
 
   async start() {
@@ -59,11 +62,11 @@ class OnlyBackupServer {
 
       this.printStartupInfo();
 
-      setInterval(() => {
+      this.sessionCleanupTimer = setInterval(() => {
         this.authManager.cleanupExpiredSessions();
       }, 60000);
 
-      setInterval(() => {
+      this.offlineAgentsTimer = setInterval(() => {
         this.checkOfflineAgents();
       }, 5 * 60 * 1000);
 
@@ -262,20 +265,18 @@ class OnlyBackupServer {
   }
 
   setupShutdownHandlers() {
+    if (this.shutdownHandlersConfigured) {
+      return;
+    }
+
+    this.shutdownHandlersConfigured = true;
+
     const shutdown = async (signal) => {
       console.log('');
       this.logger.info(`Ricevuto segnale ${signal}, arresto in corso...`);
 
       try {
-        if (this.scheduler) {
-          this.scheduler.stop();
-        }
-
-        if (this.server) {
-          await new Promise((resolve) => {
-            this.server.close(resolve);
-          });
-        }
+        await this.stop();
 
         this.logger.logServerStop();
         process.exit(0);
@@ -297,12 +298,48 @@ class OnlyBackupServer {
       this.logger.error('Unhandled Rejection', { reason: reason?.message || reason });
     });
   }
+
+  async stop() {
+    if (this.sessionCleanupTimer) {
+      clearInterval(this.sessionCleanupTimer);
+      this.sessionCleanupTimer = null;
+    }
+
+    if (this.offlineAgentsTimer) {
+      clearInterval(this.offlineAgentsTimer);
+      this.offlineAgentsTimer = null;
+    }
+
+    if (this.scheduler) {
+      this.scheduler.stop();
+    }
+
+    if (this.logger?.close) {
+      this.logger.close();
+    }
+
+    if (this.server) {
+      const httpServer = this.server;
+      await new Promise((resolve) => {
+        httpServer.close(resolve);
+        if (typeof httpServer.closeIdleConnections === 'function') {
+          httpServer.closeIdleConnections();
+        }
+        if (typeof httpServer.closeAllConnections === 'function') {
+          httpServer.closeAllConnections();
+        }
+      });
+      this.server = null;
+    }
+  }
 }
 
-const server = new OnlyBackupServer();
-server.start().catch((error) => {
-  console.error('Errore avvio server:', error);
-  process.exit(1);
-});
+if (require.main === module) {
+  const server = new OnlyBackupServer();
+  server.start().catch((error) => {
+    console.error('Errore avvio server:', error);
+    process.exit(1);
+  });
+}
 
 module.exports = OnlyBackupServer;

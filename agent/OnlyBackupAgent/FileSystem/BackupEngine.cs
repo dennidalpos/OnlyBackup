@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Globalization;
-using System.Web.Script.Serialization;
 using OnlyBackupAgent.Communication;
 
 namespace OnlyBackupAgent.FileSystem
@@ -12,113 +10,33 @@ namespace OnlyBackupAgent.FileSystem
         private NetworkShareManager _shareManager = null;
         private ServerCommunication _serverComm = null;
         private List<string> _skippedFiles = new List<string>();
+        private readonly BackupRunLogger _runLogger;
+        private readonly BackupRetentionManager _retentionManager;
 
         private int _totalFiles = 0;
         private int _copiedFiles = 0;
         private int _skippedFilesCount = 0;
         private int _failedFiles = 0;
 
-        private class RunLoggingContext
-        {
-            public string Hostname { get; set; }
-            public string JobId { get; set; }
-            public string RunId { get; set; }
-            public string RunTimestamp { get; set; }
-            public string LogFilePath { get; set; }
-            public string RunIndexPath { get; set; }
-            public string JobDirectoryPath { get; set; }
-            public DateTime StartedAtUtc { get; set; }
-        }
-
         public BackupEngine(ServerCommunication serverComm = null)
         {
             _serverComm = serverComm;
+            _runLogger = new BackupRunLogger();
+            _retentionManager = new BackupRetentionManager(LogServerWarning);
         }
 
-        private RunLoggingContext PrepareRunLogging(string hostname, string jobId, IDictionary<string, object> options)
+        private BackupRunLoggingContext PrepareRunLogging(string hostname, string jobId, IDictionary<string, object> options)
         {
-            string runId = null;
-            string rawTimestamp = null;
-            string mappingSegment = null;
-
-            if (options != null)
-            {
-                if (options.ContainsKey("run_id") && options["run_id"] != null)
-                {
-                    runId = options["run_id"].ToString();
-                }
-
-                if (options.ContainsKey("run_timestamp") && options["run_timestamp"] != null)
-                {
-                    rawTimestamp = options["run_timestamp"].ToString();
-                }
-
-                if (options.ContainsKey("mapping_label") && options["mapping_label"] != null)
-                {
-                    mappingSegment = options["mapping_label"].ToString();
-                }
-
-                if (String.IsNullOrWhiteSpace(mappingSegment) && options.ContainsKey("mapping_index") && options["mapping_index"] != null)
-                {
-                    mappingSegment = String.Format("m{0}", options["mapping_index"].ToString());
-                }
-            }
-
-            string sanitizedJobId = String.IsNullOrWhiteSpace(jobId) ? "manual" : SanitizePathSegment(jobId);
-            string runTimestamp = SanitizePathSegment(rawTimestamp);
-
-            if (String.IsNullOrWhiteSpace(runTimestamp))
-            {
-                runTimestamp = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss");
-            }
-
-            string baseDir = Environment.OSVersion.Platform == PlatformID.Win32NT
-                ? @"C:\\BackupConsole\\logs"
-                : "/var/log/backup-console";
-
-            string hostDir = Path.Combine(baseDir, SanitizePathSegment(hostname));
-            string jobDir = Path.Combine(hostDir, sanitizedJobId);
-
-            try
-            {
-                Directory.CreateDirectory(jobDir);
-            }
-            catch { }
-
-            string mappingSuffix = SanitizePathSegment(mappingSegment);
-            string fileBase = String.IsNullOrWhiteSpace(mappingSuffix) ? runTimestamp : String.Format("{0}_{1}", runTimestamp, mappingSuffix);
-
-            string logFilePath = Path.Combine(jobDir, String.Format("{0}.log", fileBase));
-            string runIndexPath = Path.Combine(jobDir, String.Format("{0}.run.json", fileBase));
-
-            return new RunLoggingContext
-            {
-                Hostname = hostname,
-                JobId = sanitizedJobId,
-                RunId = runId,
-                RunTimestamp = runTimestamp,
-                LogFilePath = logFilePath,
-                RunIndexPath = runIndexPath,
-                JobDirectoryPath = jobDir,
-                StartedAtUtc = DateTime.UtcNow
-            };
+            return _runLogger.PrepareRunLogging(hostname, jobId, options);
         }
 
         private string SanitizePathSegment(string value)
         {
-            if (String.IsNullOrWhiteSpace(value))
-                return null;
-
-            foreach (var invalid in Path.GetInvalidFileNameChars())
-            {
-                value = value.Replace(invalid, '_');
-            }
-
-            return value.Trim();
+            return _runLogger.SanitizePathSegment(value);
         }
 
         private void WriteRunIndex(
-            RunLoggingContext context,
+            BackupRunLoggingContext context,
             List<string> sources,
             string destination,
             bool success,
@@ -129,64 +47,7 @@ namespace OnlyBackupAgent.FileSystem
             IEnumerable<string> errors
         )
         {
-            if (context == null)
-                return;
-
-            try
-            {
-                var serializer = new JavaScriptSerializer();
-                var payload = new Dictionary<string, object>();
-
-                payload["hostname"] = context.Hostname;
-                payload["job_id"] = context.JobId;
-                payload["run_id"] = context.RunId;
-                payload["run_timestamp"] = context.RunTimestamp;
-                payload["start_utc"] = context.StartedAtUtc.ToString("o");
-                payload["end_utc"] = DateTime.UtcNow.ToString("o");
-                payload["status"] = success ? "success" : "error";
-                payload["log_path"] = context.LogFilePath;
-                payload["bytes_processed"] = bytesProcessed;
-                payload["destination"] = destination;
-                payload["sources"] = sources;
-
-                if (finalResult != null)
-                {
-                    payload["error_code"] = finalResult.ErrorCode;
-                    payload["error_message"] = finalResult.ErrorMessage;
-                    payload["exit_code"] = finalResult.ExitCode;
-                    payload["command"] = finalResult.CommandUsed;
-                }
-
-                var ops = new List<object>();
-                foreach (var op in operations)
-                {
-                    ops.Add(new
-                    {
-                        source = op.SourcePath,
-                        destination = op.DestinationPath,
-                        command = op.CommandLine,
-                        exit_code = op.ExitCode,
-                        start_utc = op.StartedAtUtc.HasValue ? op.StartedAtUtc.Value.ToString("o") : null,
-                        end_utc = op.EndedAtUtc.HasValue ? op.EndedAtUtc.Value.ToString("o") : null,
-                        log_path = op.LogFilePath,
-                        stats = new
-                        {
-                            total_files = op.TotalFiles,
-                            copied_files = op.CopiedFiles,
-                            skipped_files = op.SkippedFiles,
-                            failed_files = op.FailedFiles,
-                            bytes_copied = op.BytesCopied
-                        }
-                    });
-                }
-
-                payload["operations"] = ops;
-                payload["warnings"] = warnings;
-                payload["errors"] = errors;
-
-                File.WriteAllText(context.RunIndexPath, serializer.Serialize(payload));
-            }
-            catch { }
+            _runLogger.WriteRunIndex(context, sources, destination, success, operations, bytesProcessed, finalResult, warnings, errors);
         }
 
         public BackupResult PerformBackup(object sources, string destination, object options, string jobId = null)
@@ -429,24 +290,9 @@ namespace OnlyBackupAgent.FileSystem
             }
         }
 
-        private void PopulateRunMetadata(BackupResult result, RunLoggingContext context, List<RobocopyResult> operations, long bytesProcessed)
+        private void PopulateRunMetadata(BackupResult result, BackupRunLoggingContext context, List<RobocopyResult> operations, long bytesProcessed)
         {
-            if (result == null)
-                return;
-
-            var lastOp = (operations != null && operations.Count > 0) ? operations[operations.Count - 1] : null;
-
-            result.LogPath = context != null ? context.LogFilePath : result.LogPath;
-            result.RunLogIndexPath = context != null ? context.RunIndexPath : result.RunLogIndexPath;
-            result.CommandUsed = lastOp != null ? lastOp.CommandLine : result.CommandUsed;
-            result.ExitCode = lastOp != null ? (int?)lastOp.ExitCode : result.ExitCode;
-            result.StartTimestamp = context != null ? context.StartedAtUtc.ToString("o") : result.StartTimestamp;
-            result.EndTimestamp = DateTime.UtcNow.ToString("o");
-
-            if (result.BytesProcessed == 0 && bytesProcessed > 0)
-            {
-                result.BytesProcessed = bytesProcessed;
-            }
+            _runLogger.PopulateRunMetadata(result, context, operations, bytesProcessed);
         }
 
         private void SendBackupCompletedHeartbeat(string hostname, string jobId, bool success)
@@ -474,47 +320,9 @@ namespace OnlyBackupAgent.FileSystem
             return defaultValue;
         }
 
-        private void CleanupOldRunLogs(RunLoggingContext context, int logRetentionDays, int indexRetentionDays)
+        private void CleanupOldRunLogs(BackupRunLoggingContext context, int logRetentionDays, int indexRetentionDays)
         {
-            try
-            {
-                if (context == null)
-                    return;
-
-                string jobDir = context.JobDirectoryPath;
-                if (String.IsNullOrWhiteSpace(jobDir) || !Directory.Exists(jobDir))
-                    return;
-
-                DateTime logCutoff = DateTime.UtcNow.AddDays(-logRetentionDays);
-                DateTime indexCutoff = DateTime.UtcNow.AddDays(-indexRetentionDays);
-
-                foreach (var file in Directory.GetFiles(jobDir, "*.log"))
-                {
-                    try
-                    {
-                        var info = new FileInfo(file);
-                        if (info.LastWriteTimeUtc < logCutoff && !String.Equals(file, context.LogFilePath, StringComparison.OrdinalIgnoreCase))
-                        {
-                            File.Delete(file);
-                        }
-                    }
-                    catch { }
-                }
-
-                foreach (var file in Directory.GetFiles(jobDir, "*.run.json"))
-                {
-                    try
-                    {
-                        var info = new FileInfo(file);
-                        if (info.LastWriteTimeUtc < indexCutoff && !String.Equals(file, context.RunIndexPath, StringComparison.OrdinalIgnoreCase))
-                        {
-                            File.Delete(file);
-                        }
-                    }
-                    catch { }
-                }
-            }
-            catch { }
+            _runLogger.CleanupOldRunLogs(context, logRetentionDays, indexRetentionDays);
         }
 
         public void SetLogger(Action<string> logger)
@@ -716,7 +524,7 @@ namespace OnlyBackupAgent.FileSystem
             }
         }
 
-        private long ProcessSource(string source, string destination, RunLoggingContext loggingContext, bool appendLog, out RobocopyResult robocopyResult, bool mirrorMode, string logPayload, int logMaxBytes)
+        private long ProcessSource(string source, string destination, BackupRunLoggingContext loggingContext, bool appendLog, out RobocopyResult robocopyResult, bool mirrorMode, string logPayload, int logMaxBytes)
         {
             robocopyResult = null;
             string normalizedSource = FileSystemOperations.NormalizePath(source);
@@ -823,238 +631,46 @@ namespace OnlyBackupAgent.FileSystem
             return robocopyResult.BytesCopied;
         }
 
-        private void GenerateBackupManifest(string destination, RunLoggingContext context, List<string> sources, long bytesProcessed, BackupStats stats, IDictionary<string, object> options)
+        private void GenerateBackupManifest(string destination, BackupRunLoggingContext context, List<string> sources, long bytesProcessed, BackupStats stats, IDictionary<string, object> options)
         {
-            try
-            {
-                string normalizedDest = FileSystemOperations.NormalizePath(destination);
-                string manifestPath = Path.Combine(normalizedDest, "backup.manifest.json");
-
-                var serializer = new JavaScriptSerializer();
-                var manifest = new Dictionary<string, object>();
-
-                manifest["version"] = "1.0";
-                manifest["job_id"] = context != null ? context.JobId : null;
-                manifest["client_id"] = context != null ? context.Hostname : Environment.MachineName;
-                manifest["run_id"] = context != null ? context.RunId : null;
-                manifest["run_timestamp"] = context != null ? context.RunTimestamp : DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
-                manifest["timestamp"] = DateTime.UtcNow.ToString("o");
-                manifest["sources"] = sources;
-                manifest["destination"] = destination;
-                manifest["bytes_processed"] = bytesProcessed;
-                manifest["status"] = "success";
-
-                if (stats != null)
-                {
-                    manifest["stats"] = new Dictionary<string, object>
-                    {
-                        { "total_files", stats.TotalFiles },
-                        { "copied_files", stats.CopiedFiles },
-                        { "skipped_files", stats.SkippedFilesCount },
-                        { "failed_files", stats.FailedFiles }
-                    };
-                }
-
-                File.WriteAllText(manifestPath, serializer.Serialize(manifest));
-            }
-            catch (Exception ex)
-            {
-                if (_serverComm != null)
-                {
-                    try
-                    {
-                        _serverComm.LogMessage(String.Format("Warning: Failed to generate manifest: {0}", ex.Message));
-                    }
-                    catch { }
-                }
-            }
+            _retentionManager.GenerateBackupManifest(destination, context, sources, bytesProcessed, stats);
         }
 
         private string BuildBackupTargetPath(string destinationRoot)
         {
-            string timestampFolder = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss");
-            return Path.Combine(destinationRoot, timestampFolder);
+            return _retentionManager.BuildBackupTargetPath(destinationRoot);
         }
 
         private bool TryParseTimestampFromFolder(string folderName, out DateTime timestamp)
         {
-            return DateTime.TryParseExact(
-                folderName,
-                "yyyy_MM_dd_HH_mm_ss",
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeLocal,
-                out timestamp
-            );
+            return _retentionManager.TryParseTimestampFromFolder(folderName, out timestamp);
         }
 
-        private List<Dictionary<string, object>> ApplyRetentionPolicy(string destinationRoot, int maxBackups, RunLoggingContext context)
+        private List<Dictionary<string, object>> ApplyRetentionPolicy(string destinationRoot, int maxBackups, BackupRunLoggingContext context)
         {
-            var deletionEvents = new List<Dictionary<string, object>>();
-
-            if (maxBackups <= 0)
-            {
-                return deletionEvents;
-            }
-
-            try
-            {
-                string normalizedRoot = FileSystemOperations.NormalizePath(destinationRoot);
-                if (!Directory.Exists(normalizedRoot))
-                {
-                    return deletionEvents;
-                }
-
-                var backupDirs = new List<BackupDirectoryInfo>();
-                foreach (var dir in Directory.GetDirectories(normalizedRoot))
-                {
-                    try
-                    {
-                        string name = Path.GetFileName(dir);
-                        if (String.IsNullOrWhiteSpace(name))
-                        {
-                            continue;
-                        }
-
-                        DateTime parsedTimestamp;
-                        if (!TryParseTimestampFromFolder(name, out parsedTimestamp))
-                        {
-                            continue;
-                        }
-
-                        var info = new DirectoryInfo(dir);
-                        backupDirs.Add(new BackupDirectoryInfo
-                        {
-                            Path = dir,
-                            CreationTime = parsedTimestamp,
-                            LastWriteTime = info.LastWriteTime
-                        });
-                    }
-                    catch { }
-                }
-
-                backupDirs.Sort((a, b) => b.CreationTime.CompareTo(a.CreationTime));
-
-                if (backupDirs.Count <= maxBackups)
-                {
-                    return deletionEvents;
-                }
-
-                var robocopy = new RobocopyEngine();
-                for (int i = maxBackups; i < backupDirs.Count; i++)
-                {
-                    var candidate = backupDirs[i];
-                    try
-                    {
-                        var deleteResult = robocopy.DeleteDirectory(candidate.Path);
-                        var deleteEvent = new Dictionary<string, object>();
-                        deleteEvent["event_type"] = deleteResult.Success ? "DELETE_EXECUTED" : "DELETE_FAILED";
-                        deleteEvent["timestamp"] = DateTime.UtcNow.ToString("o");
-                        deleteEvent["path"] = candidate.Path;
-                        deleteEvent["run_id"] = context != null ? context.RunId : null;
-                        deleteEvent["job_id"] = context != null ? context.JobId : null;
-                        deleteEvent["success"] = deleteResult.Success;
-                        deleteEvent["reason"] = "retention_exceeded";
-
-                        if (!deleteResult.Success)
-                        {
-                            deleteEvent["error"] = deleteResult.ErrorMessage;
-                            if (_serverComm != null)
-                            {
-                                try
-                                {
-                                    _serverComm.LogMessage(String.Format("Warning: Retention delete failed for {0}: {1}", candidate.Path, deleteResult.ErrorMessage));
-                                }
-                                catch { }
-                            }
-                        }
-
-                        deletionEvents.Add(deleteEvent);
-                    }
-                    catch (Exception ex)
-                    {
-                        var deleteEvent = new Dictionary<string, object>();
-                        deleteEvent["event_type"] = "DELETE_FAILED";
-                        deleteEvent["timestamp"] = DateTime.UtcNow.ToString("o");
-                        deleteEvent["path"] = candidate.Path;
-                        deleteEvent["run_id"] = context != null ? context.RunId : null;
-                        deleteEvent["job_id"] = context != null ? context.JobId : null;
-                        deleteEvent["error"] = ex.Message;
-                        deleteEvent["reason"] = "retention_exceeded";
-                        deletionEvents.Add(deleteEvent);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                if (_serverComm != null)
-                {
-                    try
-                    {
-                        _serverComm.LogMessage(String.Format("Warning: Retention policy failed: {0}", ex.Message));
-                    }
-                    catch { }
-                }
-            }
-
-            return deletionEvents;
+            return _retentionManager.ApplyRetentionPolicy(destinationRoot, maxBackups, context);
         }
 
         private int ExtractMaxBackups(IDictionary<string, object> options)
         {
-            if (options == null)
-                return 0;
-
-            if (options.ContainsKey("retention") && options["retention"] != null)
-            {
-                var retention = options["retention"] as IDictionary<string, object>;
-                if (retention != null && retention.ContainsKey("max_backups"))
-                {
-                    int parsed;
-                    if (Int32.TryParse(retention["max_backups"].ToString(), out parsed))
-                    {
-                        return parsed;
-                    }
-                }
-            }
-
-            if (options.ContainsKey("max_backups"))
-            {
-                int parsed;
-                if (Int32.TryParse(options["max_backups"].ToString(), out parsed))
-                {
-                    return parsed;
-                }
-            }
-
-            return 0;
+            return _retentionManager.ExtractMaxBackups(options);
         }
 
-        private void SaveRetentionEvents(RunLoggingContext context, List<Dictionary<string, object>> events)
+        private void SaveRetentionEvents(BackupRunLoggingContext context, List<Dictionary<string, object>> events)
         {
+            _retentionManager.SaveRetentionEvents(context, events);
+        }
+
+        private void LogServerWarning(string message)
+        {
+            if (_serverComm == null || String.IsNullOrWhiteSpace(message))
+                return;
+
             try
             {
-                if (context == null || String.IsNullOrWhiteSpace(context.JobDirectoryPath))
-                    return;
-
-                string eventsPath = Path.Combine(context.JobDirectoryPath, String.Format("{0}.retention.json", context.RunTimestamp));
-                var serializer = new JavaScriptSerializer();
-
-                var wrapper = new Dictionary<string, object>();
-                wrapper["run_id"] = context.RunId;
-                wrapper["job_id"] = context.JobId;
-                wrapper["timestamp"] = DateTime.UtcNow.ToString("o");
-                wrapper["events"] = events;
-
-                File.WriteAllText(eventsPath, serializer.Serialize(wrapper));
+                _serverComm.LogMessage(message);
             }
             catch { }
-        }
-
-        private class BackupDirectoryInfo
-        {
-            public string Path { get; set; }
-            public DateTime CreationTime { get; set; }
-            public DateTime LastWriteTime { get; set; }
         }
     }
 }

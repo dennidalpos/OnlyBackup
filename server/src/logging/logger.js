@@ -68,6 +68,14 @@ class Logger {
       );
     }
 
+    if (transports.length === 0) {
+      transports.push(
+        new winston.transports.Console({
+          silent: true
+        })
+      );
+    }
+
     this.logger = winston.createLogger({
       level: logLevel,
       transports
@@ -145,6 +153,21 @@ class Logger {
 
     this.config.logging.retentionDays = retentionDays;
     this.scheduleLogCleanup();
+  }
+
+  close() {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+
+    if (this.logger) {
+      for (const transport of this.logger.transports) {
+        if (typeof transport.close === 'function') {
+          transport.close();
+        }
+      }
+    }
   }
 
   info(message, meta = {}) {
