@@ -16,7 +16,7 @@ Fornire un sistema centralizzato di backup e restore per client Windows, compost
 - Agent Linux o macOS.
 - Storage applicativo basato su database relazionale o servizio cloud gestito.
 - Build/publish self-contained come default.
-- Test automation strutturata o suite dedicata presente nel repository.
+- Pipeline CI/CD o packaging server dedicato oltre ai flussi PowerShell e Node.js presenti nel repository.
 
 ## Architecture
 - `server/`: applicazione Node.js basata su Express con entrypoint `server/src/server.js`.
@@ -25,11 +25,13 @@ Fornire un sistema centralizzato di backup e restore per client Windows, compost
 - `server/public/`: dashboard HTML/CSS/JS servita come frontend statico, con asset frontend suddivisi in piu file per aree funzionali.
 - `agent/OnlyBackupAgent/`: agent .NET Framework 4.6.2 eseguibile come servizio Windows o console, con componenti di comunicazione HTTP e motore backup basato su filesystem/robocopy.
 - `scripts/`: automazione operativa Windows per installazione del server come servizio NSSM, riavvio server, build MSI, validazione pacchetti e utilita di supporto.
+- `tools/wix314-binaries/`: copia versionata della toolchain WiX 3.14 utilizzabile come alternativa all'installazione globale per il packaging MSI.
 
 ## Constraints
 - Ambiente operativo di riferimento: Windows.
 - Server: Node.js `>= 18`.
 - Agent: .NET Framework 4.6.2.
+- Packaging MSI: WiX Toolset 3.14, installato nel sistema oppure referenziato tramite `-WixPath`.
 - Configurazione server letta da `config.json` nella root o da `CONFIG_PATH`.
 - Persistenza server su filesystem locale; il repository non mostra un database applicativo dedicato.
 - La strategia di riavvio operativa versionata nel repository e allineata a script PowerShell per ambiente Windows.

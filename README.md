@@ -11,7 +11,7 @@ OnlyBackup e un sistema centralizzato di backup e restore per ambienti Windows c
 - Node.js `>= 18` per il server.
 - .NET Framework 4.6.2 per l'agent.
 - MSBuild compatibile con Visual Studio Build Tools o Visual Studio.
-- WiX Toolset 3.14 per il packaging MSI dell'agent.
+- WiX Toolset 3.14 per il packaging MSI dell'agent, installato nel sistema oppure disponibile in `tools\wix314-binaries\`.
 - `nssm` se si vuole installare il server come servizio Windows.
 
 ## Setup
@@ -54,6 +54,12 @@ Per compilare l'agent e creare il pacchetto MSI:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Build-AgentMsi.ps1 -UseLocalhost
+```
+
+Se vuoi usare la toolchain WiX gia presente nel repository senza installazione globale:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Build-AgentMsi.ps1 -UseLocalhost -WixPath .\tools\wix314-binaries
 ```
 
 Output principali:
@@ -126,6 +132,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Clean-Repository.ps1 -Include
 ```
 
 Lo script rimuove solo directory generate locali come `logs\`, `output\`, `build\`, `dist\`, `publish\`, `tmp\`, `agent\**\bin\`, `agent\**\obj\` e, opzionalmente, `server\node_modules\`.
+Lo stato runtime locale sotto `data\` non viene rimosso automaticamente dallo script.
 
 ## Struttura Essenziale
 
@@ -134,9 +141,11 @@ Lo script rimuove solo directory generate locali come `logs\`, `output\`, `build
 |-- agent/
 |   |-- OnlyBackupAgent.sln
 |   `-- OnlyBackupAgent/
+|-- data/
 |-- scripts/
 |-- tools/
-|   `-- nssm/
+|   |-- nssm/
+|   `-- wix314-binaries/
 |-- server/
 |   |-- public/
 |   `-- src/
@@ -151,4 +160,4 @@ Lo script rimuove solo directory generate locali come `logs\`, `output\`, `build
 
 ## Licenza
 
-Il repository e distribuito sotto licenza MIT. Il testo completo e in `LICENSE`.
+Il repository e il relativo codice sorgente sono proprietari. Il testo completo della licenza e in `LICENSE`.

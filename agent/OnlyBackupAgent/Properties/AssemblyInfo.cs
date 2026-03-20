@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("OnlyBackup")]
 [assembly: AssemblyProduct("OnlyBackupAgent")]
-[assembly: AssemblyCopyright("Copyright © 2025")]
+[assembly: AssemblyCopyright("Copyright (c) 2026 Danny Perondi")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

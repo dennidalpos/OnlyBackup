@@ -15,7 +15,7 @@
     "centralizzato"
   ],
   "author": "Danny Perondi",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "chokidar": "^5.0.0",

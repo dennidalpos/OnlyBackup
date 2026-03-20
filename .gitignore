@@ -6,7 +6,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Logs
+# Runtime logs
 logs/
 *.log
 
@@ -19,8 +19,8 @@ coverage/
 .nyc_output/
 
 # Build outputs
-dist/
 build/
+dist/
 out/
 output/
 publish/
@@ -37,6 +37,7 @@ nul
 
 # IDEs
 .idea/
+.vs/
 .vscode/
 *.suo
 *.user
@@ -46,20 +47,20 @@ nul
 *.svclog
 *.scc
 
-# .NET / C#
+# .NET / C# build outputs
 agent/**/bin/
 agent/**/obj/
-*.exe
-*.dll
-*.pdb
-!agent/OnlyBackupAgent/bin/Release/
 packages/
 *.nupkg
 
-# MSI Build
-scripts/wix/payload/*.exe
+# Installer build payloads and local service wrappers
+scripts/wix/payload/
 tools/nssm/*
 !tools/nssm/README.md
+
+# Toolchains intentionally versioned in the repository
+!tools/wix314-binaries/**/*.exe
+!tools/wix314-binaries/**/*.dll
 
 # Temp files
 *.tmp
@@ -73,9 +74,6 @@ tools/nssm/*
 *.tar.gz
 *.rar
 
-# Data (runtime)
-data/config/
-data/logs/
-data/state/
-data/users/
+# Runtime data
+data/
 C:/Temp/OnlyBackup_*.log
