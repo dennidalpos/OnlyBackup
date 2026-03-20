@@ -301,7 +301,7 @@ Thumbs.db
 ## Build, test, publish, clean
 
 Se il progetto li prevede, devono esistere meccanismi coerenti con lo stack adottato, tramite:
-- `scripts/*.`;
+- `scripts/*.ps1`;
 - `make`;
 - comandi nativi dello stack;
 - pipeline chiaramente richiamabili e documentate.
@@ -313,6 +313,9 @@ Se il progetto li prevede, devono esistere meccanismi coerenti con lo stack adot
 4. clean deve riportare il repository a uno stato sorgente-only compatibile con i file versionati;
 5. clean non deve cancellare sorgenti, configurazioni o documentazione reali;
 6. README e `.gitignore` devono essere coerenti con questi flussi.
+7. se il repository usa `scripts`, la root di `scripts` deve esporre solo gli entrypoint stabili; helper, diagnostica e lane specialistiche vanno in sottocartelle dedicate.
+8. se il repository usa una root condivisa `artifacts`, build, publish, packaging e benchmark non devono lasciare output persistenti in `src/**/bin`, `tests/**/bin` o directory equivalenti fuori da `artifacts`.
+9. se il repository genera un installer MSI, la cartella di installazione predefinita deve usare il nome reale del progetto e non il nome dell’autore.
 
 Percorsi da coprire nel clean, se pertinenti:
 
