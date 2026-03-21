@@ -2,91 +2,136 @@
 
 ## Scopo
 
-Definire uno standard operativo **deterministico**, riusabile e scalabile per qualsiasi repository.
+Definire uno standard operativo riusabile per qualsiasi repository, utile sia come base per nuovi progetti sia per riallineare repository esistenti.
 
-L’agente deve privilegiare modifiche:
+L'agente deve privilegiare modifiche:
 - sicure;
 - verificabili;
 - conservative in caso di dubbio;
 - coerenti con lo stato reale del repository;
-- minimali rispetto al perimetro richiesto.
+- minime rispetto al perimetro richiesto;
+- riusabili tra stack e progetti diversi.
 
-Obiettivo finale: lasciare ogni repository in uno stato pulito, prevedibile, documentato e automatizzabile.
+Obiettivo finale: lasciare ogni repository in uno stato pulito, prevedibile, documentato e allineato agli standard comuni.
 
 ---
 
-## Principi di determinismo
+## Modello di applicazione
 
-Le operazioni sul repository devono essere deterministiche.
+Questo file definisce uno standard a livelli.
 
-Regole obbligatorie:
-1. stesso input e stesso stato del repository devono produrre lo stesso output;
-2. i comandi devono essere non interattivi, salvo esplicita richiesta contraria;
-3. i path devono essere relativi alla root del repository o dichiarati in modo esplicito;
-4. gli output generati devono finire solo in directory previste;
-5. nessuna operazione deve dipendere da stato locale implicito non documentato;
-6. ordinamenti, naming e layout dei file generati devono essere stabili;
-7. file testuali generati o aggiornati devono usare UTF-8 e newline coerenti con il repository;
-8. date, orari o timestamp nei file generati vanno evitati salvo requisito esplicito;
-9. i comandi devono restituire exit code coerenti;
-10. CI e uso locale devono passare dagli stessi entrypoint, salvo eccezioni documentate.
+### Livello 1 — regole sempre valide
+Valgono per tutti i repository.
+
+### Livello 2 — regole applicabili se pertinenti
+Valgono solo se il repository presenta davvero quel caso, ad esempio:
+- monorepo;
+- packaging;
+- publish/deploy;
+- servizi Windows;
+- installer MSI;
+- tooling locale;
+- componenti distribuibili.
+
+### Livello 3 — regole specifiche di progetto
+Devono emergere dal repository reale e dalla sua documentazione.
+Non vanno inventate in assenza di evidenza concreta.
+
+---
+
+## Principi non negoziabili
+
+1. Stesso input e stesso stato del repository devono produrre lo stesso output.
+2. I comandi devono essere non interattivi, salvo richiesta esplicita contraria.
+3. I path devono essere relativi alla root del repository o dichiarati esplicitamente.
+4. Gli output generati devono finire solo in directory previste.
+5. Nessuna operazione deve dipendere da stato locale implicito non documentato.
+6. Naming, ordinamenti e layout dei file generati devono essere stabili.
+7. I file testuali generati o aggiornati devono usare encoding e newline coerenti con il repository.
+8. Timestamp, date o metadati volatili vanno evitati salvo requisito esplicito.
+9. I comandi devono restituire exit code coerenti.
+10. CI e uso locale devono usare gli stessi entrypoint logici, salvo eccezioni documentate.
+11. In caso di dubbio si preferisce la soluzione più conservativa.
+12. Non si amplia inutilmente il perimetro delle modifiche.
+13. I progetti devono essere costruiti fin dall'inizio separando i file per responsabilità. Ogni file deve avere uno scopo chiaro, limitato e coerente, evitando accorpamenti che portino nel tempo a file troppo grandi, difficili da mantenere o con troppe responsabilità. Quando una parte evolve in modo autonomo, va estratta in un file o modulo dedicato.
 
 ---
 
 ## Priorità di verità
 
-In caso di conflitto, l’ordine di priorità è:
+In caso di conflitto, l'ordine di priorità è:
 
 1. repository reale;
-2. script, test e configurazioni eseguibili;
-3. `PROJECT_SPEC.md`;
-4. `PROJECT_STATUS.json`;
-5. `README.md`.
+2. codice, test, script e configurazioni eseguibili;
+3. specifiche o documentazione tecnica di progetto;
+4. stato operativo dichiarato;
+5. README o documentazione introduttiva.
 
 Il drift non va ignorato:
-- correggerlo subito se la soluzione è chiara, sicura e limitata;
-- altrimenti registrarlo in `PROJECT_STATUS.json`.
+- correggerlo subito se la correzione è chiara, sicura e limitata;
+- altrimenti registrarlo nel meccanismo di tracking del repository.
 
 ---
 
-## Regole obbligatorie
+## Politica di modifica
 
-1. Codice, configurazione, script, documentazione e stato del progetto devono restare coerenti.
-2. Non inventare requisiti non supportati dal repository.
-3. In caso di dubbio preferire la soluzione conservativa.
-4. Rispettare stack, convenzioni e struttura già consolidate, salvo forte evidenza contraria.
-5. Build, test, pack, publish, clean, `.gitignore`, `README.md` e output generati devono restare allineati.
-6. Non lasciare nel repository artefatti temporanei o di compilazione come stato persistente, salvo richiesta esplicita.
-7. Mantenere separazione chiara tra sorgente, test, script, documentazione, configurazione e output.
-8. Non ampliare inutilmente il perimetro delle modifiche.
-9. Tutti i flussi operativi principali devono essere raggiungibili tramite entrypoint stabili.
-10. La root del repository deve restare pulita e leggibile.
-11. Dopo i test il repository deve tornare in stato pulito, senza servizi installati localmente, senza installer attivi e senza residui non necessari.
+L'agente deve:
+1. osservare prima lo stato reale del repository;
+2. derivare la soluzione minima coerente con quello stato;
+3. preservare stack, convenzioni e struttura già consolidate, salvo forte evidenza contraria;
+4. evitare refactor non richiesti;
+5. mantenere allineati codice, script, documentazione, output generati e configurazione;
+6. non introdurre file o directory standard se non servono davvero al progetto;
+7. non lasciare artefatti temporanei o output di compilazione come stato persistente, salvo richiesta esplicita.
 
 ---
 
 ## File di governo
 
-Quando applicabili e necessari al corretto governo del repository, nella root devono esistere almeno:
+Nella root devono esistere sempre:
 
 ```text
 AGENTS.md
-PROJECT_SPEC.md
-PROJECT_STATUS.json
 README.md
 .gitignore
 ```
 
-`LICENSE` è obbligatoria solo se il repository distribuisce codice, artefatti o documentazione con una policy di licenza esplicita.
+Sono obbligatori quando servono davvero al governo del repository:
 
-Se uno di questi file manca e serve davvero al progetto, va creato in forma minima e coerente.
+```text
+PROJECT_SPEC.md
+PROJECT_STATUS.json
+LICENSE
+```
+
+### Regole
+- `PROJECT_SPEC.md` serve quando il comportamento atteso non è ricavabile facilmente dal codice o dal README.
+- `PROJECT_STATUS.json` serve quando esistono flussi operativi, task aperti o stato tecnico che conviene tracciare in modo strutturato.
+- `LICENSE` serve solo se il repository distribuisce codice, artefatti o documentazione con una policy di licenza esplicita.
+- Se uno di questi file manca ma è necessario, va creato in forma minima, concreta e coerente.
+- Se non è necessario, non va introdotto solo per rigidità formale.
 
 ---
 
 ## Documenti standard
 
+### `README.md`
+Documento orientato agli utenti. Deve descrivere, se applicabili:
+- scopo del progetto;
+- requisiti;
+- setup;
+- comandi principali;
+- build;
+- run;
+- test;
+- packaging;
+- publish o deploy;
+- clean;
+- struttura essenziale;
+- note di licenza.
+
 ### `PROJECT_SPEC.md`
-Contiene:
+Contiene solo elementi di specifica:
 - obiettivi;
 - architettura;
 - comportamento atteso;
@@ -95,7 +140,7 @@ Contiene:
 Non contiene task operativi.
 
 ### `PROJECT_STATUS.json`
-Contiene solo stato operativo minimo e informazioni utili alla manutenzione.
+Contiene solo stato operativo utile e mantenibile.
 
 Schema minimo consigliato:
 
@@ -122,9 +167,9 @@ Schema minimo consigliato:
 Regole:
 - registrare solo informazioni utili e mantenibili;
 - evitare inventari manuali fragili o ridondanti;
-- inserire in `tasks` solo problemi aperti, specifici e verificabili;
+- usare `tasks` solo per problemi aperti, specifici e verificabili;
 - rimuovere i task completati;
-- non usare `PROJECT_STATUS.json` come diario.
+- non usare il file come diario.
 
 Schema task minimo:
 
@@ -139,50 +184,11 @@ Schema task minimo:
 }
 ```
 
-### `README.md`
-Documento orientato agli utenti. Deve descrivere, se applicabili:
-- scopo del progetto;
-- requisiti;
-- setup;
-- comandi principali;
-- build;
-- run;
-- test;
-- pack o packaging;
-- publish o deploy;
-- clean;
-- struttura essenziale;
-- note sulla licenza.
-
----
-
-## Gestione drift
-
-Per drift si intende ogni incoerenza tra:
-- codice;
-- configurazione;
-- script;
-- documentazione;
-- stato del progetto;
-- output attesi.
-
-Quando il drift viene rilevato:
-1. correggerlo subito se la correzione è chiara, sicura e limitata;
-2. altrimenti creare un task in `PROJECT_STATUS.json`;
-3. aggiornare i documenti coinvolti in modo minimo ma coerente.
-
-Esempi:
-- comandi documentati non esistenti;
-- output generati in percorsi incoerenti;
-- `README.md` non coerente con il comportamento reale;
-- `.gitignore` incompleto rispetto agli artefatti generati;
-- `PROJECT_STATUS.json` non coerente con gli entrypoint reali.
-
 ---
 
 ## Interfaccia operativa canonica
 
-Ogni repository deve esporre, direttamente o tramite wrapper, gli stessi entrypoint logici:
+Ogni repository dovrebbe esporre, direttamente o tramite wrapper, questi entrypoint logici quando applicabili:
 
 ```text
 bootstrap
@@ -195,61 +201,20 @@ publish
 clean
 ```
 
-Gli entrypoint possono essere implementati con lo stack più adatto (`make`, shell, PowerShell, Python, Node, dotnet, cargo, ecc.), ma devono essere stabili, documentati e richiamabili in modo uniforme.
-
-Se il repository usa una directory `scripts/`, la struttura consigliata è:
-
-```text
-/scripts
-  bootstrap
-  doctor
-  compile
-  build
-  test
-  pack
-  publish
-  clean
-  /helpers
-```
-
-Per packaging Windows o installazione locale si possono aggiungere sottocartelle specialistiche, mantenendo invariati gli entrypoint canonici:
-
-```text
-/scripts
-  /helpers
-  /packaging
-    msi-build
-    msi-install-test
-    msi-upgrade-test
-    msi-uninstall-test
-  /windows
-    service-install
-    service-uninstall
-    services-cleanup
-    nssm-cleanup
-```
-
-Per repository Windows che includono strumenti locali, la struttura consigliata è:
-
-```text
-/tools
-  /wix314-binaries
-  /nssm
-```
-
-Regole:
-1. gli entrypoint esposti devono essere pochi e stabili;
-2. helper, diagnostica e flussi specialistici vanno in sottocartelle dedicate;
-3. README e CI devono usare gli stessi entrypoint;
-4. non esporre in root più meccanismi concorrenti per lo stesso flusso;
-5. se esistono wrapper e comandi nativi di stack, il wrapper canonico è la fonte di verità operativa.
+### Regole
+1. Gli entrypoint devono essere pochi, stabili e documentati.
+2. Possono essere implementati con lo stack più adatto: shell, PowerShell, Python, Node, Make, dotnet, cargo o altro.
+3. README e CI devono richiamare gli stessi entrypoint logici.
+4. Non devono esistere più meccanismi concorrenti per lo stesso flusso senza una chiara fonte di verità.
+5. Se esistono wrapper e comandi nativi dello stack, il wrapper canonico è la fonte di verità operativa.
+6. Se un comando non è pertinente per quel repository, va dichiarato esplicitamente e non simulato.
 
 ---
 
-## Semantica obbligatoria dei comandi
+## Semantica dei comandi
 
 ### `bootstrap`
-Prepara l’ambiente locale minimo:
+Prepara l'ambiente locale minimo:
 - dipendenze di progetto;
 - tool locali richiesti;
 - file o cartelle locali necessarie ma non versionate.
@@ -257,27 +222,25 @@ Prepara l’ambiente locale minimo:
 Non deve pubblicare artefatti finali.
 
 ### `doctor`
-Verifica prerequisiti e coerenza dell’ambiente:
-- toolchain presente;
+Verifica prerequisiti e coerenza dell'ambiente:
+- toolchain;
 - versioni richieste;
 - configurazioni minime;
-- eventuali dipendenze esterne dichiarate.
+- dipendenze esterne dichiarate.
 
 Non deve modificare il repository salvo cache o file temporanei dichiarati.
 
 ### `compile`
-Produce output compilati o trasformati necessari all’esecuzione tecnica, senza packaging finale.
+Produce output compilati o trasformati necessari all'esecuzione tecnica, senza packaging finale.
 
 ### `build`
-Esegue `compile` e tutti i passaggi tecnici necessari per ottenere un risultato locale completo e verificabile.
+Esegue `compile` e i passaggi tecnici necessari per ottenere un risultato locale completo e verificabile.
 
 ### `test`
-Esegue i test automatici, esegue quando pertinenti gli smoke test di avvio applicazione e salva report solo in directory previste.
+Esegue i test automatici e, quando pertinenti, smoke test di avvio. I report devono essere salvati solo in directory previste.
 
 ### `pack`
 Produce artefatti distribuibili o installabili.
-
-Se l’applicazione è distribuibile tramite MSI su Windows, `pack` deve generare o aggiornare anche gli script di packaging necessari per creare l’MSI in modo ripetibile.
 
 ### `publish`
 Pubblica, esporta o deposita quanto prodotto da `pack` verso una destinazione prevista.
@@ -287,18 +250,12 @@ Pubblica, esporta o deposita quanto prodotto da `pack` verso una destinazione pr
 ### `clean`
 Rimuove solo output generati e cache locali previste, riportando il repository a uno stato sorgente-only compatibile con i file versionati.
 
-`clean` non deve cancellare:
+Non deve cancellare:
 - sorgenti;
 - test;
 - documentazione;
 - configurazioni versionate;
 - file di governo.
-
-`clean` deve anche includere, se pertinenti:
-- rimozione di installazioni locali usate per test;
-- rimozione di servizi Windows o NSSM creati durante i test;
-- rimozione di file residui lasciati da setup, upgrade o uninstall test;
-- rimozione di output fuori da `artifacts/` generati inevitabilmente dallo stack.
 
 ---
 
@@ -309,11 +266,11 @@ Struttura di riferimento per un repository singolo:
 ```text
 /
 ├── AGENTS.md
+├── README.md
+├── .gitignore
 ├── PROJECT_SPEC.md
 ├── PROJECT_STATUS.json
-├── README.md
 ├── LICENSE
-├── .gitignore
 ├── /src
 ├── /tests
 ├── /scripts
@@ -324,33 +281,23 @@ Struttura di riferimento per un repository singolo:
 └── /artifacts
 ```
 
-Non tutte queste directory devono esistere sempre: creare solo quelle realmente giustificate.
+Non tutte queste directory devono esistere sempre.
+Creare solo quelle realmente giustificate.
 
-### Regole di struttura
-- `/src`: codice sorgente principale versionato.
-- `/tests`: test automatizzati, fixture e dati di test.
-- `/scripts`: entrypoint operativi del repository.
-- `/docs`: documentazione tecnica o utente non adatta al README.
-- `/config`: configurazioni condivise non già gestite chiaramente dallo stack.
-- `/tools`: utility di sviluppo o manutenzione non entrypoint.
-- `/examples`: esempi minimi di utilizzo.
-- `/artifacts`: unica root per output generati persistenti locali o di CI.
-
-### Regole obbligatorie di layout
-1. Il sorgente sta in `/src`.
-2. I test stanno in `/tests`.
+### Regole di layout
+1. Il sorgente sta in `/src` quando lo stack lo consente senza forzature artificiali.
+2. I test stanno in `/tests` quando separabili chiaramente dal sorgente.
 3. Gli script standard stanno in `/scripts`.
-4. Gli output generati persistenti stanno sotto `/artifacts`.
+4. Gli output generati persistenti stanno sotto `/artifacts` quando controllabili dal repository.
 5. Gli output non devono finire dentro `/src`, `/tests`, `/docs` o `/config`.
-6. La root deve contenere solo file di governo, manifest principali, entrypoint top-level strettamente necessari e directory standard di primo livello.
+6. La root deve restare pulita e leggibile.
+7. Se lo stack impone layout diversi, si segue lo stack ma si documenta l'eccezione.
 
 ---
 
 ## Tassonomia artefatti
 
-La root `artifacts/` deve usare una tassonomia chiara e prevedibile.
-
-Struttura consigliata:
+La root `artifacts/` dovrebbe usare una tassonomia chiara e prevedibile:
 
 ```text
 /artifacts
@@ -362,17 +309,12 @@ Struttura consigliata:
 ```
 
 Regole:
-1. `compile` e `build` scrivono in `artifacts/build`;
-2. `test` scrive report in `artifacts/test-results`;
-3. `pack` scrive in `artifacts/packages`;
-4. `publish` scrive output locali o manifest in `artifacts/publish` quando applicabile;
-5. log persistenti di processo stanno in `artifacts/logs`;
-6. non lasciare output persistenti in `bin/`, `obj/`, `dist/`, `out/`, `target/`, `publish/` o percorsi equivalenti fuori da `artifacts/`, salvo vincoli di stack non evitabili.
-
-Se lo stack genera directory temporanee inevitabili fuori da `artifacts/`, devono essere:
-- note;
-- ignorate da git;
-- coperte da `clean`.
+1. `compile` e `build` scrivono in `artifacts/build` quando possibile.
+2. `test` scrive report in `artifacts/test-results`.
+3. `pack` scrive in `artifacts/packages`.
+4. `publish` scrive output locali o manifest in `artifacts/publish` quando applicabile.
+5. I log persistenti stanno in `artifacts/logs`.
+6. Se lo stack genera output fuori da `artifacts`, questi output devono essere documentati, ignorati da git e coperti da `clean`.
 
 ---
 
@@ -382,7 +324,7 @@ Se lo stack genera directory temporanee inevitabili fuori da `artifacts/`, devon
 La struttura standard si applica direttamente alla root.
 
 ### Monorepo
-Per un monorepo, usare solo la seguente convenzione top-level:
+Per un monorepo, la convenzione top-level consigliata è:
 
 ```text
 /apps
@@ -396,8 +338,8 @@ Per un monorepo, usare solo la seguente convenzione top-level:
 Regole:
 1. usare `apps/` per elementi eseguibili o deployabili;
 2. usare `packages/` per componenti riusabili;
-3. non mischiare naming top-level alternativi come `libs`, `services`, `projects` salvo eccezione documentata;
-4. ogni unità interna deve rispettare in piccolo lo stesso standard.
+3. evitare naming top-level concorrenti senza una motivazione documentata;
+4. ogni unità interna deve rispettare in piccolo lo stesso standard, per quanto compatibile.
 
 Esempio:
 
@@ -412,9 +354,33 @@ Esempio:
 
 ---
 
+## Gestione del drift
+
+Per drift si intende qualsiasi incoerenza tra:
+- codice;
+- configurazione;
+- script;
+- documentazione;
+- stato operativo;
+- output attesi.
+
+Quando il drift viene rilevato:
+1. correggerlo subito se la correzione è chiara, sicura e limitata;
+2. altrimenti registrarlo nel meccanismo di tracking previsto;
+3. aggiornare i documenti coinvolti in modo minimo ma coerente.
+
+Esempi di drift:
+- comandi documentati che non esistono;
+- output generati in percorsi incoerenti;
+- `README.md` non coerente con il comportamento reale;
+- `.gitignore` incompleto rispetto agli artefatti generati;
+- stato operativo non coerente con gli entrypoint reali.
+
+---
+
 ## `.gitignore`
 
-L’agente deve verificare `.gitignore`.
+L'agente deve verificare `.gitignore`.
 
 Regole:
 1. se manca, crearlo;
@@ -444,153 +410,99 @@ Thumbs.db
 
 ## LICENSE
 
-L’agente deve verificare `LICENSE` solo se il repository richiede una policy di licenza esplicita.
-
-Procedura:
-1. rilevare se il repository mostra già una licenza valida;
-2. se manca ma serve, crearla;
-3. se esiste ma non è coerente con il repository, aggiornarla;
-4. allineare eventuali riferimenti in `README.md`.
+L'agente deve verificare `LICENSE` solo se il repository richiede una policy di licenza esplicita.
 
 Vincoli:
-- non imporre autore, anno o tipo di licenza hardcoded;
-- non introdurre una licenza proprietaria per default;
-- non lasciare placeholder nel file finale.
+1. non imporre autore, anno o tipo di licenza hardcoded;
+2. non introdurre una licenza proprietaria per default;
+3. non lasciare placeholder nel file finale;
+4. allineare eventuali riferimenti nel `README.md`.
 
 ---
 
-## Packaging MSI e servizi Windows
+## Regole condizionali per Windows, MSI e servizi
 
-Questa sezione è obbligatoria quando il repository contiene un’applicazione Windows installabile, un installer MSI, script di setup Windows o servizi installabili localmente.
-
-### Regole obbligatorie
-1. generare o aggiornare gli script per la creazione dell’MSI dell’app quando il repository supporta packaging Windows;
-2. per la generazione MSI usare in priorità gli strumenti già presenti nel repository; se non sono presenti altri strumenti, usare `\tools\wix314-binaries` come toolchain locale di default;
-3. gli script MSI devono supportare installazione iniziale, futuri aggiornamenti, disinstallazione e pulizia residui;
-4. gli script devono prevedere la rimozione di file residui, directory residue, task pianificati e servizi collegati all’app quando pertinenti;
-5. se l’app installa o può installare servizi Windows, privilegiare la creazione e gestione del servizio tramite comandi nativi Windows e script dedicati di installazione e disinstallazione;
-6. gli script di servizio devono supportare almeno create, start, stop, delete e cleanup usando strumenti nativi come `sc.exe`, PowerShell o equivalenti nativi di Windows;
-7. usare NSSM solo come fallback quando il servizio non è gestibile correttamente con strumenti nativi, e in tal caso usare il binario locale in `\tools\nssm`;
-8. se viene usato NSSM, gli script devono gestire installazione, stop e rimozione completa dei servizi creati con NSSM;
-9. nessun test deve lasciare sul PC servizi installati, anche se il test fallisce parzialmente;
-10. i nomi dei servizi, i path di installazione e le chiavi di registro usate dai test devono essere prevedibili e documentate;
-11. upgrade e uninstall devono essere verificabili tramite script, non solo manualmente.
-
-### Requisiti minimi degli script MSI
-Gli script o template MSI devono coprire almeno:
-- build dell’installer;
-- installazione silenziosa per test;
-- upgrade da versione precedente compatibile;
-- uninstall silenziosa;
-- cleanup finale di file residui e servizi.
-
-Se il repository non fornisce già una toolchain MSI equivalente, gli script devono saper usare `\tools\wix314-binaries` senza dipendere da installazioni globali non documentate.
-
-### Requisiti minimi degli script di servizio Windows
-Gli script di gestione servizi devono coprire almeno:
-- installazione servizio con strumenti nativi Windows;
-- avvio e stop del servizio;
-- disinstallazione del servizio;
-- cleanup residui post-test;
-- fallback opzionale a NSSM tramite `\tools\nssm`.
-
-### Vincoli operativi
-- non lasciare installazioni di test attive sulla macchina;
-- non lasciare servizi Windows o NSSM attivi dopo i test;
-- non lasciare directory temporanee o dati locali di test se non espressamente richiesti;
-- centralizzare eventuali log di installazione e uninstall in `artifacts/logs`.
-
----
-
-## Build, test, pack, publish, clean
-
-Se il progetto li prevede, devono esistere meccanismi coerenti con lo stack adottato, ma l’interfaccia logica deve restare canonica.
+Questa sezione si applica solo se il repository contiene un'applicazione Windows installabile, un installer MSI, script di setup Windows o servizi installabili localmente.
 
 ### Regole
-1. ogni comando deve essere ripetibile e documentato;
-2. gli output devono finire in directory chiare e coerenti;
-3. compile, build, test, pack e publish non vanno confusi tra loro;
-4. `clean` deve riportare il repository a uno stato sorgente-only compatibile con i file versionati;
-5. README, CI e `.gitignore` devono essere coerenti con questi flussi;
-6. gli stessi flussi devono poter essere eseguiti localmente e in CI tramite gli stessi entrypoint;
-7. `publish` deve operare su artefatti già prodotti da `pack`, salvo eccezioni documentate;
-8. dopo ogni modifica a script operativi, gli script coinvolti devono essere testati realmente;
-9. quando esiste un’app avviabile, il flusso di test deve includere almeno un test di avvio dell’app dopo un `clean`.
-
-Percorsi tipici da coprire nel `clean`, se pertinenti:
-
-```text
-artifacts/
-bin/
-obj/
-dist/
-out/
-target/
-publish/
-tmp/
-```
-
----
-
-## Verifica obbligatoria degli script
-
-Quando vengono creati o aggiornati script di build, test, pack, publish, clean, MSI o gestione servizi, l’agente deve testare i flussi reali.
-
-Sequenza minima obbligatoria, se pertinente:
-1. eseguire `clean`;
-2. eseguire `bootstrap` e `doctor` se richiesti dallo stack;
-3. eseguire gli script aggiornati o generati;
-4. eseguire `build` e `test`;
-5. eseguire almeno uno smoke test di avvio app se l’app è eseguibile localmente;
-6. se esiste packaging MSI, testare build MSI, installazione, upgrade compatibile e uninstall, usando in priorità la toolchain già presente nel repository o `\tools\wix314-binaries` quando è il tool locale previsto;
-7. se esistono servizi Windows, testare installazione e disinstallazione tramite script nativi; usare il fallback NSSM solo se necessario tramite `\tools\nssm`;
-8. verificare che non restino servizi Windows o NSSM installati;
-9. verificare che non restino file residui non previsti;
-10. rieseguire `clean` al termine dei test;
-11. lasciare il repository pulito e senza installazioni locali di test.
-
-Se un passaggio non è eseguibile nel contesto corrente, va dichiarato esplicitamente e non va simulato come eseguito.
+1. usare prima gli strumenti già presenti nel repository;
+2. introdurre tool locali solo se davvero necessari e documentati;
+3. installazione, upgrade, uninstall e cleanup devono essere verificabili tramite script;
+4. i test non devono lasciare servizi installati o installazioni locali attive;
+5. log di installazione e uninstall devono finire in `artifacts/logs` quando persistenti;
+6. usare strumenti nativi Windows per la gestione servizi quando possibile;
+7. usare NSSM solo come fallback esplicito e documentato.
 
 ---
 
 ## Modalità operative
 
+### Bootstrap di un repo nuovo
+Obiettivo:
+- creare la struttura minima utile;
+- definire entrypoint canonici;
+- impostare README, `.gitignore` e file di governo necessari;
+- evitare over-engineering iniziale.
+
+### Allineamento di un repo esistente
+Obiettivo:
+- confrontare il repository con questo standard;
+- correggere il drift chiaro e limitato;
+- introdurre solo ciò che serve davvero;
+- non riscrivere il repository senza necessità.
+
 ### Light Mode
 Usare per modifiche locali o mirate.
 
 Minimo richiesto:
-- verificare l’area modificata;
+- verificare l'area modificata;
 - correggere drift locale evidente;
 - aggiornare documentazione minima se necessario.
 
 ### Full Sync Mode
 Usare per:
-- refactor;
+- refactor strutturali;
 - riorganizzazione repository;
 - riallineamento documentazione;
-- normalizzazione di struttura, script, build, test, pack, publish, clean, LICENSE o `.gitignore`.
+- normalizzazione di struttura, script, build, test, pack, publish, clean, `LICENSE` o `.gitignore`.
 
 Minimo richiesto:
 - verificare gli entrypoint canonici;
-- verificare la root `artifacts`;
+- verificare la root `artifacts` se pertinente;
 - riallineare script, documentazione e stato;
-- aggiornare `PROJECT_STATUS.json` se cambiano i flussi reali.
+- aggiornare lo stato operativo se cambiano i flussi reali.
 
 ---
 
-## Procedura finale
+## Verifica minima obbligatoria
+
+Quando vengono creati o aggiornati script operativi, l'agente deve testare i flussi reali per quanto eseguibile nel contesto corrente.
+
+Sequenza minima, se pertinente:
+1. eseguire `clean`;
+2. eseguire `bootstrap` e `doctor` se previsti;
+3. eseguire gli script aggiornati o generati;
+4. eseguire `build` e `test`;
+5. eseguire almeno uno smoke test di avvio se l'app è eseguibile localmente;
+6. rieseguire `clean` al termine;
+7. lasciare il repository pulito.
+
+Se un passaggio non è eseguibile nel contesto corrente, va dichiarato esplicitamente e non simulato come eseguito.
+
+---
+
+## Checklist finale
 
 Per ogni modifica, se pertinente, verificare:
 1. coerenza tra codice, script e documentazione;
 2. presenza e coerenza di `README.md`;
 3. presenza e coerenza di `.gitignore`;
-4. correttezza di bootstrap, doctor, compile, build, test, pack, publish e clean;
+4. correttezza degli entrypoint realmente applicabili;
 5. separazione corretta tra sorgente, test, script, documentazione, configurazione e output;
-6. allineamento di `PROJECT_STATUS.json` con gli entrypoint reali;
-7. corretto confinamento degli output sotto `artifacts/`;
-8. se presenti flussi Windows, correttezza di script MSI, upgrade, uninstall, gestione servizi nativa e fallback NSSM;
-9. uso coerente di `\tools\wix314-binaries` per MSI quando non esiste già un’altra toolchain dichiarata, e di `\tools\nssm` solo come fallback;
-10. esecuzione di un clean finale dopo i test;
-11. assenza finale di servizi Windows o NSSM lasciati installati dal ciclo di test.
+6. corretto confinamento degli output sotto `artifacts/`, quando possibile;
+7. stato finale pulito del repository;
+8. assenza di residui di test o installazione;
+9. assenza di requisiti inventati;
+10. allineamento del repository agli standard comuni senza forzature inutili.
 
-Obiettivo: lasciare il repository in uno stato pulito, coerente, standardizzato, scalabile e deterministico.
+Obiettivo: lasciare il repository in uno stato pulito, coerente, standardizzato e scalabile, mantenendo però compatibilità con lo stack e con la realtà del progetto.
