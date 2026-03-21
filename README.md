@@ -14,19 +14,43 @@ OnlyBackup e un sistema centralizzato di backup e restore per ambienti Windows c
 - WiX Toolset 3.14 per il packaging MSI dell'agent, installato nel sistema oppure disponibile in `tools\wix314-binaries\`.
 - `nssm` se si vuole installare il server come servizio Windows.
 
+## Setup Iniziale Rapido
+
+Guida dettagliata per utenti finali, setup server e agent:
+
+- `docs\SETUP_UTENTE_FINALE.md`
+
+Per il primo avvio del server da root repository:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -InitialAdminPassword "ChangeMe123!"
+powershell -ExecutionPolicy Bypass -File .\scripts\doctor.ps1
+Set-Location .\server
+npm start
+```
+
+`bootstrap.ps1` esegue il setup minimo non interattivo:
+- installa le dipendenze del server con `npm ci`;
+- inizializza le directory sotto `data\`;
+- crea l'utente `admin` se non esiste gia.
+
+`doctor.ps1` non modifica il repository: verifica prerequisiti e conferma che il setup minimo sia completo.
+
+Il server legge la configurazione da `..\config.json` oppure da `CONFIG_PATH`. Di default l'interfaccia risponde su `http://localhost:8080/`.
+
+Se non passi `-InitialAdminPassword`, lo script di inizializzazione genera una password casuale e la stampa a console. Se l'utente `admin` esiste gia, il bootstrap non lo sovrascrive.
+
 ## Setup
 
 ### Server
 
+Se vuoi eseguire solo una parte del setup:
+
 ```powershell
-Set-Location .\server
-npm install
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -SkipDataInitialization
 ```
 
-Il server legge la configurazione da `..\config.json` oppure da `CONFIG_PATH`.
-
-Al primo avvio, se non esistono utenti, il server crea automaticamente l'account `admin`.
-Per rendere deterministica la password iniziale si puo usare `ONLYBACKUP_INITIAL_ADMIN_PASSWORD`.
+Questo installa solo le dipendenze del server senza creare o aggiornare i dati locali.
 
 Se vuoi installare il server come servizio Windows con `nssm`, copia `nssm.exe` in uno di questi percorsi:
 
@@ -47,6 +71,8 @@ Il progetto dell'agent e in `agent\OnlyBackupAgent\OnlyBackupAgent.csproj`.
 ### Server
 
 Il server non richiede una fase di build dedicata: dopo `npm install` puo essere eseguito direttamente con Node.js.
+
+Il repository non espone oggi un entrypoint `compile` o `build` distinto per il server: il flusso operativo principale lato server e `bootstrap -> doctor -> npm start`.
 
 ### Agent
 
@@ -106,6 +132,7 @@ Gli script cercano `nssm` prima in `tools\nssm\` e poi nel `PATH`. In alternativ
 ## Test E Verifica
 
 Verifiche disponibili:
+- `scripts\doctor.ps1` controlla prerequisiti minimi del setup iniziale del server e segnala i componenti opzionali mancanti.
 - `npm test` esegue uno smoke test end-to-end del server: bootstrap auth/admin, route alert/email/settings, heartbeat client, CRUD job, esecuzione manuale contro un fake agent, log e backup analyze/delete.
 - `scripts\Validate-MsiPackage.ps1` valida metadati e integrita del pacchetto MSI prodotto.
 - `scripts\Test-MsiUpgrade.ps1` verifica la coerenza di un upgrade tra due MSI.
