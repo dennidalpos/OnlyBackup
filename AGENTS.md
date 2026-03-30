@@ -2,58 +2,58 @@
 
 ## Scopo
 
-Definire uno standard operativo riusabile per qualsiasi repository, utile sia come base per nuovi progetti sia per riallineare repository esistenti.
+Definire uno standard operativo riusabile per repository di natura diversa, utile come base comune per nuovi progetti e come riferimento per riallineare repository esistenti.
 
-L'agente deve privilegiare modifiche:
-- sicure;
-- verificabili;
-- conservative in caso di dubbio;
-- coerenti con lo stato reale del repository;
-- minime rispetto al perimetro richiesto;
-- riusabili tra stack e progetti diversi.
+Questo file non impone un unico modello organizzativo valido per tutti i casi.
+Stabilisce invece:
+- principi sempre validi;
+- convenzioni consigliate;
+- regole da applicare solo quando pertinenti;
+- criteri per adattarsi allo stack e allo stato reale del repository.
 
-Obiettivo finale: lasciare ogni repository in uno stato pulito, prevedibile, documentato e allineato agli standard comuni.
+Obiettivo: aiutare l'agente a lasciare il repository in uno stato più chiaro, coerente, verificabile e mantenibile, senza introdurre struttura, documentazione o processi inutili.
 
 ---
 
 ## Modello di applicazione
 
-Questo file definisce uno standard a livelli.
+Questo standard si applica a livelli.
 
-### Livello 1 — regole sempre valide
-Valgono per tutti i repository.
+### Livello 1 — principi sempre validi
+Regole trasversali applicabili a qualsiasi repository.
 
-### Livello 2 — regole applicabili se pertinenti
-Valgono solo se il repository presenta davvero quel caso, ad esempio:
+### Livello 2 — convenzioni consigliate
+Pattern utili nella maggior parte dei repository, da applicare solo se migliorano davvero il progetto.
+
+### Livello 3 — regole condizionali
+Valide solo quando il repository presenta realmente il caso, ad esempio:
 - monorepo;
-- packaging;
-- publish/deploy;
-- servizi Windows;
-- installer MSI;
+- packaging o publish;
+- servizi o processi installabili;
 - tooling locale;
-- componenti distribuibili.
+- componenti distribuibili;
+- layout multi-app o multi-package.
 
-### Livello 3 — regole specifiche di progetto
-Devono emergere dal repository reale e dalla sua documentazione.
+### Livello 4 — regole specifiche di progetto
+Devono emergere dal repository reale, dalle sue convenzioni, dalla documentazione esistente e dagli eseguibili già presenti.
 Non vanno inventate in assenza di evidenza concreta.
 
 ---
 
 ## Principi non negoziabili
 
-1. Stesso input e stesso stato del repository devono produrre lo stesso output.
-2. I comandi devono essere non interattivi, salvo richiesta esplicita contraria.
-3. I path devono essere relativi alla root del repository o dichiarati esplicitamente.
-4. Gli output generati devono finire solo in directory previste.
-5. Nessuna operazione deve dipendere da stato locale implicito non documentato.
-6. Naming, ordinamenti e layout dei file generati devono essere stabili.
-7. I file testuali generati o aggiornati devono usare encoding e newline coerenti con il repository.
-8. Timestamp, date o metadati volatili vanno evitati salvo requisito esplicito.
-9. I comandi devono restituire exit code coerenti.
-10. CI e uso locale devono usare gli stessi entrypoint logici, salvo eccezioni documentate.
-11. In caso di dubbio si preferisce la soluzione più conservativa.
-12. Non si amplia inutilmente il perimetro delle modifiche.
-13. I progetti devono essere costruiti fin dall'inizio separando i file per responsabilità. Ogni file deve avere uno scopo chiaro, limitato e coerente, evitando accorpamenti che portino nel tempo a file troppo grandi, difficili da mantenere o con troppe responsabilità. Quando una parte evolve in modo autonomo, va estratta in un file o modulo dedicato.
+1. Lo stato reale del repository viene prima delle assunzioni.
+2. A parità di input e stato, i comandi dovrebbero produrre risultati coerenti e ripetibili.
+3. I cambiamenti devono essere minimi rispetto al perimetro richiesto, ma completi nell'area toccata.
+4. In caso di dubbio si preferiscono modifiche sicure, verificabili e conservative.
+5. Non introdurre dipendenze da stato locale implicito se non dichiarato.
+6. Non inventare requisiti, file, flussi o convenzioni non supportati dal repository.
+7. La documentazione e la configurazione devono restare coerenti con il comportamento reale.
+8. I file generati devono avere destinazioni prevedibili e non contaminare sorgenti o configurazioni.
+9. Legacy, dead code e duplicazioni non dovrebbero essere mantenuti senza motivo verificabile.
+10. Non dichiarare come eseguito ciò che non è stato realmente verificato.
+11. Le convenzioni native dello stack vanno rispettate prima di imporre una standardizzazione esterna.
+12. Ogni riallineamento strutturale deve avere un beneficio concreto in chiarezza, manutenzione o verificabilità.
 
 ---
 
@@ -63,13 +63,14 @@ In caso di conflitto, l'ordine di priorità è:
 
 1. repository reale;
 2. codice, test, script e configurazioni eseguibili;
-3. specifiche o documentazione tecnica di progetto;
-4. stato operativo dichiarato;
-5. README o documentazione introduttiva.
+3. specifiche o documenti tecnici strutturali del progetto, se esistono;
+4. stato operativo o tracking locale del repository, se esiste;
+5. documentazione introduttiva.
 
 Il drift non va ignorato:
 - correggerlo subito se la correzione è chiara, sicura e limitata;
-- altrimenti registrarlo nel meccanismo di tracking del repository.
+- altrimenti registrarlo nel meccanismo di tracking già usato dal repository;
+- se non esiste un meccanismo di tracking chiaro, proporne uno minimo e coerente invece di introdurre sistemi ridondanti.
 
 ---
 
@@ -78,120 +79,94 @@ Il drift non va ignorato:
 L'agente deve:
 1. osservare prima lo stato reale del repository;
 2. derivare la soluzione minima coerente con quello stato;
-3. preservare stack, convenzioni e struttura già consolidate, salvo forte evidenza contraria;
-4. evitare refactor non richiesti;
-5. mantenere allineati codice, script, documentazione, output generati e configurazione;
-6. non introdurre file o directory standard se non servono davvero al progetto;
-7. non lasciare artefatti temporanei o output di compilazione come stato persistente, salvo richiesta esplicita.
+3. preservare stack, convenzioni e layout già consolidati, salvo forte evidenza contraria;
+4. evitare refactor non necessari al task o al riallineamento locale evidente;
+5. mantenere allineati, per quanto toccati, codice, test, script, documentazione e configurazione;
+6. non introdurre file o directory standard inutili;
+7. non lasciare artefatti temporanei o output generati come stato persistente, salvo scelta esplicita del progetto;
+8. centralizzare logiche e configurazioni riusabili quando il riuso è reale e il dominio resta chiaro;
+9. evitare contenitori generici che accumulano responsabilità eterogenee;
+10. rimuovere codice legacy o morto quando la rimozione è verificabile e a basso rischio;
+11. tracciare in modo esplicito ciò che non è prudente completare nel turno corrente.
+
+Regola guida: adattarsi prima al repository, proporre convergenze dopo.
 
 ---
 
-## File di governo
+## Convenzioni sui file di governo
 
-Nella root devono esistere sempre:
+Alcuni file sono spesso utili nella root, ma non sono tutti obbligatori in ogni repository.
+
+Esempi comuni:
 
 ```text
 AGENTS.md
 README.md
 .gitignore
-```
-
-Sono obbligatori quando servono davvero al governo del repository:
-
-```text
+LICENSE
 PROJECT_SPEC.md
 PROJECT_STATUS.json
-LICENSE
 ```
 
 ### Regole
-- `PROJECT_SPEC.md` serve quando il comportamento atteso non è ricavabile facilmente dal codice o dal README.
-- `PROJECT_STATUS.json` serve quando esistono flussi operativi, task aperti o stato tecnico che conviene tracciare in modo strutturato.
-- `LICENSE` serve solo se il repository distribuisce codice, artefatti o documentazione con una policy di licenza esplicita.
-- Se uno di questi file manca ma è necessario, va creato in forma minima, concreta e coerente.
-- Se non è necessario, non va introdotto solo per rigidità formale.
+- `README.md` è normalmente il punto di ingresso per utenti e contributor.
+- `AGENTS.md` definisce il comportamento operativo dell'agente, se il progetto lo usa.
+- `PROJECT_SPEC.md` è utile quando serve una specifica tecnica strutturale stabile.
+- `PROJECT_STATUS.json` o equivalente è utile quando il repository usa tracking operativo locale.
+- `LICENSE` va mantenuto solo quando il repository richiede una policy di licenza esplicita.
+- Non creare file di governo solo per aderire formalmente a uno standard, se non portano utilità concreta.
+- Se il repository usa già file o convenzioni equivalenti, vanno preferiti quelli esistenti.
 
 ---
 
-## Documenti standard
+## Documentazione
 
-### `README.md`
-Documento orientato agli utenti. Deve descrivere, se applicabili:
-- scopo del progetto;
-- requisiti;
-- setup;
-- comandi principali;
-- build;
-- run;
-- test;
-- packaging;
-- publish o deploy;
-- clean;
-- struttura essenziale;
-- note di licenza.
+La documentazione dovrebbe essere minima, chiara e non duplicata.
 
-### `PROJECT_SPEC.md`
-Contiene solo elementi di specifica:
-- obiettivi;
-- architettura;
-- comportamento atteso;
-- vincoli.
+### Regole
+- Non introdurre nuova documentazione senza uno scopo chiaro.
+- Non duplicare contenuto già presente in codice, test, script o documenti esistenti.
+- Rispettare la convenzione documentale già presente nel repository, ad esempio `README`, `docs/`, ADR, runbook o guide operative.
+- La documentazione introduttiva deve restare breve e orientata all'uso.
+- La documentazione tecnica strutturale, quando esiste, deve restare separata da tracking operativo e cronologia di lavoro.
+- Il tracking operativo non dovrebbe trasformarsi in diario narrativo.
 
-Non contiene task operativi.
+In generale: minimizzare la documentazione, non proibirla.
 
-### `PROJECT_STATUS.json`
-Contiene solo stato operativo utile e mantenibile.
+---
 
-Schema minimo consigliato:
+## Tracking operativo
 
-```json
-{
-  "schema_version": 1,
-  "repo_type": "single | monorepo",
-  "stack": [],
-  "artifacts_root": "artifacts",
-  "commands": {
-    "bootstrap": "scripts/bootstrap",
-    "doctor": "scripts/doctor",
-    "compile": "scripts/compile",
-    "build": "scripts/build",
-    "test": "scripts/test",
-    "pack": "scripts/pack",
-    "publish": "scripts/publish",
-    "clean": "scripts/clean"
-  },
-  "tasks": []
-}
-```
+Se il repository usa un file o documento di stato operativo, l'agente dovrebbe leggerlo e mantenerlo coerente.
+Se non esiste, non va introdotto automaticamente salvo reale necessità.
 
-Regole:
-- registrare solo informazioni utili e mantenibili;
+Un tracking operativo locale è utile soprattutto quando serve registrare:
+- stato sintetico del repository;
+- target state;
+- entrypoint rilevanti;
+- task aperti;
+- drift rilevati;
+- blocchi o dipendenze esterne.
+
+### Regole
+- usare il meccanismo di tracking già adottato dal progetto, se presente;
 - evitare inventari manuali fragili o ridondanti;
-- usare `tasks` solo per problemi aperti, specifici e verificabili;
-- rimuovere i task completati;
-- non usare il file come diario.
-
-Schema task minimo:
-
-```json
-{
-  "id": "task-name",
-  "type": "bug | refactor | doc | infra | drift",
-  "status": "pending | in_progress",
-  "description": "descrizione",
-  "files": ["file1"],
-  "priority": 1
-}
-```
+- registrare solo informazioni utili e mantenibili;
+- chiudere o rimuovere i task superati;
+- distinguere problemi reali da aspirazioni generiche non pianificate.
 
 ---
 
-## Interfaccia operativa canonica
+## Interfaccia operativa
 
-Ogni repository dovrebbe esporre, direttamente o tramite wrapper, questi entrypoint logici quando applicabili:
+Molti repository beneficiano di entrypoint stabili e pochi comandi canonici. Non esiste però un set obbligatorio universale.
+
+Esempi frequenti:
 
 ```text
 bootstrap
+start
+remove
 doctor
 compile
 build
@@ -202,102 +177,143 @@ clean
 ```
 
 ### Regole
-1. Gli entrypoint devono essere pochi, stabili e documentati.
-2. Possono essere implementati con lo stack più adatto: shell, PowerShell, Python, Node, Make, dotnet, cargo o altro.
-3. README e CI devono richiamare gli stessi entrypoint logici.
-4. Non devono esistere più meccanismi concorrenti per lo stesso flusso senza una chiara fonte di verità.
-5. Se esistono wrapper e comandi nativi dello stack, il wrapper canonico è la fonte di verità operativa.
-6. Se un comando non è pertinente per quel repository, va dichiarato esplicitamente e non simulato.
+1. Gli entrypoint devono essere pochi, stabili e non ambigui.
+2. README, CI e automazioni dovrebbero riferirsi agli stessi entrypoint logici quando applicabili.
+3. Se il repository ha già comandi nativi chiari dello stack, non serve introdurre wrapper aggiuntivi.
+4. Se esistono wrapper canonici, questi diventano la fonte di verità operativa.
+5. Un comando non pertinente non va simulato.
+6. Il naming può seguire lo stack del progetto, purché il flusso resti chiaro.
+
+### Scelta degli script in base all'ambiente
+- Scegliere il linguaggio o il runner degli script in base all'ambiente di sviluppo reale del repository.
+- Su Windows, per l'automazione di processi locali, installazione, diagnostica, build helper e orchestrazione, preferire PowerShell salvo forte convenzione contraria del progetto.
+- Su ambienti Unix-like, preferire shell script o gli strumenti nativi già adottati dal repository.
+- In contesti multipiattaforma, preferire entrypoint coerenti e wrapper chiari invece di duplicare flussi senza necessità.
+- Non introdurre PowerShell, bash o altri runner solo per preferenza personale quando il repository usa già un meccanismo stabile e diffuso.
 
 ---
 
-## Semantica dei comandi
+## Separazione degli script
 
-### `bootstrap`
-Prepara l'ambiente locale minimo:
-- dipendenze di progetto;
-- tool locali richiesti;
-- file o cartelle locali necessarie ma non versionate.
+Quando il repository contiene più script, è consigliata una separazione per destinatario e responsabilità.
 
-Non deve pubblicare artefatti finali.
+Struttura possibile:
 
-### `doctor`
-Verifica prerequisiti e coerenza dell'ambiente:
-- toolchain;
-- versioni richieste;
-- configurazioni minime;
-- dipendenze esterne dichiarate.
+```text
+/scripts
+  /user
+  /dev
+```
 
-Non deve modificare il repository salvo cache o file temporanei dichiarati.
+### Regole
+- gli script rivolti agli utenti o operatori dovrebbero essere distinguibili da quelli tecnici interni;
+- gli script tecnici non dovrebbero appesantire la documentazione introduttiva;
+- se la separazione manca ma il repository è già piccolo e chiaro, non va forzata;
+- se gli script sono mescolati e la separazione porterebbe beneficio concreto, il riallineamento può essere eseguito o pianificato.
 
-### `compile`
-Produce output compilati o trasformati necessari all'esecuzione tecnica, senza packaging finale.
 
-### `build`
-Esegue `compile` e i passaggi tecnici necessari per ottenere un risultato locale completo e verificabile.
+## Riallineamento degli script
 
-### `test`
-Esegue i test automatici e, quando pertinenti, smoke test di avvio. I report devono essere salvati solo in directory previste.
+Quando il task riguarda il consolidamento o la pulizia degli script, l'agente deve trattare gli script come interfaccia operativa del repository e non come raccolta indistinta di utility.
 
-### `pack`
-Produce artefatti distribuibili o installabili.
+### Obiettivi
+- riorganizzare gli script per responsabilità reali;
+- fare in modo che ogni script abbia uno scopo preciso e riconoscibile;
+- rimuovere logiche ridondanti o duplicate;
+- rendere evidente quando e come avviare ogni script;
+- verificare con esecuzioni reali gli script toccati.
 
-### `publish`
-Pubblica, esporta o deposita quanto prodotto da `pack` verso una destinazione prevista.
+### Regole
+1. prima di modificare gli script, censire quelli esistenti, il loro scopo, i loro input, gli output e le eventuali dipendenze reciproche;
+2. classificare gli script per responsabilità e non per convenienza temporanea, ad esempio bootstrap, diagnostica, build, test, run, manutenzione o tooling interno;
+3. evitare script monolitici con responsabilità miste quando la separazione porta chiarezza concreta;
+4. ogni script deve avere una responsabilità primaria esplicita; orchestrazione e logiche condivise vanno separate quando il riuso è reale;
+5. rimuovere wrapper inutili, alias opachi e passaggi duplicati che non aggiungono chiarezza o compatibilità;
+6. centralizzare solo la logica veramente condivisa, evitando di creare moduli generici senza dominio chiaro;
+7. se più script fanno varianti dello stesso flusso, consolidarli oppure chiarire in modo netto i casi d'uso distinti;
+8. naming, posizione e parametri degli script devono riflettere il loro scopo operativo reale;
+9. se il repository contiene script legacy o non più referenziati, verificarne l'effettiva inutilità prima di rimuoverli;
+10. dopo il riallineamento, README, CI e documentazione operativa devono puntare agli entrypoint corretti.
 
-`publish` non deve ridefinire in modo implicito il processo di build.
+### Documentazione degli script
+Quando il repository contiene una directory `/scripts`, è consigliato mantenere un documento `/scripts/Script.md` che descriva in modo operativo gli script effettivamente supportati.
 
-### `clean`
-Rimuove solo output generati e cache locali previste, riportando il repository a uno stato sorgente-only compatibile con i file versionati.
+Il documento dovrebbe includere, se pertinenti:
+- nome dello script;
+- responsabilità principale;
+- quando usarlo;
+- prerequisiti o dipendenze;
+- comandi di avvio;
+- parametri rilevanti;
+- output attesi o effetti collaterali;
+- relazioni con altri script, se esistono.
 
-Non deve cancellare:
-- sorgenti;
-- test;
-- documentazione;
-- configurazioni versionate;
-- file di governo.
+### Vincoli
+- `/scripts/Script.md` non deve duplicare integralmente il README, ma spiegare gli script in modo pratico e orientato ai casi d'uso;
+- la documentazione deve riflettere solo script realmente presenti e verificati;
+- se uno script non è più supportato, va rimosso dalla documentazione o marcato in modo esplicito;
+- se il repository non contiene `/scripts`, non va creata documentazione artificiale solo per aderire formalmente a questa convenzione.
+
+### Verifica
+Nel caso di interventi sugli script, l'agente dovrebbe:
+1. eseguire tutti gli script modificati o dichiarati come supportati, compatibilmente con il contesto corrente;
+2. correggere errori rilevati durante l'esecuzione, quando la correzione è chiara e sicura;
+3. registrare in modo esplicito gli script non eseguibili nel contesto corrente e il motivo;
+4. non dichiarare come funzionanti script che non sono stati realmente testati;
+5. lasciare il repository con una mappa degli script più semplice, non più ambigua.
 
 ---
 
-## Struttura standard del repository
+## Layout del repository
 
-Struttura di riferimento per un repository singolo:
+Ogni repository dovrebbe avere una struttura leggibile e coerente con il proprio stack.
+Non esiste un unico layout corretto per tutti i casi.
+
+Un layout di riferimento comune può includere:
 
 ```text
 /
 ├── AGENTS.md
 ├── README.md
 ├── .gitignore
-├── PROJECT_SPEC.md
-├── PROJECT_STATUS.json
 ├── LICENSE
 ├── /src
 ├── /tests
 ├── /scripts
-├── /docs
 ├── /config
 ├── /tools
-├── /examples
-└── /artifacts
+├── /artifacts
+└── /tmp
 ```
 
-Non tutte queste directory devono esistere sempre.
-Creare solo quelle realmente giustificate.
-
-### Regole di layout
-1. Il sorgente sta in `/src` quando lo stack lo consente senza forzature artificiali.
-2. I test stanno in `/tests` quando separabili chiaramente dal sorgente.
-3. Gli script standard stanno in `/scripts`.
-4. Gli output generati persistenti stanno sotto `/artifacts` quando controllabili dal repository.
-5. Gli output non devono finire dentro `/src`, `/tests`, `/docs` o `/config`.
-6. La root deve restare pulita e leggibile.
-7. Se lo stack impone layout diversi, si segue lo stack ma si documenta l'eccezione.
+### Regole
+1. Preferire prima le convenzioni sane e native dello stack.
+2. Usare directory separate per sorgenti, test, script, configurazioni e output quando la separazione è chiara e utile.
+3. Evitare output generati dentro sorgenti, test o configurazioni, salvo convenzioni inevitabili dello stack.
+4. Evitare crescita disordinata nella root.
+5. Spostare file fuori posto solo quando il beneficio è chiaro e il rischio è basso.
+6. Se il layout esistente è coerente, non forzare migrazioni strutturali solo per aderire a uno standard astratto.
 
 ---
 
-## Tassonomia artefatti
+## Domini e sottodomini
 
-La root `artifacts/` dovrebbe usare una tassonomia chiara e prevedibile:
+Quando il progetto cresce, il codice dovrebbe essere organizzato per responsabilità chiare.
+
+### Regole
+1. Ogni file dovrebbe avere un dominio o una responsabilità riconoscibile.
+2. File troppo grandi o con responsabilità miste dovrebbero essere spezzati o almeno segnalati.
+3. Moduli come `utils`, `helpers`, `common` o simili non dovrebbero diventare contenitori indistinti.
+4. Le parti condivise vanno centralizzate solo quando il riuso è reale.
+5. Se la gerarchia dei domini è insufficiente ma il refactor non è prudente nel turno corrente, il problema va tracciato.
+
+---
+
+## Output generati e artifact
+
+Se il repository produce output persistenti, è consigliabile collocarli in percorsi prevedibili e separati dai sorgenti.
+
+Una tassonomia frequente è:
 
 ```text
 /artifacts
@@ -308,87 +324,72 @@ La root `artifacts/` dovrebbe usare una tassonomia chiara e prevedibile:
   /logs
 ```
 
-Regole:
-1. `compile` e `build` scrivono in `artifacts/build` quando possibile.
-2. `test` scrive report in `artifacts/test-results`.
-3. `pack` scrive in `artifacts/packages`.
-4. `publish` scrive output locali o manifest in `artifacts/publish` quando applicabile.
-5. I log persistenti stanno in `artifacts/logs`.
-6. Se lo stack genera output fuori da `artifacts`, questi output devono essere documentati, ignorati da git e coperti da `clean`.
+### Regole
+- usare directory dedicate per output persistenti quando controllabili dal repository;
+- distinguere output temporanei da artifact utili;
+- mantenere coerenti output reali, `.gitignore`, script di clean e documentazione;
+- se lo stack genera output in posizioni fisse diverse, documentare l'eccezione solo se serve davvero.
 
 ---
 
-## Repo singolo e monorepo
+## Repository singolo e monorepo
 
-### Repo singolo
-La struttura standard si applica direttamente alla root.
+### Repository singolo
+Le convenzioni si applicano direttamente alla root e alle directory operative principali.
 
 ### Monorepo
-Per un monorepo, la convenzione top-level consigliata è:
+Per un monorepo può essere utile una convenzione top-level come:
 
 ```text
 /apps
 /packages
 /scripts
-/docs
 /config
 /artifacts
 ```
 
-Regole:
-1. usare `apps/` per elementi eseguibili o deployabili;
-2. usare `packages/` per componenti riusabili;
-3. evitare naming top-level concorrenti senza una motivazione documentata;
-4. ogni unità interna deve rispettare in piccolo lo stesso standard, per quanto compatibile.
-
-Esempio:
-
-```text
-/apps/app-a/src
-/apps/app-a/tests
-/apps/app-a/README.md
-/packages/pkg-a/src
-/packages/pkg-a/tests
-/packages/pkg-a/README.md
-```
+### Regole
+- usare naming top-level coerente e non concorrente;
+- distinguere elementi eseguibili da componenti riusabili quando il modello del repo lo richiede;
+- evitare di imporre strutture da monorepo a repository semplici;
+- applicare le stesse regole in piccolo alle unità interne, solo se compatibile con lo stack.
 
 ---
 
-## Gestione del drift
+## Drift, legacy e dead code
 
-Per drift si intende qualsiasi incoerenza tra:
+Per drift si intende qualsiasi incoerenza rilevante tra:
 - codice;
 - configurazione;
 - script;
 - documentazione;
-- stato operativo;
-- output attesi.
+- tracking operativo;
+- output attesi;
+- struttura delle cartelle;
+- target state dichiarato.
 
-Quando il drift viene rilevato:
-1. correggerlo subito se la correzione è chiara, sicura e limitata;
-2. altrimenti registrarlo nel meccanismo di tracking previsto;
-3. aggiornare i documenti coinvolti in modo minimo ma coerente.
+### Regole
+1. correggere subito il drift quando la correzione è chiara, sicura e limitata;
+2. altrimenti registrarlo nel sistema di tracking pertinente;
+3. aggiornare in modo coerente i file coinvolti nell'area toccata;
+4. rimuovere legacy, dead code e duplicazioni quando la rimozione è verificabile e coerente col ciclo di rilascio del repository;
+5. se la rimozione completa non è prudente nel turno corrente, tracciare il residuo in modo esplicito.
 
-Esempi di drift:
-- comandi documentati che non esistono;
-- output generati in percorsi incoerenti;
-- `README.md` non coerente con il comportamento reale;
-- `.gitignore` incompleto rispetto agli artefatti generati;
-- stato operativo non coerente con gli entrypoint reali.
+Il repository non va trattato come stratificazione storica da preservare per default, ma non va neppure ripulito in modo aggressivo senza verifica sufficiente.
 
 ---
 
 ## `.gitignore`
 
-L'agente deve verificare `.gitignore`.
+L'agente dovrebbe verificare che `.gitignore` sia coerente con lo stack e con gli output reali del repository.
 
-Regole:
-1. se manca, crearlo;
-2. se esiste, aggiornarlo in coerenza con lo stack reale;
-3. escludere tutti gli artefatti generati che non devono essere versionati;
-4. mantenere `.gitignore`, output reali, `clean` e documentazione coerenti.
+### Regole
+1. se manca ed è necessario, crearlo;
+2. se esiste, aggiornarlo in coerenza con gli artifact reali;
+3. escludere output generati, cache locali e file temporanei non destinati al versionamento;
+4. mantenere coerenza tra `.gitignore`, script di clean, output generati e convenzioni del repo.
 
-Percorsi tipici da ignorare, se pertinenti:
+Esempi frequenti, se pertinenti:
 
 ```text
 artifacts/
@@ -408,101 +409,96 @@ Thumbs.db
 
 ---
 
-## LICENSE
+## `LICENSE`
 
-L'agente deve verificare `LICENSE` solo se il repository richiede una policy di licenza esplicita.
+L'agente deve verificare `LICENSE` solo quando il repository richiede una policy di licenza esplicita.
 
-Vincoli:
-1. non imporre autore, anno o tipo di licenza hardcoded;
-2. non introdurre una licenza proprietaria per default;
-3. non lasciare placeholder nel file finale;
-4. allineare eventuali riferimenti nel `README.md`.
+### Regole
+- non imporre autore, anno o tipo di licenza hardcoded;
+- non introdurre placeholder nel file finale;
+- mantenere coerenti eventuali riferimenti presenti nel `README` o in altri documenti del progetto.
 
 ---
 
-## Regole condizionali per Windows, MSI e servizi
+## Regole condizionali
 
-Questa sezione si applica solo se il repository contiene un'applicazione Windows installabile, un installer MSI, script di setup Windows o servizi installabili localmente.
+Questa sezione si applica solo quando il repository tratta casi specifici, come:
+- packaging e publish;
+- servizi installabili;
+- tooling locale complesso;
+- installazione e uninstall;
+- ambienti OS-specific;
+- processi di deploy.
 
-### Regole
+### Regole generali
 1. usare prima gli strumenti già presenti nel repository;
-2. introdurre tool locali solo se davvero necessari e documentati;
-3. installazione, upgrade, uninstall e cleanup devono essere verificabili tramite script;
-4. i test non devono lasciare servizi installati o installazioni locali attive;
-5. log di installazione e uninstall devono finire in `artifacts/logs` quando persistenti;
-6. usare strumenti nativi Windows per la gestione servizi quando possibile;
-7. usare NSSM solo come fallback esplicito e documentato.
+2. introdurre tool nuovi solo se necessari e giustificati;
+3. rendere verificabili i flussi critici come build, test, installazione, release o cleanup;
+4. evitare che i test lascino stato persistente non previsto;
+5. distinguere sempre tra convenzioni generiche e requisiti specifici del progetto.
 
 ---
 
 ## Modalità operative
 
-### Bootstrap di un repo nuovo
+### Bootstrap di un repository nuovo
 Obiettivo:
 - creare la struttura minima utile;
-- definire entrypoint canonici;
-- impostare README, `.gitignore` e file di governo necessari;
+- definire pochi entrypoint chiari se necessari;
+- impostare solo i file di governo realmente utili;
 - evitare over-engineering iniziale.
 
-### Allineamento di un repo esistente
+### Allineamento di un repository esistente
 Obiettivo:
-- confrontare il repository con questo standard;
+- confrontare il repository con i principi di questo standard;
 - correggere il drift chiaro e limitato;
-- introdurre solo ciò che serve davvero;
-- non riscrivere il repository senza necessità.
+- rispettare le convenzioni native del progetto;
+- pianificare solo i riallineamenti che portano un beneficio reale.
 
-### Light Mode
-Usare per modifiche locali o mirate.
-
+### Intervento locale
+Usare per modifiche mirate.
 Minimo richiesto:
-- verificare l'area modificata;
+- verificare l'area toccata;
 - correggere drift locale evidente;
-- aggiornare documentazione minima se necessario.
+- aggiornare gli elementi di stato o documentazione solo se necessario.
 
-### Full Sync Mode
-Usare per:
-- refactor strutturali;
-- riorganizzazione repository;
-- riallineamento documentazione;
-- normalizzazione di struttura, script, build, test, pack, publish, clean, `LICENSE` o `.gitignore`.
-
+### Riallineamento strutturale
+Usare per refactor organizzativi, consolidamento di script, pulizia legacy o razionalizzazione del layout.
 Minimo richiesto:
-- verificare gli entrypoint canonici;
-- verificare la root `artifacts` se pertinente;
-- riallineare script, documentazione e stato;
-- aggiornare lo stato operativo se cambiano i flussi reali.
+- verificare i flussi rilevanti;
+- riallineare i file toccati;
+- rendere espliciti i task residui e i limiti non risolti.
 
 ---
 
-## Verifica minima obbligatoria
+## Verifica minima
 
-Quando vengono creati o aggiornati script operativi, l'agente deve testare i flussi reali per quanto eseguibile nel contesto corrente.
+Quando vengono creati o aggiornati script, configurazioni operative o flussi critici, l'agente dovrebbe testare ciò che è eseguibile nel contesto corrente.
 
-Sequenza minima, se pertinente:
-1. eseguire `clean`;
-2. eseguire `bootstrap` e `doctor` se previsti;
-3. eseguire gli script aggiornati o generati;
-4. eseguire `build` e `test`;
-5. eseguire almeno uno smoke test di avvio se l'app è eseguibile localmente;
-6. rieseguire `clean` al termine;
-7. lasciare il repository pulito.
+Sequenza tipica, se pertinente:
+1. eseguire il clean iniziale;
+2. eseguire bootstrap o doctor se previsti;
+3. eseguire i comandi aggiornati;
+4. eseguire build e test;
+5. eseguire uno smoke test quando il progetto è avviabile localmente;
+6. rieseguire il clean finale se richiesto dal flusso;
+7. lasciare il repository in uno stato coerente.
 
-Se un passaggio non è eseguibile nel contesto corrente, va dichiarato esplicitamente e non simulato come eseguito.
+Se un passaggio non è eseguibile nel contesto corrente, va dichiarato esplicitamente e non simulato.
 
 ---
 
 ## Checklist finale
 
 Per ogni modifica, se pertinente, verificare:
-1. coerenza tra codice, script e documentazione;
-2. presenza e coerenza di `README.md`;
-3. presenza e coerenza di `.gitignore`;
-4. correttezza degli entrypoint realmente applicabili;
-5. separazione corretta tra sorgente, test, script, documentazione, configurazione e output;
-6. corretto confinamento degli output sotto `artifacts/`, quando possibile;
-7. stato finale pulito del repository;
-8. assenza di residui di test o installazione;
-9. assenza di requisiti inventati;
-10. allineamento del repository agli standard comuni senza forzature inutili.
+1. coerenza tra comportamento reale e file toccati;
+2. assenza di requisiti inventati;
+3. perimetro della modifica contenuto ma completo;
+4. coerenza tra script, configurazione, output e `.gitignore`;
+5. se il task tocca gli script, classificazione per responsabilità chiara e documentazione aggiornata in `/scripts/Script.md` quando pertinente;
+6. assenza di drift locale evidente non dichiarato;
+7. assenza di artifact temporanei lasciati senza motivo;
+8. tracciamento esplicito dei residui non risolti;
+9. stato finale più chiaro, mantenibile e prevedibile rispetto a quello iniziale.
 
-Obiettivo: lasciare il repository in uno stato pulito, coerente, standardizzato e scalabile, mantenendo però compatibilità con lo stack e con la realtà del progetto.
+Obiettivo: migliorare il repository senza irrigidirlo artificialmente.
