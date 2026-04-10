@@ -32,6 +32,7 @@ Una regola nuova ha senso solo se migliora almeno uno tra:
    - controllo finale;
    - aggiornamento tracking;
    - aggiornamento documentazione pertinente;
+   - aggiornamento di `.gitignore`, se necessario;
    - verifica reale delle parti sensibili toccate.
 
 ---
@@ -82,7 +83,8 @@ Per ogni task:
 5. esegui modifiche minime ma complete;
 6. verifica build, test, lint, packaging e CI se coinvolti;
 7. aggiorna documentazione e tracking;
-8. chiudi solo dopo controllo finale.
+8. aggiorna `.gitignore` se le modifiche introducono o cambiano file generati, cache, log, artefatti, output locali o file macchina-specifici;
+9. chiudi solo dopo controllo finale.
 
 Prima di modificare qualsiasi file, verifica concretamente quando presenti:
 - struttura directory;
@@ -198,6 +200,15 @@ Prima di aggiungere una dipendenza valuta:
 
 Non aggiungere dipendenze per comodità marginale.
 
+### `.gitignore`
+`.gitignore` va mantenuto aggiornato.
+
+Regole:
+- ogni task che introduce output generati, cache, log, artefatti, file temporanei, file locali o output di tool deve includere una verifica esplicita di `.gitignore`;
+- non chiudere un task che introduce nuovi file ricorrenti o rumore nel repository senza aver verificato se `.gitignore` va aggiornato;
+- aggiorna `.gitignore` solo per output reali del repository e degli strumenti effettivamente usati;
+- se vengono introdotti nuovi script, tool, build step, test runner o packaging output, verifica sempre l’impatto su `.gitignore`.
+
 ---
 
 ## 11. Testing, documentazione e tracking
@@ -220,12 +231,23 @@ Non aggiungere dipendenze per comodità marginale.
 Usa il sistema di tracking già presente nel repository.
 Se presente, mantieni `PROJECT_STATUS.json` allineato.
 
+Regole per `PROJECT_STATUS.json`:
+- deve contenere solo task aperti, pianificati, bloccati o in corso;
+- i task completati vanno rimossi; non serve storico nel tracking;
+- ogni volta che viene definito o richiesto un piano, il piano va inserito nel task in forma dettagliata;
+- il piano deve essere operativo e verificabile: passi, dipendenze, stato, verifiche previste e, quando noto, aree o file coinvolti;
+- ogni task deve avere priorità relativa rispetto agli altri task presenti, non solo uno stato generico;
+- la priorità va assegnata considerando almeno: blocchi attivi, dipendenze, impatto, rischio del ritardo e prontezza di implementazione;
+- il tracking deve distinguere chiaramente tra piano, esecuzione reale, verifiche e residui;
+- se dalla chiusura emergono follow-up reali, vanno creati come nuovi task aperti o documentati dove pertinente, non mantenuti come storico del task chiuso.
+
 Un task non è completo se:
 - non è verificato per la parte pertinente;
 - lascia CI potenzialmente rotta;
 - lascia documentazione necessaria non aggiornata;
 - lascia residui non dichiarati;
-- non aggiorna il tracking.
+- non aggiorna il tracking;
+- non valuta `.gitignore` quando pertinente.
 
 ---
 
@@ -355,7 +377,7 @@ Alla fine di ogni task, riporta sempre:
 6. cosa non è stato verificato;
 7. cosa non era verificabile;
 8. eventuali residui;
-9. aggiornamenti a `docs/`, `README.md` e `PROJECT_STATUS.json`.
+9. aggiornamenti a `docs/`, `README.md`, `.gitignore` e `PROJECT_STATUS.json`.
 
 Non presentare deduzioni come fatti.
 
