@@ -1,339 +1,319 @@
 # AGENTS.md
 
-Linee guida operative per agenti automatici e strumenti di coding assistito.
+Direttive operative generiche per agenti che lavorano su repository software.
 
-## 1. Obiettivo
-
-Lavorare in modo deterministico, verificabile e coerente con il repository reale.
-
-Le regole devono restare proporzionate alla dimensione del progetto:
-- all’inizio: semplicità, chiarezza, velocità controllata;
-- durante la crescita: più formalizzazione solo quando serve davvero;
-- sempre: evitare sia caos operativo sia overengineering.
-
-Una regola nuova ha senso solo se migliora almeno uno tra:
-- affidabilità;
-- verificabilità;
-- manutenibilità;
-- scalabilità organizzativa;
-- sicurezza;
-- prevedibilità del rilascio.
+Obiettivo: eseguire modifiche piccole, corrette, verificabili e coerenti con il repository reale, riducendo assunzioni, drift e output non controllati.
 
 ---
 
-## 2. Principi fondamentali
+## 1. Regole non negoziabili
 
-1. Conta prima il repository reale, non le assunzioni.
+1. Conta il repository reale, non le assunzioni.
 2. Non dichiarare mai verifiche non eseguite.
-3. Segui prima le convenzioni native del progetto e dello stack.
-4. Non introdurre pattern, naming, tool o strutture non giustificati dal repository.
-5. Applica il minimo processo necessario, ma non meno di quello richiesto dal rischio reale.
-6. Un task è chiuso solo dopo:
-   - controllo finale;
-   - aggiornamento tracking;
-   - aggiornamento documentazione pertinente;
-   - aggiornamento di `.gitignore`, se necessario;
-   - verifica reale delle parti sensibili toccate.
+3. Non introdurre struttura, naming, dipendenze, script o pattern non giustificati dal repository.
+4. Applica la minima modifica sufficiente, ma completa tutto ciò che la modifica richiede.
+5. Un task non è chiuso finché codice, test, documentazione, tracking e `.gitignore` sono coerenti per la parte toccata.
+6. Se una cosa non è verificata, dichiaralo esplicitamente.
+7. Se aumenta il rischio della modifica, aumenta il livello di verifica richiesto.
+8. Mantieni il diff piccolo, leggibile e reviewabile.
+9. Se il task tocca dati personali, UI, configurazioni o flussi applicativi, applica privacy by design e privacy by default.
+10. In caso di dubbio, prevale sempre l’evidenza del repository.
 
 ---
 
-## 3. Priorità delle fonti
+## 2. Ordine di precedenza delle fonti
 
-In caso di conflitto, vale questo ordine:
+In caso di conflitto, usa questo ordine:
 
 1. repository reale;
-2. codice, test, script e config eseguibili;
+2. codice, test, script e configurazioni eseguibili;
 3. CI e automazioni;
-4. documentazione in `docs/`;
-5. `PROJECT_STATUS.json`;
+4. documentazione tecnica (`docs/`);
+5. tracking operativo (`PROJECT_STATUS.json` o equivalente), se presente;
 6. `README.md`.
 
 Regole:
 - il comportamento reale del codice prevale sulla documentazione;
-- la documentazione va riallineata al comportamento reale;
 - `README.md` non è fonte tecnica primaria;
-- se c’è drift chiaro e sicuro, correggilo.
+- se trovi drift chiaro e sicuro, correggilo.
 
 ---
 
-## 4. Scope del lavoro
-
-Quando utile, classifica il lavoro come:
-- `core`: essenziale al prodotto;
-- `supporting`: migliora qualità o operatività;
-- `optional`: utile ma non necessario;
-- `debt`: debito tecnico noto e accettato.
-
-Regole:
-- non espandere lo scope senza evidenza reale;
-- non introdurre struttura “per il futuro” se non serve oggi;
-- se accetti debito tecnico, dichiaralo nei residui o nel tracking;
-- in fase MVP privilegia correttezza, semplicità e facilità di modifica.
-
----
-
-## 5. Flusso operativo obbligatorio
+## 3. Flusso operativo obbligatorio
 
 Per ogni task:
 
 1. ispeziona il repository reale;
-2. identifica task attivo e stato del tracking;
-3. valuta impatti diretti e indiretti;
-4. classifica scope e rischio, se rilevante;
-5. esegui modifiche minime ma complete;
-6. verifica build, test, lint, packaging e CI se coinvolti;
-7. aggiorna documentazione e tracking;
-8. aggiorna `.gitignore` se le modifiche introducono o cambiano file generati, cache, log, artefatti, output locali o file macchina-specifici;
-9. chiudi solo dopo controllo finale.
+2. identifica stack, toolchain, shell e comandi disponibili;
+3. individua file, entrypoint, test, config e documentazione coinvolti;
+4. classifica scope e rischio;
+5. applica modifiche minime ma complete;
+6. esegui le verifiche pertinenti realmente disponibili;
+7. aggiorna documentazione, tracking e `.gitignore` se necessario;
+8. controlla diff, file generati e stato finale prima di chiudere.
 
-Prima di modificare qualsiasi file, verifica concretamente quando presenti:
+Non iniziare a modificare file finché non hai verificato, quando presenti:
 - struttura directory;
-- stack e toolchain;
-- build, test, lint/format;
-- CI/workflow;
-- packaging/release/installers;
-- `docs/`, `README.md`, tracking;
-- naming e struttura già esistenti.
-
-Non inventare struttura, script o workflow se il repository mostra già equivalenti.
+- file manifesto e toolchain (`package.json`, `pyproject.toml`, `Cargo.toml`, `.csproj`, `go.mod`, ecc.);
+- script di build, test, lint, format, typecheck;
+- workflow CI;
+- documentazione tecnica;
+- sistema di tracking;
+- convenzioni di naming e struttura già presenti.
 
 ---
 
-## 6. Analisi d’impatto
+## 4. Scope e rischio
 
-Prima di modificare, identifica:
+Classifica sempre il task.
+
+### Scope
+- `core`: essenziale al prodotto;
+- `supporting`: migliora qualità o operatività;
+- `optional`: utile ma non necessario;
+- `debt`: debito tecnico noto.
+
+### Rischio
+- `LOW`: documentazione, commenti, rinomina locale sicura, refactor isolato;
+- `MEDIUM`: logica applicativa, refactor con impatto funzionale limitato, test, configurazioni locali;
+- `HIGH`: dipendenze, build, CI, packaging, installer, entrypoint, config runtime/test, sicurezza, release, migrazioni, compatibilità pubblica.
+
+Regola:
+- se una modifica può rompere qualcosa e non è chiaramente innocua, trattala almeno come `MEDIUM`.
+
+---
+
+## 5. Discovery dei comandi
+
+Prima di eseguire comandi, determina i comandi canonici del repository.
+
+Ordine di ricerca:
+1. script dichiarati nel repository;
+2. task runner / Makefile / package scripts;
+3. CI;
+4. documentazione tecnica;
+5. solo in assenza di evidenza: comando standard dello stack.
+
+Regole:
+- non inventare pipeline complesse;
+- usa il minimo comando affidabile supportato dal repository;
+- se il comando è dedotto e non esplicitamente dichiarato nel repo, dillo.
+
+Se il repository mantiene questa sezione, aggiornala solo quando l’evidenza è chiara:
+
+## Canonical commands
+- setup:
+- lint:
+- format:
+- typecheck:
+- test:
+- test:unit:
+- test:integration:
+- build:
+- run:
+- e2e:
+- package:
+
+Non inventare voci mancanti.
+
+---
+
+## 6. Regole ambiente e shell
+
+### Default
+Salvo evidenza contraria, lavora:
+- nella directory del progetto o worktree corrente;
+- con gli strumenti già usati dal repository;
+- senza uscire dal perimetro del progetto.
+
+### Su Windows / PowerShell
+- preferisci comandi compatibili PowerShell;
+- non assumere presenza di tool GNU o sintassi Bash;
+- usa Bash solo se il repository lo richiede chiaramente o il task è in WSL;
+- non mischiare PowerShell e Bash nello stesso task senza motivo reale.
+
+### Su WSL / Linux
+- resta coerente con tool e path Linux per tutto il task;
+- non alternare WSL e PowerShell senza necessità verificata.
+
+### Regole comuni
+- preferisci path relativi al repository;
+- evita operazioni distruttive fuori dal repository;
+- usa quoting coerente con la shell reale.
+
+---
+
+## 7. Analisi d’impatto obbligatoria
+
+Prima di modificare, identifica sempre:
+
 - file toccati direttamente;
 - file impattati indirettamente;
 - entrypoint coinvolti;
 - test coinvolti;
-- config coinvolte;
+- configurazioni coinvolte;
 - workflow CI coinvolti;
 - documentazione da aggiornare;
-- eventuali impatti su compatibilità, sicurezza, dati o rilascio.
+- impatti su compatibilità, sicurezza, dati, packaging o rilascio.
 
-Ogni modifica va valutata anche per effetti collaterali.
-
----
-
-## 7. Rischio della modifica
-
-Classifica ogni task o modifica:
-
-- `LOW`: docs, commenti, refactor isolato, rinomina locale sicura;
-- `MEDIUM`: logica applicativa, refactor con impatto funzionale limitato;
-- `HIGH`: dipendenze, build, CI, packaging, installer, entrypoint, config runtime/test, sicurezza, release, migrazioni, compatibilità pubblica.
-
-Regole:
-- `HIGH`: verifiche obbligatorie;
-- `MEDIUM`: verifiche pertinenti fortemente raccomandate;
-- `LOW`: verifica minima coerente con l’impatto reale.
-
-Se una modifica può rompere qualcosa, trattala almeno come `MEDIUM`.
+Non fare patch isolate che lasciano riferimenti, import, tipi, test o documentazione incoerenti.
 
 ---
 
 ## 8. Regola di modifica
 
-Applica la minima modifica sufficiente, ma completa tutto ciò che dipende dalla modifica:
+Ogni modifica deve essere:
+- minima;
+- completa;
+- coerente con il repository;
+- facile da revisionare.
+
+Quando cambi qualcosa, aggiorna tutto ciò che dipende dalla modifica:
 - riferimenti;
 - import;
+- tipi;
 - test;
 - documentazione;
-- tracking;
 - script;
 - configurazioni correlate;
+- tracking;
 - note di compatibilità o migrazione, se necessarie.
 
-Non lasciare patch isolate o incoerenti.
+Non introdurre:
+- astrazioni premature;
+- cartelle generiche senza responsabilità chiara;
+- dipendenze per comodità marginale;
+- file nuovi senza ruolo chiaro.
 
 ---
 
-## 9. Struttura del codice
-
-Quando introduci o rifattorizzi codice, organizza preferibilmente in questo ordine:
-1. dominio;
-2. sottodominio;
-3. ruolo tecnico;
-4. file.
-
-Obiettivi:
-- evitare file monolitici;
-- mantenere chiari i confini;
-- favorire espandibilità;
-- centralizzare logica condivisa solo quando il riuso è reale;
-- ridurre duplicazioni e accoppiamento improprio.
-
-Regole:
-- se un file cresce troppo o mescola responsabilità, spezzalo per responsabilità reali;
-- non continuare ad allargare file già troppo grandi;
-- non introdurre astrazioni premature, layer inutili o pattern non giustificati;
-- non creare contenitori generici senza responsabilità chiara.
-
----
-
-## 10. File nuovi, script e dipendenze
+## 9. File nuovi, script, dipendenze
 
 ### File nuovi
 Ogni file nuovo deve:
-- avere un tipo chiaro (`source`, `test`, `script`, `config`, `doc`, `asset`, `artifact`);
+- avere un ruolo chiaro (`source`, `test`, `script`, `config`, `doc`, `asset`, `artifact`);
 - stare vicino alla propria responsabilità;
-- avere naming chiaro e coerente;
-- aggiornare i riferimenti collegati;
-- non creare duplicazioni o cartelle generiche inutili.
-
-Evita cartelle come `misc`, `tmp`, `stuff`, `helpers` generici, se il progetto non le usa già con significato preciso.
+- avere naming coerente con il repository;
+- non duplicare responsabilità esistenti.
 
 ### Script
-Gli script devono:
+Ogni script deve:
 - avere uno scopo chiaro;
-- usare naming autoesplicativo;
-- non richiedere parametri CLI per il flusso standard;
-- non richiedere input manuale;
-- essere separati se servono varianti di comportamento.
+- essere nominato in modo autoesplicativo;
+- essere coerente con l’ambiente reale del progetto;
+- non richiedere input manuale nei casi normali.
 
 ### Dipendenze
 Prima di aggiungere una dipendenza valuta:
 - problema reale che risolve;
 - alternative già presenti;
 - maturità e manutenzione;
-- impatto su sicurezza, build, dimensione, licensing e lock-in.
+- impatto su sicurezza, build, dimensione, licenza e lock-in.
 
-Non aggiungere dipendenze per comodità marginale.
+Regola:
+- non aggiungere dipendenze senza una motivazione concreta e verificabile nel repository.
 
-### `.gitignore`
-`.gitignore` va mantenuto aggiornato.
+---
+
+## 10. Testing e verifiche
+
+Testa prima ciò che è:
+- critico;
+- fragile;
+- riusato;
+- direttamente toccato.
 
 Regole:
-- ogni task che introduce output generati, cache, log, artefatti, file temporanei, file locali o output di tool deve includere una verifica esplicita di `.gitignore`;
-- non chiudere un task che introduce nuovi file ricorrenti o rumore nel repository senza aver verificato se `.gitignore` va aggiornato;
-- aggiorna `.gitignore` solo per output reali del repository e degli strumenti effettivamente usati;
-- se vengono introdotti nuovi script, tool, build step, test runner o packaging output, verifica sempre l’impatto su `.gitignore`.
-
----
-
-## 11. Testing, documentazione e tracking
-
-### Testing
-- testa prima ciò che è critico, fragile o riusato;
 - non aggiungere test ornamentali;
-- aggiorna i test se cambia il comportamento;
-- se il rischio cresce e non esistono test, valuta almeno un test essenziale;
-- se non ci sono test automatici, descrivi il controllo manuale con precisione.
+- se cambia il comportamento, aggiorna i test;
+- se il rischio cresce e non esistono test, aggiungi almeno un controllo essenziale quando sensato;
+- se non ci sono test automatici, descrivi il controllo manuale in modo preciso.
 
-### Documentazione
-- `README.md`: breve, chiaro, orientato agli utenti;
-- `docs/`: dettagli tecnici, operativi, testing, CI, release, decisioni;
-- non duplicare quello che il codice mostra già chiaramente;
-- se cambia il comportamento reale, aggiorna la documentazione pertinente;
-- se cambia qualcosa di utente-facing, valuta aggiornamento anche di `README.md`.
-
-### Tracking
-Usa il sistema di tracking già presente nel repository.
-Se presente, mantieni `PROJECT_STATUS.json` allineato.
-
-Regole per `PROJECT_STATUS.json`:
-- deve contenere solo task aperti, pianificati, bloccati o in corso;
-- i task completati vanno rimossi; non serve storico nel tracking;
-- ogni volta che viene definito o richiesto un piano, il piano va inserito nel task in forma dettagliata;
-- il piano deve essere operativo e verificabile: passi, dipendenze, stato, verifiche previste e, quando noto, aree o file coinvolti;
-- ogni task deve avere priorità relativa rispetto agli altri task presenti, non solo uno stato generico;
-- la priorità va assegnata considerando almeno: blocchi attivi, dipendenze, impatto, rischio del ritardo e prontezza di implementazione;
-- il tracking deve distinguere chiaramente tra piano, esecuzione reale, verifiche e residui;
-- se dalla chiusura emergono follow-up reali, vanno creati come nuovi task aperti o documentati dove pertinente, non mantenuti come storico del task chiuso.
-
-Un task non è completo se:
-- non è verificato per la parte pertinente;
-- lascia CI potenzialmente rotta;
-- lascia documentazione necessaria non aggiornata;
-- lascia residui non dichiarati;
-- non aggiorna il tracking;
-- non valuta `.gitignore` quando pertinente.
-
----
-
-## 12. CI, qualità, sicurezza e release
-
-Se tocchi file sensibili per build, test, lint, packaging o CI:
-1. esegui i controlli pertinenti;
-2. correggi eventuali rotture introdotte;
-3. non chiudere il task lasciando problemi causati dalle modifiche;
-4. dichiara con precisione cosa è stato verificato e cosa no.
-
-Considera sensibili, se toccati:
-- config build;
-- test;
-- lint/formatter;
-- workflow CI;
-- script di packaging/release/install;
-- entrypoint;
-- dipendenze e lockfile;
-- config runtime/test;
-- script usati dalla CI.
-
-Sicurezza minima:
-- non hardcodare segreti;
-- documentare variabili ambiente richieste;
-- evitare logging di dati sensibili;
-- validare input e confini esterni quando rilevante.
-
-Se il progetto produce pacchetti o installer:
-- segui prima le convenzioni del repository;
-- preferisci strumenti nativi quando coerenti;
-- non introdurre breaking change silenziose;
-- documenta i cambiamenti incompatibili.
-
----
-
-## 13. Politica sulle verifiche dichiarate
-
-Classifica sempre le verifiche come:
+### Stati ammessi per le verifiche
+Usa solo questi stati:
 
 - `VERIFICATO`: eseguito realmente;
 - `ISPEZIONATO`: controllato staticamente ma non eseguito;
 - `NON VERIFICATO`: non eseguito;
 - `NON VERIFICABILE`: non eseguibile nel contesto corrente.
 
-Non usare formule ambigue come:
+Non usare formule vaghe come:
 - “tutto verificato”;
-- “CI sistemata” senza evidenza;
 - “build ok” senza build reale;
+- “CI sistemata” senza evidenza;
 - “compatibile” se è solo una deduzione.
 
 ---
 
-## 14. Drift, legacy e consistenza
+## 11. Documentazione, tracking e `.gitignore`
 
-Correggi subito drift chiari e sicuri, soprattutto tra:
-- codice e documentazione;
-- configurazione e comportamento reale;
-- script e flusso dichiarato;
-- CI e istruzioni operative;
-- tracking e stato effettivo.
+### Documentazione
+- aggiorna la documentazione quando cambia il comportamento reale;
+- usa `README.md` per istruzioni utente sintetiche;
+- usa `docs/` per dettagli tecnici, operativi, test, CI, release e decisioni;
+- non duplicare ciò che il codice mostra già chiaramente.
 
-Rimuovi codice legacy o morto solo se la rimozione è sicura e verificabile.
-Se non lo è:
-- non eliminarlo in modo speculativo;
-- dichiaralo come residuo;
-- documenta il debito tecnico se rilevante.
+### Tracking
+Usa il sistema di tracking già presente nel repository.
+Se è presente `PROJECT_STATUS.json`, mantienilo coerente.
 
-Non lasciare inconsistenze tra:
-- codice e test;
-- codice e docs;
-- docs e README;
-- script e flusso reale;
-- tracking e stato effettivo.
+Regole:
+- contiene solo task aperti, pianificati, bloccati o in corso;
+- i task completati vanno rimossi;
+- piano, esecuzione reale, verifiche e residui devono essere distinguibili.
+
+### `.gitignore`
+Ogni task che introduce:
+- artefatti generati;
+- cache;
+- log;
+- file temporanei;
+- output locali di tool;
+- file macchina-specifici
+
+deve includere una verifica esplicita di `.gitignore`.
+
+Non chiudere il task senza questa verifica quando il lavoro produce nuovi file ricorrenti o rumore nel repository.
 
 ---
 
-## 15. Decisioni ed evoluzione del progetto
+## 12. CI, build, release, sicurezza
+
+Se tocchi file sensibili per build, test, lint, packaging, CI o release:
+
+1. esegui i controlli pertinenti disponibili;
+2. correggi eventuali rotture introdotte;
+3. non chiudere il task lasciando problemi causati dalle modifiche;
+4. dichiara con precisione cosa è stato verificato e cosa no.
+
+Considera sensibili:
+- config build;
+- workflow CI;
+- entrypoint;
+- dipendenze e lockfile;
+- config runtime/test;
+- script usati dalla CI;
+- packaging, installer, signing e asset correlati.
+
+Regole minime di sicurezza:
+- non hardcodare segreti;
+- documenta le variabili ambiente richieste;
+- evita logging di dati sensibili;
+- minimizza raccolta, persistenza ed esposizione dei dati;
+- usa default conservativi, soprattutto su privacy e sicurezza;
+- valida input e confini esterni quando rilevante.
+
+---
+
+## 13. Decisioni architetturali
 
 Formalizza una decisione in `docs/decisions/` quando:
 - cambia una convenzione strutturale;
-- introduce una dipendenza importante;
-- modifica l’architettura di più moduli;
-- introduce vincoli operativi o di rilascio;
-- ha impatto su sicurezza, compatibilità o performance;
-- sostituisce un comportamento precedente con trade-off non ovvi.
+- introduci una dipendenza importante;
+- modifichi l’architettura di più moduli;
+- introduci vincoli operativi o di rilascio;
+- c’è impatto su sicurezza, privacy, compatibilità o performance;
+- sostituisci un comportamento precedente con trade-off non ovvi.
 
 Documenta almeno:
 - contesto;
@@ -343,14 +323,9 @@ Documenta almeno:
 - impatto atteso;
 - costi o limiti.
 
-Le regole devono crescere con il progetto:
-- progetto piccolo/MVP: semplicità e verifiche essenziali;
-- crescita iniziale: più copertura dei percorsi critici e più formalizzazione;
-- progetto strutturato: CI più forte, decision log, policy di versioning e migrazione.
-
 ---
 
-## 16. Regole in caso di incertezza
+## 14. Regole in caso di incertezza
 
 Se manca evidenza sufficiente:
 - non assumere;
@@ -365,32 +340,40 @@ In caso di dubbio, prevalgono:
 
 ---
 
-## 17. Report finale obbligatorio
+## 15. Final report obbligatorio
 
-Alla fine di ogni task, riporta sempre:
+Alla fine di ogni task, riporta sempre questo blocco:
 
-1. file toccati;
-2. cosa è stato modificato;
-3. livello di rischio (`LOW` / `MEDIUM` / `HIGH`);
-4. scope del lavoro, se utile (`core` / `supporting` / `optional` / `debt`);
-5. verifiche realmente eseguite;
-6. cosa non è stato verificato;
-7. cosa non era verificabile;
-8. eventuali residui;
-9. aggiornamenti a `docs/`, `README.md`, `.gitignore` e `PROJECT_STATUS.json`.
+## Final report
+- files_touched:
+- what_changed:
+- risk: LOW | MEDIUM | HIGH
+- scope: core | supporting | optional | debt
+- verified:
+- inspected_only:
+- not_verified:
+- non_verifiable:
+- residuals:
+- docs_updated:
+- readme_updated:
+- gitignore_checked:
+- project_status_updated:
 
-Non presentare deduzioni come fatti.
+Regole:
+- non presentare deduzioni come fatti;
+- separa chiaramente esecuzione, ispezione statica e limiti del contesto;
+- ogni campo va compilato;
+- se non hai verificato qualcosa, scrivilo esplicitamente.
 
 ---
 
-## 18. Obiettivo finale
+## 16. Obiettivo finale
 
 Ogni intervento deve lasciare il repository più:
 - coerente;
 - leggibile;
 - verificabile;
-- manutenibile;
-- estendibile.
+- manutenibile.
 
 L’agente deve mantenere allineati:
 - codice;
@@ -398,5 +381,3 @@ L’agente deve mantenere allineati:
 - documentazione;
 - tracking;
 - verifiche.
-
-Per progetti piccoli che vogliono crescere, il successo è avere il giusto processo al momento giusto.
