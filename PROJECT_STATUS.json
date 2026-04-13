@@ -1,36 +1,116 @@
 {
-  "schema_version": 1,
-  "repo_type": "single",
-  "stack": [
-    "Node.js",
-    "Express",
-    "PowerShell",
-    "C#",
-    ".NET Framework 4.6.2",
-    "WiX Toolset 3.14"
-  ],
-  "artifacts_root": "output",
-  "commands": {
-    "bootstrap": "powershell -ExecutionPolicy Bypass -File ./scripts/bootstrap.ps1",
-    "doctor": "powershell -ExecutionPolicy Bypass -File ./scripts/doctor.ps1",
-    "compile": "not-applicable",
-    "build": "not-applicable",
-    "test": "Set-Location ./server; npm test",
-    "pack": "powershell -ExecutionPolicy Bypass -File ./scripts/Build-AgentMsi.ps1 -UseLocalhost",
-    "publish": "not-applicable",
-    "clean": "powershell -ExecutionPolicy Bypass -File ./scripts/Clean-Repository.ps1"
-  },
   "tasks": [
     {
-      "id": "clean-runtime-data-policy",
-      "type": "drift",
-      "status": "pending",
-      "description": "Definire se scripts/Clean-Repository.ps1 debba rimuovere anche data/ per riportare il repository a uno stato strettamente source-only senza cancellare dati operativi inattesi.",
-      "files": [
-        "scripts/Clean-Repository.ps1",
-        "README.md"
-      ],
-      "priority": 2
+      "id": "repo-standardize-structure",
+      "title": "Standardizzare la gerarchia delle cartelle per responsabilità",
+      "status": "planned",
+      "scope": "supporting",
+      "risk": "MEDIUM",
+      "area": "repository-structure",
+      "summary": "Riallineare la struttura del repository alle direttive AGENTS globali e locali.",
+      "acceptance_criteria": [
+        "Le cartelle principali seguono la gerarchia standard per responsabilità",
+        "Le cartelle generiche non motivate sono rimosse o sostituite",
+        "La documentazione tecnica riflette la struttura reale"
+      ]
+    },
+    {
+      "id": "repo-standardize-file-naming",
+      "title": "Standardizzare il naming dei file",
+      "status": "planned",
+      "scope": "supporting",
+      "risk": "LOW",
+      "area": "naming",
+      "summary": "Rendere coerente il naming dei file sorgente, test, script e documentazione.",
+      "acceptance_criteria": [
+        "I file usano naming coerente con stack e responsabilità",
+        "Non restano file temporanei, duplicati o con suffissi ambigui",
+        "I riferimenti ai file rinominati sono aggiornati"
+      ]
+    },
+    {
+      "id": "repo-migrate-scripts-to-powershell",
+      "title": "Migrare o uniformare gli script del repository a PowerShell",
+      "status": "planned",
+      "scope": "core",
+      "risk": "MEDIUM",
+      "area": "scripts",
+      "summary": "Portare gli script del repository su PowerShell con naming Verb-Noun.ps1.",
+      "acceptance_criteria": [
+        "Gli script repository sono in PowerShell",
+        "Il naming degli script segue lo standard Verb-Noun.ps1",
+        "I comandi canonici documentati puntano agli script PowerShell corretti"
+      ]
+    },
+    {
+      "id": "repo-add-installer-toolchain-bootstrap",
+      "title": "Introdurre lo script di bootstrap della toolchain installer",
+      "status": "planned",
+      "scope": "core",
+      "risk": "HIGH",
+      "area": "packaging-bootstrap",
+      "summary": "Aggiungere scripts/Install-InstallerToolchain.ps1 per installare e verificare i tool necessari.",
+      "acceptance_criteria": [
+        "Lo script verifica PowerShell 7, winget e prerequisiti richiesti",
+        "Lo script installa o verifica Inno Setup e WiX",
+        "Lo script documenta chiaramente versioni, esito e prerequisiti mancanti"
+      ]
+    },
+    {
+      "id": "repo-standardize-innosetup-packaging",
+      "title": "Standardizzare il packaging EXE con Inno Setup",
+      "status": "planned",
+      "scope": "core",
+      "risk": "HIGH",
+      "area": "packaging-exe",
+      "summary": "Portare la generazione degli installer EXE sullo standard Inno Setup.",
+      "acceptance_criteria": [
+        "Il repository usa packaging/innosetup come percorso standard",
+        "Package-App.ps1 compila il setup EXE canonico",
+        "La documentazione di packaging è aggiornata"
+      ]
+    },
+    {
+      "id": "repo-standardize-wix-msi-packaging",
+      "title": "Standardizzare il packaging MSI con WiX",
+      "status": "planned",
+      "scope": "core",
+      "risk": "HIGH",
+      "area": "packaging-msi",
+      "summary": "Allineare i pacchetti MSI allo standard WiX.",
+      "acceptance_criteria": [
+        "I file MSI risiedono in packaging/msi",
+        "Il progetto usa WiX come standard MSI",
+        "Il processo di build/package documenta chiaramente prerequisiti e output"
+      ]
+    },
+    {
+      "id": "repo-align-documentation",
+      "title": "Allineare la documentazione tecnica del repository",
+      "status": "planned",
+      "scope": "supporting",
+      "risk": "LOW",
+      "area": "documentation",
+      "summary": "Aggiornare README e docs per riflettere struttura, script e packaging reali.",
+      "acceptance_criteria": [
+        "README contiene quick start e comandi canonici",
+        "docs copre sviluppo locale, test e packaging",
+        "La documentazione non contraddice il comportamento reale del repository"
+      ]
+    },
+    {
+      "id": "repo-check-gitignore",
+      "title": "Verificare e aggiornare .gitignore",
+      "status": "planned",
+      "scope": "supporting",
+      "risk": "LOW",
+      "area": "gitignore",
+      "summary": "Escludere output di build, packaging, log, cache e file macchina-specifici.",
+      "acceptance_criteria": [
+        "Gli output di build e packaging sono ignorati",
+        "Cache, log e file temporanei sono ignorati",
+        "Non vengono committati artefatti locali non intenzionali"
+      ]
     }
   ]
 }
