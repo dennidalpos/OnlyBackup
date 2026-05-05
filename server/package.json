@@ -22,7 +22,7 @@
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
-    "nodemailer": "^7.0.12",
+    "nodemailer": "^8.0.5",
     "uuid": "^13.0.0",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0"
