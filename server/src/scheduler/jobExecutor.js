@@ -3,6 +3,7 @@ const path = require('path');
 const agentHelpers = require('./jobExecutorAgent');
 const runHelpers = require('./jobExecutorRun');
 const retentionHelpers = require('./jobExecutorRetention');
+const { sanitizePathSegment } = require('../shared/pathSegments');
 
 const {
   AgentErrorCodes,
@@ -62,7 +63,7 @@ class JobExecutor {
   }
 
   sanitizeSegment(value) {
-    return (value || 'unknown').toString().replace(/[^a-zA-Z0-9._-]/g, '_');
+    return sanitizePathSegment(value, 'unknown');
   }
 
   escapeRegExp(value) {

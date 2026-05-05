@@ -162,6 +162,23 @@ class OnlyBackupServer {
       ...(this.config.auth || {})
     };
 
+    this.config.logging = {
+      level: this.config.server.environment === 'production' ? 'warn' : 'info',
+      console: true,
+      file: true,
+      maxFiles: 180,
+      maxSize: '10m',
+      retentionDays: 180,
+      cleanupIntervalHours: 6,
+      ...(this.config.logging || {})
+    };
+
+    this.config.scheduler = {
+      checkInterval: 60000,
+      enableFileWatcher: false,
+      ...(this.config.scheduler || {})
+    };
+
     if (!this.config.dataRoot) {
       this.config.dataRoot = path.join(configDir, 'data');
     }

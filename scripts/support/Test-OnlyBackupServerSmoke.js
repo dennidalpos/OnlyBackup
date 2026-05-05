@@ -5,6 +5,90 @@ const os = require('os');
 const path = require('path');
 
 const OnlyBackupServer = require('../../server/src/server');
+const Storage = require('../../server/src/storage/storage');
+
+const testLogger = {
+  error() {},
+  warn() {},
+  info() {},
+  debug() {},
+  logInvalidConfig() {}
+};
+
+function assertStorageFileNamesAreConfined() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'onlybackup-storage-paths-'));
+  const dataRoot = path.join(tempRoot, 'data');
+
+  try {
+    const storage = new Storage(dataRoot, testLogger);
+    const outsideJobPath = path.join(dataRoot, 'state', 'escape.json');
+    const outsideRunPath = path.join(dataRoot, 'state', 'escape-run.json');
+
+    storage.saveJob({
+      job_id: '..\\escape',
+      client_hostname: 'CLIENT',
+      enabled: true,
+      schedule: { type: 'daily', times: ['02:00'] },
+      mappings: []
+    });
+    storage.saveRun({
+      run_id: '..\\escape-run',
+      job_id: '..\\escape',
+      client_hostname: 'CLIENT',
+      status: 'success'
+    });
+    storage.saveAgentHeartbeat({ hostname: '..\\escape-agent' });
+    storage.saveAlert({ alert_id: '..\\escape-alert' });
+
+    assert.strictEqual(fs.existsSync(outsideJobPath), false, 'Job scritto fuori dalla directory jobs');
+    assert.strictEqual(fs.existsSync(outsideRunPath), false, 'Run scritta fuori dalla directory runs');
+    assert.ok(fs.existsSync(path.join(dataRoot, 'state', 'jobs', '_escape.json')));
+    assert.ok(fs.existsSync(path.join(dataRoot, 'state', 'runs', '_escape-run.json')));
+    assert.ok(fs.existsSync(path.join(dataRoot, 'state', 'agents', '_escape-agent.json')));
+    assert.ok(fs.existsSync(path.join(dataRoot, 'state', 'alerts', '_escape-alert.json')));
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function assertMinimalConfigDefaults() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'onlybackup-config-defaults-'));
+  const configPath = path.join(tempRoot, 'config.json');
+  const previousConfigPath = process.env.CONFIG_PATH;
+
+  try {
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        server: {
+          host: '127.0.0.1',
+          port: 0,
+          environment: 'test'
+        },
+        dataRoot: './data'
+      }, null, 2),
+      'utf8'
+    );
+
+    process.env.CONFIG_PATH = configPath;
+    const server = new OnlyBackupServer();
+    server.loadConfig();
+
+    assert.strictEqual(server.config.logging.console, true);
+    assert.strictEqual(server.config.logging.file, true);
+    assert.strictEqual(server.config.scheduler.checkInterval, 60000);
+    assert.strictEqual(server.config.scheduler.enableFileWatcher, false);
+    assert.strictEqual(server.config.dataRoot, path.join(tempRoot, 'data'));
+  } finally {
+    if (previousConfigPath) {
+      process.env.CONFIG_PATH = previousConfigPath;
+    } else {
+      delete process.env.CONFIG_PATH;
+    }
+
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
 
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -159,6 +243,9 @@ async function createFakeAgent(agentRoot) {
 }
 
 async function main() {
+  assertMinimalConfigDefaults();
+  assertStorageFileNamesAreConfined();
+
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'onlybackup-smoke-'));
   const configPath = path.join(tempRoot, 'config.json');
   const dataRoot = path.join(tempRoot, 'data');

@@ -7,6 +7,22 @@
       "risk": "medium",
       "priority": "medium",
       "context": "Il packaging reale usa WiX 3.14 con WixUI_Minimal: la schermata di accettazione licenza e presente, ma non esiste una checkbox standard per rendere opzionale il collegamento desktop. Aggiungerla richiede un dialog WiX personalizzato da progettare e validare su DPI/font diversi, quindi non e stata forzata nella fix minima."
+    },
+    {
+      "id": "server-route-support-agent-log-extraction-2026-05-05",
+      "type": "refactor",
+      "status": "todo",
+      "risk": "medium",
+      "priority": "medium",
+      "context": "server\\src\\api\\routeSupport.js contiene ancora helper HTTP agent e lettura log usati da piu route. Estrarli in moduli dedicati e un refactor atomico residuo, ma fuori dalla fix minima per evitare di cambiare il wiring delle route."
+    },
+    {
+      "id": "server-npm-audit-major-upgrades-2026-05-05",
+      "type": "security",
+      "status": "todo",
+      "risk": "medium",
+      "priority": "medium",
+      "context": "npm audit --audit-level=low segnala vulnerabilita moderate su nodemailer <=8.0.4 e uuid <14.0.0. Le fix disponibili richiedono upgrade major (nodemailer 8.x, uuid 14.x), quindi vanno pianificate e validate separatamente su invio SMTP/OAuth e generazione sessioni/run/alert."
     }
   ]
 }

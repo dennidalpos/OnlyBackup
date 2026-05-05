@@ -24,6 +24,9 @@
     box-shadow: var(--shadow-md);
     z-index: 101;
 }
+.modal-content:focus {
+    outline: none;
+}
 .modal-content h3 {
     font-size: 1rem;
     margin-bottom: 1rem;
@@ -196,6 +199,20 @@
     }
 }
 @media (max-width: 768px) {
+    .topbar,
+    .user-info {
+        flex-wrap: wrap;
+    }
+    .user-info {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    .header-actions .btn,
+    .client-header-actions .btn,
+    .action-group {
+        min-width: 0;
+        flex: 1 1 120px;
+    }
     .dashboard-container {
         grid-template-columns: 1fr;
         grid-template-rows: auto 1fr;

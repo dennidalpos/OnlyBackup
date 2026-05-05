@@ -1,5 +1,7 @@
 const serverSettingsState = {
-    statusTimeoutId: null
+    statusTimeoutId: null,
+    activeModal: null,
+    lastFocusedElement: null
 };
 
 function escapeHtml(text) {
@@ -11,7 +13,7 @@ function escapeHtml(text) {
 function showMessage(type, message, { persist = false } = {}) {
     const statusDiv = document.getElementById('statusMessage');
     const messageClass = type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'error';
-    statusDiv.innerHTML = `<div class="status-message ${messageClass}">${escapeHtml(message)}</div>`;
+    statusDiv.innerHTML = `<div class="status-message ${messageClass}" role="${messageClass === 'error' ? 'alert' : 'status'}">${escapeHtml(message)}</div>`;
 
     if (serverSettingsState.statusTimeoutId) {
         clearTimeout(serverSettingsState.statusTimeoutId);
@@ -28,17 +30,46 @@ function showMessage(type, message, { persist = false } = {}) {
 
 function switchTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach((button) => {
-        button.classList.toggle('active', button.dataset.tab === tabName);
+        const selected = button.dataset.tab === tabName;
+        button.classList.toggle('active', selected);
+        button.setAttribute('aria-selected', selected ? 'true' : 'false');
+        button.tabIndex = selected ? 0 : -1;
     });
 
     document.querySelectorAll('.tab-content').forEach((content) => {
         content.classList.remove('active');
+        content.hidden = true;
     });
 
     const targetTab = document.getElementById(`${tabName}Tab`);
     if (targetTab) {
         targetTab.classList.add('active');
+        targetTab.hidden = false;
     }
+}
+
+function openDialog(modal) {
+    serverSettingsState.lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    serverSettingsState.activeModal = modal;
+    document.body.appendChild(modal);
+    const focusTarget = modal.querySelector('button, input, select, textarea, [tabindex]:not([tabindex="-1"]), .modal-content');
+    if (focusTarget) {
+        focusTarget.focus();
+    }
+}
+
+function closeDialog(modal, resolve, value) {
+    if (modal.parentElement) {
+        document.body.removeChild(modal);
+    }
+    if (serverSettingsState.activeModal === modal) {
+        serverSettingsState.activeModal = null;
+    }
+    if (serverSettingsState.lastFocusedElement && document.contains(serverSettingsState.lastFocusedElement)) {
+        serverSettingsState.lastFocusedElement.focus();
+    }
+    serverSettingsState.lastFocusedElement = null;
+    resolve(value);
 }
 
 async function deleteAllLogs() {
@@ -343,20 +374,18 @@ function showExportDialog() {
         const modal = document.createElement('div');
         modal.className = 'modal';
         modal.style.display = 'flex';
-        modal.innerHTML = `<div class="modal-backdrop"></div><div class="modal-content">${html}</div>`;
-        document.body.appendChild(modal);
+        modal.innerHTML = `<div class="modal-backdrop"></div><div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="exportDialogTitle" tabindex="-1">${html.replace('<h3 style="margin: 0 0 20px 0;">', '<h3 id="exportDialogTitle" style="margin: 0 0 20px 0;">')}</div>`;
+        openDialog(modal);
 
         const cancel = () => {
-            document.body.removeChild(modal);
-            resolve(null);
+            closeDialog(modal, resolve, null);
         };
 
         modal.querySelector('.btn-cancel').onclick = cancel;
         modal.querySelector('.modal-backdrop').onclick = cancel;
         modal.querySelector('.btn-confirm').onclick = () => {
             const sections = Array.from(modal.querySelectorAll('input[type="checkbox"]:checked')).map((checkbox) => checkbox.value);
-            document.body.removeChild(modal);
-            resolve(sections);
+            closeDialog(modal, resolve, sections);
         };
     });
 }
@@ -441,20 +470,18 @@ function showImportDialog(config, availableSections) {
         const modal = document.createElement('div');
         modal.className = 'modal';
         modal.style.display = 'flex';
-        modal.innerHTML = `<div class="modal-backdrop"></div><div class="modal-content">${html}</div>`;
-        document.body.appendChild(modal);
+        modal.innerHTML = `<div class="modal-backdrop"></div><div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="importDialogTitle" tabindex="-1">${html.replace('<h3 style="margin: 0 0 20px 0;">', '<h3 id="importDialogTitle" style="margin: 0 0 20px 0;">')}</div>`;
+        openDialog(modal);
 
         const cancel = () => {
-            document.body.removeChild(modal);
-            resolve(null);
+            closeDialog(modal, resolve, null);
         };
 
         modal.querySelector('.btn-cancel').onclick = cancel;
         modal.querySelector('.modal-backdrop').onclick = cancel;
         modal.querySelector('.btn-confirm').onclick = () => {
             const sections = Array.from(modal.querySelectorAll('input[type="checkbox"]:checked')).map((checkbox) => checkbox.value);
-            document.body.removeChild(modal);
-            resolve(sections);
+            closeDialog(modal, resolve, sections);
         };
     });
 }
@@ -617,6 +644,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         button.addEventListener('click', () => {
             switchTab(button.dataset.tab);
         });
+        button.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') {
+                return;
+            }
+            event.preventDefault();
+            switchTab(button.dataset.tab);
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && serverSettingsState.activeModal) {
+            const cancelButton = serverSettingsState.activeModal.querySelector('.btn-cancel');
+            if (cancelButton) {
+                cancelButton.click();
+            }
+        }
     });
 
     await emailSettingsController.initialize();

@@ -144,7 +144,7 @@ class AuthManager {
   logout(sessionId) {
     this.sessions.delete(sessionId);
     this.saveSessions();
-    this.logger.debug('Logout effettuato', { sessionId });
+    this.logger.debug('Logout effettuato');
   }
 
   changePassword(username, oldPassword, newPassword) {

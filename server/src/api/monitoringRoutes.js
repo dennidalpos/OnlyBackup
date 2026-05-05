@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { sanitizePathSegment } = require('../shared/pathSegments');
 
 function registerMonitoringRoutes(router, deps) {
   const {
@@ -127,8 +128,8 @@ function registerMonitoringRoutes(router, deps) {
   router.get('/api/clients/:hostname/jobs/:jobId/logs/latest', requireAuth, (req, res) => {
     try {
       const { hostname, jobId } = req.params;
-      const safeHost = (hostname || '').replace(/[^a-zA-Z0-9._-]/g, '_');
-      const safeJob = (jobId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const safeHost = sanitizePathSegment(hostname);
+      const safeJob = sanitizePathSegment(jobId);
       const baseDir = path.join(storage.dataRoot, 'logs', safeHost, safeJob);
       let logPayload = null;
 
@@ -244,7 +245,7 @@ function registerMonitoringRoutes(router, deps) {
         return res.status(status || 503).json({ error });
       }
 
-      const jobLabel = (job.job_id || '').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const jobLabel = sanitizePathSegment(job.job_id);
       const mappings = await callAgentJobBackups(agent.agent_ip, agent.agent_port, jobLabel, job.mappings || []);
       logger.logApiCall('GET', `/api/clients/${hostname}/jobs/${jobId}/backups`, req.username, 200);
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');

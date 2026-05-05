@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const sseManager = require('../events/sseManager');
+const { sanitizePathSegment } = require('../shared/pathSegments');
 
 function registerMaintenanceRoutes(router, deps) {
   const {
@@ -93,9 +94,9 @@ function registerMaintenanceRoutes(router, deps) {
         return res.status(400).json({ error: 'Parametri mancanti' });
       }
 
-      const safeHost = (hostname || '').replace(/[^a-zA-Z0-9._-]/g, '_');
-      const safeJob = (jobId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
-      const safeRun = (runId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const safeHost = sanitizePathSegment(hostname);
+      const safeJob = sanitizePathSegment(jobId);
+      const safeRun = sanitizePathSegment(runId);
 
       const logDir = path.join(storage.dataRoot, 'logs', safeHost, safeJob);
       if (!fs.existsSync(logDir)) {
@@ -121,8 +122,8 @@ function registerMaintenanceRoutes(router, deps) {
         return res.status(400).json({ error: 'clientId e jobId richiesti' });
       }
 
-      const safeHost = (clientId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
-      const safeJob = (jobId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const safeHost = sanitizePathSegment(clientId);
+      const safeJob = sanitizePathSegment(jobId);
       const logDir = path.join(storage.dataRoot, 'logs', safeHost, safeJob);
 
       if (!fs.existsSync(logDir)) {
@@ -130,7 +131,7 @@ function registerMaintenanceRoutes(router, deps) {
       }
 
       if (runId) {
-        const safeRun = (runId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
+        const safeRun = sanitizePathSegment(runId);
         const logPath = path.join(logDir, `${safeRun}.log`);
 
         if (!fs.existsSync(logPath)) {
@@ -159,9 +160,9 @@ function registerMaintenanceRoutes(router, deps) {
         return res.status(400).json({ error: 'Parametri mancanti' });
       }
 
-      const safeHost = (clientId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
-      const safeJob = (jobId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
-      const safeRun = (runId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const safeHost = sanitizePathSegment(clientId);
+      const safeJob = sanitizePathSegment(jobId);
+      const safeRun = sanitizePathSegment(runId);
       const logPath = path.join(storage.dataRoot, 'logs', safeHost, safeJob, `${safeRun}.log`);
 
       if (!fs.existsSync(logPath)) {
@@ -185,8 +186,8 @@ function registerMaintenanceRoutes(router, deps) {
         return res.status(400).json({ error: 'runId richiesto' });
       }
 
-      const safeHost = (hostname || '').replace(/[^a-zA-Z0-9._-]/g, '_');
-      const safeJob = (jobId || '').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const safeHost = sanitizePathSegment(hostname);
+      const safeJob = sanitizePathSegment(jobId);
       const eventsDir = path.join(storage.dataRoot, 'logs', safeHost, safeJob);
 
       if (!fs.existsSync(eventsDir)) {

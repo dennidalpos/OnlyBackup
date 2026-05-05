@@ -36,16 +36,16 @@
 
         <div class="settings-container" style="padding: 20px; margin: 0 auto;">
 
-            <div id="statusMessage"></div>
+            <div id="statusMessage" role="status" aria-live="polite"></div>
 
             <div class="settings-content">
-                <div class="tabs">
-                    <button class="tab-btn active" data-tab="email">Notifiche Email</button>
-                    <button class="tab-btn" data-tab="maintenance">Manutenzione</button>
+                <div class="tabs" role="tablist" aria-label="Impostazioni server">
+                    <button class="tab-btn active" id="emailTabButton" data-tab="email" role="tab" aria-selected="true" aria-controls="emailTab">Notifiche Email</button>
+                    <button class="tab-btn" id="maintenanceTabButton" data-tab="maintenance" role="tab" aria-selected="false" aria-controls="maintenanceTab">Manutenzione</button>
                 </div>
 
                 <!-- Tab Email -->
-                <div id="emailTab" class="tab-content active">
+                <div id="emailTab" class="tab-content active" role="tabpanel" aria-labelledby="emailTabButton">
                     <form id="emailSettingsForm">
                         <div class="form-section">
                             <div class="checkbox-group">
@@ -294,7 +294,7 @@
                 </div>
 
                 <!-- Tab Manutenzione -->
-                <div id="maintenanceTab" class="tab-content">
+                <div id="maintenanceTab" class="tab-content" role="tabpanel" aria-labelledby="maintenanceTabButton" hidden>
                     <div class="form-section">
                         <h4>Import/Export Configurazione</h4>
                         <p style="color: var(--text-secondary); margin-bottom: 20px;">

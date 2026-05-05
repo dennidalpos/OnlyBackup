@@ -383,15 +383,15 @@
                 <a href="/" class="btn btn-secondary">← Torna alla Dashboard</a>
             </div>
 
-            <div id="statusMessage"></div>
+            <div id="statusMessage" role="status" aria-live="polite"></div>
 
             <div class="settings-content">
-                <div class="tabs">
-                    <button class="tab-btn active" onclick="switchTab('smtp')">Configurazione SMTP</button>
-                    <button class="tab-btn" onclick="switchTab('templates')">Template Email</button>
+                <div class="tabs" role="tablist" aria-label="Impostazioni email">
+                    <button class="tab-btn active" id="smtpTabButton" role="tab" aria-selected="true" aria-controls="smtpTab" onclick="switchTab('smtp')">Configurazione SMTP</button>
+                    <button class="tab-btn" id="templatesTabButton" role="tab" aria-selected="false" aria-controls="templatesTab" onclick="switchTab('templates')">Template Email</button>
                 </div>
 
-                <div id="smtpTab" class="tab-content active">
+                <div id="smtpTab" class="tab-content active" role="tabpanel" aria-labelledby="smtpTabButton">
                     <form id="emailSettingsForm">
                         <div class="form-section">
                             <div class="checkbox-group">
@@ -526,7 +526,7 @@
                     </div>
                 </div>
 
-                <div id="templatesTab" class="tab-content">
+                <div id="templatesTab" class="tab-content" role="tabpanel" aria-labelledby="templatesTabButton" hidden>
                     <div class="form-section">
                         <div class="info-box">
                             <div class="template-help">

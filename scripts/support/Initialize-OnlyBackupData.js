@@ -47,6 +47,7 @@ function ensureDirectories(basePath) {
     path.join(basePath, 'state', 'runs'),
     path.join(basePath, 'state', 'agents'),
     path.join(basePath, 'state', 'scheduler'),
+    path.join(basePath, 'state', 'alerts'),
     path.join(basePath, 'users'),
     path.join(basePath, 'logs')
   ];

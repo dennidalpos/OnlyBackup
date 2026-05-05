@@ -225,6 +225,7 @@ $requiredDataPaths = @(
     (Join-Path $repoRoot "data"),
     (Join-Path $repoRoot "data\config"),
     (Join-Path $repoRoot "data\state"),
+    (Join-Path $repoRoot "data\state\alerts"),
     (Join-Path $repoRoot "data\users")
 )
 

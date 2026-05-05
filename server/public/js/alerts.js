@@ -17,23 +17,35 @@ function setupTabs() {
             const tab = btn.dataset.tab;
             switchTab(tab);
         });
+        btn.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') {
+                return;
+            }
+            event.preventDefault();
+            switchTab(btn.dataset.tab);
+        });
     });
 }
 
 function switchTab(tabName) {
     // Aggiorna bottoni
     document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.tab === tabName);
+        const selected = btn.dataset.tab === tabName;
+        btn.classList.toggle('active', selected);
+        btn.setAttribute('aria-selected', selected ? 'true' : 'false');
+        btn.tabIndex = selected ? 0 : -1;
     });
 
     // Aggiorna contenuti
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
+        content.hidden = true;
     });
 
     const targetTab = document.getElementById(`${tabName}Tab`);
     if (targetTab) {
         targetTab.classList.add('active');
+        targetTab.hidden = false;
     }
 
     // Carica dati se necessario
@@ -117,7 +129,7 @@ function createAlertCard(alert, isActive) {
     }
 
     const actions = isActive ? `
-        <button class="btn-small btn-primary" onclick="resolveAlert('${alert.alert_id}')">
+        <button class="btn-small btn-primary" onclick="resolveAlert('${escapeForAttribute(alert.alert_id)}')">
             ✓ Risolvi
         </button>
     ` : '';
@@ -125,18 +137,18 @@ function createAlertCard(alert, isActive) {
     return `
         <div class="alert-card ${severityClass} ${alert.resolved ? 'resolved' : ''}">
             <div class="alert-header">
-                <span class="alert-icon">${severityIcon}</span>
+                <span class="alert-icon" aria-hidden="true">${severityIcon}</span>
                 <div class="alert-title-group">
-                    <h3>${alert.title}</h3>
-                    <span class="alert-type">${typeLabel}</span>
+                    <h3>${escapeHtml(alert.title)}</h3>
+                    <span class="alert-type">${escapeHtml(typeLabel)}</span>
                 </div>
             </div>
             <div class="alert-body">
-                <p>${alert.message}</p>
+                <p>${escapeHtml(alert.message)}</p>
                 <div class="alert-meta">
                     <span>📅 ${timestamp}</span>
-                    ${alert.hostname ? `<span>💻 ${alert.hostname}</span>` : ''}
-                    ${alert.job_id ? `<span>📦 Job: ${alert.job_id}</span>` : ''}
+                    ${alert.hostname ? `<span>💻 ${escapeHtml(alert.hostname)}</span>` : ''}
+                    ${alert.job_id ? `<span>📦 Job: ${escapeHtml(alert.job_id)}</span>` : ''}
                 </div>
                 ${resolvedInfo}
             </div>
@@ -231,13 +243,28 @@ function setupSSE() {
 // Mostra messaggio
 function showMessage(type, message) {
     const statusDiv = document.getElementById('statusMessage');
-    statusDiv.innerHTML = `<div class="status-message ${type}">${message}</div>`;
+    statusDiv.innerHTML = `<div class="status-message ${type}" role="${type === 'error' ? 'alert' : 'status'}">${escapeHtml(message)}</div>`;
 
     if (type === 'success') {
         setTimeout(() => {
             statusDiv.innerHTML = '';
         }, 3000);
     }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text ?? '';
+    return div.innerHTML;
+}
+
+function escapeForAttribute(text) {
+    return String(text ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 }
 
 // Cleanup on unload

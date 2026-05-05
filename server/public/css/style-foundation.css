@@ -77,6 +77,20 @@ h1, h2, h3, h4, h5, h6 {
 .hidden {
     display: none !important;
 }
+[hidden] {
+    display: none !important;
+}
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
 .login-container {
     flex: 1;
     display: flex;
@@ -497,6 +511,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 .client-item:hover {
     background: var(--surface-hover);
+}
+.client-item:focus-visible,
+.filesystem-entry:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-color: var(--primary-color);
 }
 .client-item.active {
     background: var(--info-bg);
@@ -1164,7 +1184,8 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: none;
 }
 .weekday-check:focus-within {
-    box-shadow: none;
+    box-shadow: var(--focus-ring);
+    border-color: var(--primary-color);
 }
 .weekday-check span {
     font-size: 0.6875rem;

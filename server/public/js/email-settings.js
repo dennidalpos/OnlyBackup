@@ -3,7 +3,7 @@ const emailSettingsController = createEmailSettingsController({
         const container = document.getElementById('statusMessage');
         const messageClass = type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'error';
 
-        container.innerHTML = `<div class="status-message ${messageClass}">${emailSettingsController.escapeHtml(message)}</div>`;
+        container.innerHTML = `<div class="status-message ${messageClass}" role="${messageClass === 'error' ? 'alert' : 'status'}">${emailSettingsController.escapeHtml(message)}</div>`;
         container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
         setTimeout(() => {

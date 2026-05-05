@@ -32,7 +32,7 @@ OnlyBackupApp.prototype.renderJobEditor = function() {
         const timesContainer = document.getElementById('scheduleTimes');
         const scheduleTimes = this.editingJob.schedule?.times || [];
         timesContainer.innerHTML = scheduleTimes.map((t, idx) => `
-            <span class="time-chip">${this.escapeHtml(t)} <button type="button" onclick="app.removeScheduleTime(${idx})">\u00D7</button></span>
+            <span class="time-chip">${this.escapeHtml(t)} <button type="button" onclick="app.removeScheduleTime(${idx})" aria-label="Rimuovi orario ${this.escapeForAttribute(t)}">\u00D7</button></span>
         `).join('');
 
         const mappingsContainer = document.getElementById('mappingsContainer');
@@ -42,32 +42,35 @@ OnlyBackupApp.prototype.renderJobEditor = function() {
                     <div class="mapping-card">
                         <div class="mapping-header">
                             <div class="mapping-title">Mappatura ${index + 1}${mapping.label ? ` - ${this.escapeHtml(mapping.label)}` : ''}</div>
-                            <button type="button" class="btn btn-icon btn-small" onclick="app.removeMapping(${index})" title="Rimuovi mappatura">\u2715</button>
+                            <button type="button" class="btn btn-icon btn-small" onclick="app.removeMapping(${index})" title="Rimuovi mappatura" aria-label="Rimuovi mappatura ${index + 1}">\u2715</button>
                         </div>
                         <div class="form-row">
                             <label>Etichetta</label>
                             <input type="text" value="${this.escapeForAttribute(mapping.label || '')}"
                                    oninput="app.updateMappingField(${index}, 'label', this.value)"
-                                   placeholder="es. Documenti utente">
+                                   placeholder="es. Documenti utente"
+                                   aria-label="Etichetta mappatura ${index + 1}">
                         </div>
                         <div class="form-row">
                             <label>Percorso sorgente</label>
                             <div class="path-input">
                                 <input type="text" value="${this.escapeForAttribute(mapping.source_path || '')}"
                                        oninput="app.updateMappingField(${index}, 'source_path', this.value)"
-                                       placeholder="es. C:\\Users\\Documents">
-                                <button type="button" class="btn btn-outline btn-small" onclick="app.openBrowseModal(${index})">Sfoglia</button>
+                                       placeholder="es. C:\\Users\\Documents"
+                                       aria-label="Percorso sorgente mappatura ${index + 1}">
+                                <button type="button" class="btn btn-outline btn-small" onclick="app.openBrowseModal(${index})" aria-label="Sfoglia percorso sorgente mappatura ${index + 1}">Sfoglia</button>
                             </div>
                         </div>
                         <div class="form-row">
                             <label>Percorso destinazione</label>
                             <input type="text" value="${this.escapeForAttribute(mapping.destination_path || '')}"
                                    oninput="app.updateMappingField(${index}, 'destination_path', this.value)"
-                                   placeholder="es. \\NAS\\Backups\\Documents">
+                                   placeholder="es. \\NAS\\Backups\\Documents"
+                                   aria-label="Percorso destinazione mappatura ${index + 1}">
                         </div>
                         <div class="form-row">
                             <label>Modalita</label>
-                            <select onchange="app.handleMappingModeChange(${index}, this.value)">
+                            <select onchange="app.handleMappingModeChange(${index}, this.value)" aria-label="Modalita mappatura ${index + 1}">
                                 <option value="copy" ${mapping.mode === 'copy' ? 'selected' : ''}>Copy (versioni multiple)</option>
                                 <option value="sync" ${mapping.mode === 'sync' ? 'selected' : ''}>Sync (sovrascrittura)</option>
                             </select>
@@ -75,18 +78,22 @@ OnlyBackupApp.prototype.renderJobEditor = function() {
                         <div class="form-row retention-row ${isCopy ? '' : 'hidden'}">
                             <label>Retention (max versioni)</label>
                             <input type="number" min="1" max="100" value="${mapping.retention?.max_backups || 5}"
-                                   oninput="app.updateMappingField(${index}, 'retention', this.value)">
+                                   oninput="app.updateMappingField(${index}, 'retention', this.value)"
+                                   aria-label="Retention massima mappatura ${index + 1}">
                         </div>
                         <div class="form-row">
                             <label>Credenziali NAS/SMB (opzionale)</label>
                             <div class="credentials-grid">
                                 <input type="text" placeholder="Username"
+                                       aria-label="Username credenziali mappatura ${index + 1}"
                                        value="${this.escapeForAttribute(mapping.credentials?.username || '')}"
                                        oninput="app.updateMappingCredential(${index}, 'username', this.value)">
                                 <input type="password" placeholder="Password"
+                                       aria-label="Password credenziali mappatura ${index + 1}"
                                        value="${this.escapeForAttribute(mapping.credentials?.password || '')}"
                                        oninput="app.updateMappingCredential(${index}, 'password', this.value)">
                                 <input type="text" placeholder="Dominio"
+                                       aria-label="Dominio credenziali mappatura ${index + 1}"
                                        value="${this.escapeForAttribute(mapping.credentials?.domain || '')}"
                                        oninput="app.updateMappingCredential(${index}, 'domain', this.value)">
                             </div>

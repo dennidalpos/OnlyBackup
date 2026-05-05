@@ -80,20 +80,20 @@ OnlyBackupApp.prototype.renderClientsList = function() {
         let backupIcon = '';
 
         if (client.backup_status === 'in_progress') {
-            backupIcon = '<span class="backup-status-icon running" title="Backup in corso">&#9679;</span>';
+            backupIcon = '<span class="backup-status-icon running" title="Backup in corso" role="img" aria-label="Backup in corso">&#9679;</span>';
         } else if (client.backup_status === 'partial') {
-            backupIcon = '<span class="backup-status-icon partial" title="Backup parziale">&#9679;</span>';
+            backupIcon = '<span class="backup-status-icon partial" title="Backup parziale" role="img" aria-label="Backup parziale">&#9679;</span>';
         } else if (client.backup_status === 'completed') {
-            backupIcon = '<span class="backup-status-icon success" title="Backup completato">&#10003;</span>';
+            backupIcon = '<span class="backup-status-icon success" title="Backup completato" role="img" aria-label="Backup completato">&#10003;</span>';
         } else if (client.backup_status === 'failed') {
-            backupIcon = '<span class="backup-status-icon failure" title="Backup fallito">&#10007;</span>';
+            backupIcon = '<span class="backup-status-icon failure" title="Backup fallito" role="img" aria-label="Backup fallito">&#10007;</span>';
         } else if (client.lastBackupRun) {
             if (client.lastBackupRun.status === 'success') {
-                backupIcon = '<span class="backup-status-icon success" title="Ultimo backup riuscito">&#10003;</span>';
+                backupIcon = '<span class="backup-status-icon success" title="Ultimo backup riuscito" role="img" aria-label="Ultimo backup riuscito">&#10003;</span>';
             } else if (client.lastBackupRun.status === 'failure') {
-                backupIcon = '<span class="backup-status-icon failure" title="Ultimo backup fallito">&#10007;</span>';
+                backupIcon = '<span class="backup-status-icon failure" title="Ultimo backup fallito" role="img" aria-label="Ultimo backup fallito">&#10007;</span>';
             } else if (client.lastBackupRun.status === 'partial') {
-                backupIcon = '<span class="backup-status-icon partial" title="Ultimo backup parziale">&#9679;</span>';
+                backupIcon = '<span class="backup-status-icon partial" title="Ultimo backup parziale" role="img" aria-label="Ultimo backup parziale">&#9679;</span>';
             }
         }
 
@@ -104,10 +104,15 @@ OnlyBackupApp.prototype.renderClientsList = function() {
 
         return `
             <div class="client-item ${this.selectedClient === client.hostname ? 'active' : ''}"
-                 onclick="app.selectClient('${this.escapeForAttribute(client.hostname)}')">
+                 role="button"
+                 tabindex="0"
+                 aria-pressed="${this.selectedClient === client.hostname ? 'true' : 'false'}"
+                 aria-label="Seleziona client ${this.escapeForAttribute(client.hostname)}"
+                 onclick="app.selectClient('${this.escapeForAttribute(client.hostname)}')"
+                 onkeydown="app.handleKeyboardAction(event, () => app.selectClient('${this.escapeForAttribute(client.hostname)}'))">
                 <div class="client-meta-wrapper">
                     <div class="client-name-row">
-                        <span class="status-dot ${statusDotClass}"></span>
+                        <span class="status-dot ${statusDotClass}" aria-hidden="true"></span>
                         <div class="client-name">${backupIcon}${this.escapeHtml(client.hostname)}</div>
                     </div>
                     <div class="client-meta">
@@ -119,11 +124,13 @@ OnlyBackupApp.prototype.renderClientsList = function() {
                     ${showResetBackup ? `
                         <button class="btn btn-icon btn-small" style="background: #f39c12; color: white; border-color: #f39c12;"
                                 onclick="event.stopPropagation(); app.resetBackupStatus('${this.escapeForAttribute(client.hostname)}')"
-                                title="Resetta stato backup (non ferma il backup reale)">Reset</button>
+                                title="Resetta stato backup (non ferma il backup reale)"
+                                aria-label="Resetta stato backup di ${this.escapeForAttribute(client.hostname)}">Reset</button>
                     ` : ''}
                     <button class="btn btn-icon btn-danger btn-small"
                             onclick="event.stopPropagation(); app.showDeregisterDialog('${this.escapeForAttribute(client.hostname)}')"
-                            title="Deregistra PC">&times;</button>
+                            title="Deregistra PC"
+                            aria-label="Deregistra PC ${this.escapeForAttribute(client.hostname)}">&times;</button>
                 </div>
             </div>
         `;
@@ -158,12 +165,12 @@ OnlyBackupApp.prototype.showDeregisterDialog = function(hostname) {
     this.pendingDeregisterHostname = hostname;
     const message = `Sei sicuro di voler deregistrare il PC ${hostname}? Questa azione eliminera tutti i job, run, log e dati associati al client.`;
     document.getElementById('deregisterMessage').textContent = message;
-    document.getElementById('deregisterDialog').classList.remove('hidden');
+    this.openModal('deregisterDialog');
 };
 
 OnlyBackupApp.prototype.closeDeregisterDialog = function() {
     this.pendingDeregisterHostname = null;
-    document.getElementById('deregisterDialog').classList.add('hidden');
+    this.closeModal('deregisterDialog');
 };
 
 OnlyBackupApp.prototype.confirmDeregisterClient = async function() {
@@ -254,11 +261,11 @@ OnlyBackupApp.prototype.clearClientLogs = function() {
 
     const message = `Sei sicuro di voler eliminare tutto lo storico backup del PC ${this.selectedClient}? I job non verranno eliminati, solo le esecuzioni passate.`;
     document.getElementById('clearLogsMessage').textContent = message;
-    document.getElementById('clearLogsDialog').classList.remove('hidden');
+    this.openModal('clearLogsDialog');
 };
 
 OnlyBackupApp.prototype.closeClearLogsDialog = function() {
-    document.getElementById('clearLogsDialog').classList.add('hidden');
+    this.closeModal('clearLogsDialog');
 };
 
 OnlyBackupApp.prototype.confirmClearClientLogs = async function() {
@@ -312,15 +319,7 @@ OnlyBackupApp.prototype.loadClientJobs = async function() {
 };
 
 OnlyBackupApp.prototype.showTab = function(tabName) {
-    document.querySelectorAll('.tab-btn').forEach((button, index) => {
-        button.classList.remove('active');
-        if ((tabName === 'jobs' && index === 0) || (tabName === 'runs' && index === 1)) {
-            button.classList.add('active');
-        }
-    });
-
-    document.getElementById('jobsTab').classList.toggle('hidden', tabName !== 'jobs');
-    document.getElementById('runsTab').classList.toggle('hidden', tabName !== 'runs');
+    this.setTabState(tabName);
 
     if (tabName === 'runs' && this.runs.length === 0) {
         this.loadClientRuns();
@@ -368,11 +367,11 @@ OnlyBackupApp.prototype.openBrowseModal = function(mappingIndex) {
     this.selectedFsEntry = null;
     this.selectedFsType = null;
     this.loadFilesystemEntries('');
-    document.getElementById('filesystemModal').classList.remove('hidden');
+    this.openModal('filesystemModal');
 };
 
 OnlyBackupApp.prototype.closeFilesystemModal = function() {
-    document.getElementById('filesystemModal').classList.add('hidden');
+    this.closeModal('filesystemModal');
     this.browseMappingIndex = null;
 };
 
@@ -425,7 +424,12 @@ OnlyBackupApp.prototype.loadFilesystemEntries = async function(path = '') {
 
             return `
                 <div class="filesystem-entry ${isSelected ? 'selected' : ''}"
-                     onclick="app.handleFsEntryClick(event, '${this.escapeForAttribute(entry.path)}', '${entry.type}')">
+                     role="button"
+                     tabindex="0"
+                     aria-pressed="${isSelected ? 'true' : 'false'}"
+                     aria-label="${entry.type === 'file' ? 'Seleziona file' : 'Seleziona cartella'} ${this.escapeForAttribute(entry.name)}"
+                     onclick="app.handleFsEntryClick(event, '${this.escapeForAttribute(entry.path)}', '${entry.type}')"
+                     onkeydown="app.handleKeyboardAction(event, () => app.handleFsEntryClick(event, '${this.escapeForAttribute(entry.path)}', '${entry.type}'))">
                     <div class="fs-entry-name">${icon} ${this.escapeHtml(entry.name)}</div>
                     <div class="fs-entry-actions">
                         ${entry.type !== 'file' ? `
@@ -454,8 +458,10 @@ OnlyBackupApp.prototype.handleFsEntryClick = function(event, path, type) {
 
     document.querySelectorAll('#fsEntries .filesystem-entry').forEach((element) => {
         element.classList.remove('selected');
+        element.setAttribute('aria-pressed', 'false');
     });
     event.currentTarget.classList.add('selected');
+    event.currentTarget.setAttribute('aria-pressed', 'true');
 
     const selectBtn = document.getElementById('fsSelectBtn');
     selectBtn.textContent = type === 'file' ? 'Seleziona file' : 'Seleziona cartella';
@@ -517,9 +523,12 @@ OnlyBackupApp.prototype.selectCurrentPath = function() {
 OnlyBackupApp.prototype.escapeForAttribute = function(str) {
     if (!str) return '';
     return str
+        .replace(/&/g, '&amp;')
         .replace(/\\/g, '\\\\')
         .replace(/'/g, "\\'")
-        .replace(/"/g, '&quot;');
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 };
 
 OnlyBackupApp.prototype.resetBackupStatus = async function(hostname) {

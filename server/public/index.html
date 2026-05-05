@@ -21,7 +21,7 @@
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <div id="toastContainer" class="toast-container"></div>
+    <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="false"></div>
 
     <div id="loadingScreen" class="screen">
         <div class="loading-container">
@@ -47,7 +47,7 @@
                         <label for="password">Password</label>
                         <input type="password" id="password" name="password" required autocomplete="current-password">
                     </div>
-                    <div id="loginError" class="error-message"></div>
+                    <div id="loginError" class="error-message" role="alert" aria-live="assertive"></div>
                     <button type="submit" class="btn btn-primary">Accedi</button>
                 </form>
             </div>
@@ -72,7 +72,7 @@
                         <label for="confirmPassword">Conferma password</label>
                         <input type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password">
                     </div>
-                    <div id="changePasswordError" class="error-message"></div>
+                    <div id="changePasswordError" class="error-message" role="alert" aria-live="assertive"></div>
                     <button type="submit" class="btn btn-primary">Cambia Password</button>
                 </form>
             </div>
@@ -117,7 +117,7 @@
                 <div class="user-info">
                     <a href="/alerts.html" class="btn btn-outline btn-small" title="Alert di sistema">🔔 Alert</a>
                     <a href="/server-settings.html" class="btn btn-outline btn-small" title="Impostazioni server">⚙️ Impostazioni</a>
-                    <button onclick="app.resetPassword()" class="btn btn-outline btn-small" title="Cambia password">🔑</button>
+                    <button onclick="app.resetPassword()" class="btn btn-outline btn-small" title="Cambia password" aria-label="Cambia password">🔑</button>
                     <span class="user-chip" id="currentUser">-</span>
                     <button onclick="app.logout()" class="btn btn-outline btn-small">Logout</button>
                 </div>
@@ -131,13 +131,14 @@
                             <h2>Client</h2>
                         </div>
                         <div class="panel-actions">
-                            <button onclick="app.refreshClients()" class="btn btn-icon" title="Aggiorna lista client">&#8635;</button>
+                            <button onclick="app.refreshClients()" class="btn btn-icon" title="Aggiorna lista client" aria-label="Aggiorna lista client">&#8635;</button>
                         </div>
                     </div>
                     <div class="search-box">
-                        <input type="text" id="clientSearchInput" placeholder="Cerca client..." oninput="app.filterClients(this.value)">
+                        <label class="sr-only" for="clientSearchInput">Cerca client</label>
+                        <input type="text" id="clientSearchInput" placeholder="Cerca client..." oninput="app.filterClients(this.value)" autocomplete="off">
                     </div>
-                    <div class="panel-state" id="clientsState">
+                    <div class="panel-state" id="clientsState" aria-live="polite">
                         <div class="state-row" data-state="loading"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div></div>
                         <div class="state-row hidden" data-state="empty">Nessun agent registrato.</div>
                         <div class="state-row hidden" data-state="error">Impossibile recuperare la lista client.</div>
@@ -192,18 +193,18 @@
                                         <span class="client-header-status" id="clientHeaderStatus"></span>
                                     </div>
                                 </div>
-                                <div class="tabs">
-                                    <button class="tab-btn active" onclick="app.showTab('jobs')">Job</button>
-                                    <button class="tab-btn" onclick="app.showTab('runs')">Storico</button>
+                                <div class="tabs" role="tablist" aria-label="Job e storico">
+                                    <button class="tab-btn active" id="jobsTabButton" role="tab" aria-selected="true" aria-controls="jobsTab" onclick="app.showTab('jobs')">Job</button>
+                                    <button class="tab-btn" id="runsTabButton" role="tab" aria-selected="false" aria-controls="runsTab" onclick="app.showTab('runs')">Storico</button>
                                 </div>
                                 <div class="tab-panels">
-                                    <div id="jobsTab" class="tab-content">
+                                    <div id="jobsTab" class="tab-content" role="tabpanel" aria-labelledby="jobsTabButton">
                                         <div id="jobsList" class="jobs-list card-list">
                                             <div class="loading">Caricamento...</div>
                                         </div>
                                         <div class="empty-state hidden" id="jobsEmpty">Nessun job configurato.</div>
                                     </div>
-                                    <div id="runsTab" class="tab-content hidden">
+                                    <div id="runsTab" class="tab-content hidden" role="tabpanel" aria-labelledby="runsTabButton">
                                         <div id="runsList" class="runs-list card-list">
                                             <div class="loading">Caricamento...</div>
                                         </div>
@@ -279,7 +280,7 @@
                                         <div id="mappingsContainer" class="mappings-container"></div>
                                     </div>
 
-                                    <div id="jobFormError" class="error-message"></div>
+                                    <div id="jobFormError" class="error-message" role="alert" aria-live="assertive"></div>
                                 </form>
                             </div>
                         </div>
@@ -292,8 +293,8 @@
 
     <div id="deregisterDialog" class="modal hidden">
         <div class="modal-backdrop" onclick="app.closeDeregisterDialog()"></div>
-        <div class="modal-content">
-            <h3>Deregistra PC</h3>
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="deregisterDialogTitle" aria-describedby="deregisterMessage" tabindex="-1">
+            <h3 id="deregisterDialogTitle">Deregistra PC</h3>
             <div class="dialog-message">
                 <p id="deregisterMessage"></p>
             </div>
@@ -306,8 +307,8 @@
 
     <div id="clearLogsDialog" class="modal hidden">
         <div class="modal-backdrop" onclick="app.closeClearLogsDialog()"></div>
-        <div class="modal-content">
-            <h3>Elimina Storico Backup</h3>
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="clearLogsDialogTitle" aria-describedby="clearLogsMessage" tabindex="-1">
+            <h3 id="clearLogsDialogTitle">Elimina Storico Backup</h3>
             <div class="dialog-message">
                 <p id="clearLogsMessage"></p>
             </div>
@@ -320,13 +321,13 @@
 
     <div id="filesystemModal" class="modal hidden">
         <div class="modal-backdrop" onclick="app.closeFilesystemModal()"></div>
-        <div class="modal-content wide">
-            <h3>Sfoglia Filesystem</h3>
+        <div class="modal-content wide" role="dialog" aria-modal="true" aria-labelledby="filesystemModalTitle" tabindex="-1">
+            <h3 id="filesystemModalTitle">Sfoglia Filesystem</h3>
             <div class="fs-nav-bar">
                 <button type="button" class="btn btn-outline btn-small" onclick="app.navigateFilesystemUp()" id="fsBtnUp">&#8593; Indietro</button>
                 <div class="fs-current-path" id="fsCurrentPath">/</div>
             </div>
-            <div id="fsEntries" class="filesystem-list"></div>
+            <div id="fsEntries" class="filesystem-list" aria-live="polite"></div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" onclick="app.closeFilesystemModal()">Annulla</button>
                 <button type="button" class="btn btn-primary" onclick="app.selectCurrentPath()" id="fsSelectBtn">Seleziona</button>
@@ -336,9 +337,9 @@
 
     <div id="logViewerModal" class="modal hidden">
         <div class="modal-backdrop" onclick="app.closeLogViewer()"></div>
-        <div class="modal-content wide">
+        <div class="modal-content wide" role="dialog" aria-modal="true" aria-labelledby="logViewerModalTitle" tabindex="-1">
             <div class="modal-header">
-                <h3>Log Completi</h3>
+                <h3 id="logViewerModalTitle">Log Completi</h3>
                 <button type="button" class="btn btn-outline btn-small" onclick="app.closeLogViewer()">Chiudi</button>
             </div>
             <div class="log-viewer" id="logViewerContent">
@@ -351,9 +352,9 @@
 
     <div id="backupsModal" class="modal hidden">
         <div class="modal-backdrop" onclick="app.closeBackupsModal()"></div>
-        <div class="modal-content wide">
+        <div class="modal-content wide" role="dialog" aria-modal="true" aria-labelledby="backupsModalTitle" tabindex="-1">
             <div class="modal-header">
-                <h3>Backup presenti</h3>
+                <h3 id="backupsModalTitle">Backup presenti</h3>
                 <button type="button" class="btn btn-outline btn-small" onclick="app.closeBackupsModal()">Chiudi</button>
             </div>
             <div class="backup-browser" id="backupsModalContent">

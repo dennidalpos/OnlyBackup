@@ -160,7 +160,7 @@ OnlyBackupApp.prototype.openLogViewer = async function(mappingIndex = null) {
             return;
         }
 
-        modal.classList.remove('hidden');
+        this.openModal('logViewerModal');
         content.innerHTML = `
             <div class="skeleton skeleton-line"></div>
             <div class="skeleton skeleton-line"></div>
@@ -294,7 +294,7 @@ OnlyBackupApp.prototype.openBackupsList = async function() {
             return;
         }
 
-        modal.classList.remove('hidden');
+        this.openModal('backupsModal');
         content.innerHTML = `
             <div class="skeleton skeleton-line"></div>
             <div class="skeleton skeleton-line"></div>
@@ -327,7 +327,6 @@ OnlyBackupApp.prototype.renderBackupsModal = function(data) {
         const sections = mappings.map((mapping, idx) => {
             let body = '';
             const mappingIndex = Number.isFinite(Number(mapping.index)) ? Number(mapping.index) : idx;
-            const cardId = `backup-card-${mappingIndex}`;
 
             if (mapping.error) {
                 body = `<p class="error-message">${this.escapeHtml(mapping.error)}</p>`;
@@ -340,64 +339,13 @@ OnlyBackupApp.prototype.renderBackupsModal = function(data) {
                 `;
             } else {
                 const backups = mapping.backups;
-                const toolbar = `
-                    <div class="backup-toolbar">
-                        <label class="backup-select-all">
-                            <input type="checkbox" onchange="app.toggleSelectAllBackups(${mappingIndex}, this.checked)">
-                            <span>Seleziona tutti</span>
-                        </label>
-                        <button type="button" class="btn btn-outline btn-small" onclick="app.deleteSelectedBackups(${mappingIndex})">Elimina selezionati</button>
-                    </div>`;
-
-                const rows = backups.map(backup => {
-                    const modified = backup.modified
-                        ? new Date(backup.modified).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-                        : 'Data non disponibile';
-                    const targetPath = backup.path || backup.name || '';
-                    const legacyBadge = backup.legacy ? '<span class="badge badge-warning" title="Backup senza manifest">Legacy</span>' : '';
-                    const sizeLabel = backup.size > 0 ? this.formatBytes(backup.size) : '';
-                    const slotLabel = Number.isFinite(backup.retention_index)
-                        ? `<span class="badge badge-neutral" title="Indice retention">Slot ${backup.retention_index}</span>`
-                        : '';
-
-                    return `
-                        <div class="backup-row">
-                            <label class="backup-select">
-                                <input type="checkbox" class="backup-checkbox" data-path="${this.escapeForAttribute(targetPath)}" data-mapping-index="${mappingIndex}">
-                                <span class="checkbox-faux"></span>
-                            </label>
-                            <div class="backup-main">
-                                <div class="backup-name">
-                                    ${this.escapeHtml(backup.name || 'Backup')}
-                                    ${legacyBadge}
-                                    ${slotLabel}
-                                </div>
-                                <div class="backup-path">${this.escapeHtml(targetPath)}</div>
-                                ${sizeLabel ? `<div class="backup-size">${this.escapeHtml(sizeLabel)}</div>` : ''}
-                            </div>
-                            <div class="backup-actions">
-                                <div class="backup-meta">${this.escapeHtml(modified)}</div>
-                                <button type="button" class="btn btn-outline btn-small" onclick="app.deleteBackup('${this.escapeForAttribute(targetPath)}')">Elimina</button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
+                const toolbar = this.renderBackupToolbar(mappingIndex);
+                const rows = this.renderBackupRows(backups, mappingIndex, { includeMappingIndexInDelete: false });
 
                 body = toolbar + rows;
             }
 
-            return `
-                <div class="backup-card" id="${cardId}" data-mapping-index="${mappingIndex}">
-                    <header>
-                        <div>
-                            <div class="mapping-title">${this.escapeHtml(mapping.label || `Mappatura ${(mappingIndex ?? idx) + 1}`)}</div>
-                            <div class="backup-destination">${this.escapeHtml(mapping.destination_path || 'Destinazione non configurata')}</div>
-                        </div>
-                        <span class="badge">${this.escapeHtml(mapping.mode || '-')}</span>
-                    </header>
-                    <div class="backup-list">${body}</div>
-                </div>
-            `;
+            return this.renderBackupCardShell(mapping, mappingIndex, body, `Mappatura ${(mappingIndex ?? idx) + 1}`);
         }).join('');
 
         content.innerHTML = sections;
@@ -458,57 +406,69 @@ OnlyBackupApp.prototype.renderBackupCard = function(mapping, mappingIndex) {
         } else if (backups.length === 0) {
             body = '<p class="pill-label">Nessun backup trovato in destinazione.</p>';
         } else {
-            const toolbar = `
-                <div class="backup-toolbar">
-                    <label class="backup-select-all">
-                        <input type="checkbox" onchange="app.toggleSelectAllBackups(${mappingIndex}, this.checked)">
-                        <span>Seleziona tutti</span>
-                    </label>
-                    <button type="button" class="btn btn-outline btn-small" onclick="app.deleteSelectedBackups(${mappingIndex})">Elimina selezionati</button>
-                </div>`;
-
-            const rows = backups.map(backup => {
-                const modified = backup.modified
-                    ? new Date(backup.modified).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-                    : 'Data non disponibile';
-                const targetPath = backup.path || backup.name || '';
-                const legacyBadge = backup.legacy ? '<span class="badge badge-warning" title="Backup senza manifest">Legacy</span>' : '';
-                const sizeLabel = backup.size > 0 ? this.formatBytes(backup.size) : '';
-                const slotLabel = Number.isFinite(backup.retention_index)
-                    ? `<span class="badge badge-neutral" title="Indice retention">Slot ${backup.retention_index}</span>`
-                    : '';
-
-                return `
-                    <div class="backup-row">
-                        <label class="backup-select">
-                            <input type="checkbox" class="backup-checkbox" data-path="${this.escapeForAttribute(targetPath)}" data-mapping-index="${mappingIndex}">
-                            <span class="checkbox-faux"></span>
-                        </label>
-                        <div class="backup-main">
-                            <div class="backup-name">
-                                ${this.escapeHtml(backup.name || 'Backup')}
-                                ${legacyBadge}
-                                ${slotLabel}
-                            </div>
-                            <div class="backup-path">${this.escapeHtml(targetPath)}</div>
-                            ${sizeLabel ? `<div class="backup-size">${this.escapeHtml(sizeLabel)}</div>` : ''}
-                        </div>
-                        <div class="backup-actions">
-                            <div class="backup-meta">${this.escapeHtml(modified)}</div>
-                            <button type="button" class="btn btn-outline btn-small" onclick="app.deleteBackup('${this.escapeForAttribute(targetPath)}', { mappingIndex: ${mappingIndex} })">Elimina</button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+            const toolbar = this.renderBackupToolbar(mappingIndex);
+            const rows = this.renderBackupRows(backups, mappingIndex, { includeMappingIndexInDelete: true });
 
             body = toolbar + rows;
         }
 
+        return this.renderBackupCardShell(mapping, mappingIndex, body, `Mappatura ${mappingIndex + 1}`);
+};
+
+OnlyBackupApp.prototype.renderBackupToolbar = function(mappingIndex) {
+        return `
+            <div class="backup-toolbar">
+                <label class="backup-select-all">
+                    <input type="checkbox" onchange="app.toggleSelectAllBackups(${mappingIndex}, this.checked)">
+                    <span>Seleziona tutti</span>
+                </label>
+                <button type="button" class="btn btn-outline btn-small" onclick="app.deleteSelectedBackups(${mappingIndex})">Elimina selezionati</button>
+            </div>`;
+};
+
+OnlyBackupApp.prototype.renderBackupRows = function(backups, mappingIndex, { includeMappingIndexInDelete = true } = {}) {
+        return backups.map(backup => {
+            const modified = backup.modified
+                ? new Date(backup.modified).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                : 'Data non disponibile';
+            const targetPath = backup.path || backup.name || '';
+            const legacyBadge = backup.legacy ? '<span class="badge badge-warning" title="Backup senza manifest">Legacy</span>' : '';
+            const sizeLabel = backup.size > 0 ? this.formatBytes(backup.size) : '';
+            const slotLabel = Number.isFinite(backup.retention_index)
+                ? `<span class="badge badge-neutral" title="Indice retention">Slot ${backup.retention_index}</span>`
+                : '';
+            const deleteOptions = includeMappingIndexInDelete ? `, { mappingIndex: ${mappingIndex} }` : '';
+
+            return `
+                <div class="backup-row">
+                    <label class="backup-select">
+                        <input type="checkbox" class="backup-checkbox" data-path="${this.escapeForAttribute(targetPath)}" data-mapping-index="${mappingIndex}">
+                        <span class="checkbox-faux"></span>
+                    </label>
+                    <div class="backup-main">
+                        <div class="backup-name">
+                            ${this.escapeHtml(backup.name || 'Backup')}
+                            ${legacyBadge}
+                            ${slotLabel}
+                        </div>
+                        <div class="backup-path">${this.escapeHtml(targetPath)}</div>
+                        ${sizeLabel ? `<div class="backup-size">${this.escapeHtml(sizeLabel)}</div>` : ''}
+                    </div>
+                    <div class="backup-actions">
+                        <div class="backup-meta">${this.escapeHtml(modified)}</div>
+                        <button type="button" class="btn btn-outline btn-small" onclick="app.deleteBackup('${this.escapeForAttribute(targetPath)}'${deleteOptions})">Elimina</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+};
+
+OnlyBackupApp.prototype.renderBackupCardShell = function(mapping, mappingIndex, body, fallbackTitle) {
         return `
             <div class="backup-card" id="backup-card-${mappingIndex}" data-mapping-index="${mappingIndex}">
                 <header>
                     <div>
-                        <div class="mapping-title">${this.escapeHtml(mapping.label || `Mappatura ${mappingIndex + 1}`)}</div>
+                        <div class="mapping-title">${this.escapeHtml(mapping.label || fallbackTitle)}</div>
                         <div class="backup-destination">${this.escapeHtml(mapping.destination_path || 'Destinazione non configurata')}</div>
                     </div>
                     <span class="badge">${this.escapeHtml(mapping.mode || '-')}</span>
@@ -519,10 +479,7 @@ OnlyBackupApp.prototype.renderBackupCard = function(mapping, mappingIndex) {
 };
 
 OnlyBackupApp.prototype.closeBackupsModal = function() {
-        const modal = document.getElementById('backupsModal');
-        if (modal) {
-            modal.classList.add('hidden');
-        }
+        this.closeModal('backupsModal');
 };
 
 OnlyBackupApp.prototype.deleteBackup = async function(path, { skipConfirm = false, skipReload = false, silent = false, mappingIndex = null } = {}) {
@@ -738,8 +695,5 @@ OnlyBackupApp.prototype.buildLogEntriesFromRuns = function(runs = []) {
 };
 
 OnlyBackupApp.prototype.closeLogViewer = function() {
-        const modal = document.getElementById('logViewerModal');
-        if (modal) {
-            modal.classList.add('hidden');
-        }
+        this.closeModal('logViewerModal');
 };

@@ -29,6 +29,8 @@ class OnlyBackupApp {
         this.logViewerMappingIndex = null;
         this.logViewerHasMore = false;
         this.eventSource = null;
+        this.activeModalId = null;
+        this.lastFocusedElement = null;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 10;
         this.sseEnabled = true;
@@ -68,14 +70,69 @@ class OnlyBackupApp {
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                this.closeFilesystemModal();
-                this.closeLogViewer();
+                this.closeActiveModal();
             }
         });
 
         document.addEventListener('visibilitychange', () => {
             this.handleVisibilityChange();
         });
+    }
+
+    openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+
+        this.lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        this.activeModalId = modalId;
+        modal.classList.remove('hidden');
+
+        const focusTarget = modal.querySelector('[autofocus], button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .modal-content');
+        if (focusTarget) {
+            focusTarget.focus();
+        }
+    }
+
+    closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+
+        modal.classList.add('hidden');
+        if (this.activeModalId === modalId) {
+            this.activeModalId = null;
+        }
+
+        if (this.lastFocusedElement && document.contains(this.lastFocusedElement)) {
+            this.lastFocusedElement.focus();
+        }
+        this.lastFocusedElement = null;
+    }
+
+    closeActiveModal() {
+        if (this.activeModalId) {
+            const closeByModal = {
+                deregisterDialog: () => this.closeDeregisterDialog(),
+                clearLogsDialog: () => this.closeClearLogsDialog(),
+                filesystemModal: () => this.closeFilesystemModal(),
+                logViewerModal: () => this.closeLogViewer(),
+                backupsModal: () => this.closeBackupsModal()
+            };
+            const close = closeByModal[this.activeModalId];
+            if (close) {
+                close();
+            }
+        }
+    }
+
+    handleKeyboardAction(event, action) {
+        if (event.currentTarget && event.target !== event.currentTarget) {
+            return;
+        }
+        if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+        }
+        event.preventDefault();
+        action();
     }
 
     connectSSE() {
@@ -279,6 +336,30 @@ class OnlyBackupApp {
         if (state === 'ready') {
             rows.forEach((row) => row.classList.add('hidden'));
         }
+    }
+
+    setTabState(tabName) {
+        const tabs = [
+            { name: 'jobs', buttonId: 'jobsTabButton', panelId: 'jobsTab' },
+            { name: 'runs', buttonId: 'runsTabButton', panelId: 'runsTab' }
+        ];
+
+        tabs.forEach((tab) => {
+            const selected = tab.name === tabName;
+            const button = document.getElementById(tab.buttonId);
+            const panel = document.getElementById(tab.panelId);
+
+            if (button) {
+                button.classList.toggle('active', selected);
+                button.setAttribute('aria-selected', selected ? 'true' : 'false');
+                button.tabIndex = selected ? 0 : -1;
+            }
+
+            if (panel) {
+                panel.classList.toggle('hidden', !selected);
+                panel.hidden = !selected;
+            }
+        });
     }
 
     normalizeRunStatus(status) {

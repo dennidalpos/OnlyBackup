@@ -54,7 +54,10 @@ function createRouteSupport({ authManager, storage, logger }) {
   };
 
   const buildOAuthRedirect = (returnTo, params) => {
-    const safeReturnTo = typeof returnTo === 'string' && returnTo.startsWith('/')
+    const safeReturnTo = typeof returnTo === 'string'
+      && returnTo.startsWith('/')
+      && !returnTo.startsWith('//')
+      && !returnTo.includes('\\')
       ? returnTo
       : '/email-settings.html';
     const search = new URLSearchParams(params);

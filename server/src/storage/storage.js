@@ -3,6 +3,12 @@ const path = require('path');
 const cacheManager = require('./cacheManager');
 const eventBus = require('../events/eventBus');
 
+function safeFileStem(value, fallback = 'item') {
+  const raw = value === undefined || value === null ? fallback : String(value);
+  const safe = raw.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^\.+|\.+$/g, '');
+  return safe || fallback;
+}
+
 class Storage {
   constructor(dataRoot, logger) {
     this.dataRoot = dataRoot;
@@ -45,7 +51,7 @@ class Storage {
   }
 
   loadJob(jobId) {
-    const jobPath = path.join(this.dataRoot, 'state', 'jobs', `${jobId}.json`);
+    const jobPath = path.join(this.dataRoot, 'state', 'jobs', `${safeFileStem(jobId, 'job')}.json`);
     try {
       if (!fs.existsSync(jobPath)) {
         return null;
@@ -59,7 +65,7 @@ class Storage {
   }
 
   saveJob(job) {
-    const jobPath = path.join(this.dataRoot, 'state', 'jobs', `${job.job_id}.json`);
+    const jobPath = path.join(this.dataRoot, 'state', 'jobs', `${safeFileStem(job.job_id, 'job')}.json`);
     try {
       const isNew = !fs.existsSync(jobPath);
       fs.writeFileSync(jobPath, JSON.stringify(job, null, 2), 'utf8');
@@ -82,7 +88,7 @@ class Storage {
   }
 
   deleteJob(jobId) {
-    const jobPath = path.join(this.dataRoot, 'state', 'jobs', `${jobId}.json`);
+    const jobPath = path.join(this.dataRoot, 'state', 'jobs', `${safeFileStem(jobId, 'job')}.json`);
     try {
       if (fs.existsSync(jobPath)) {
         fs.unlinkSync(jobPath);
@@ -137,7 +143,7 @@ class Storage {
   }
 
   loadRun(runId) {
-    const runPath = path.join(this.dataRoot, 'state', 'runs', `${runId}.json`);
+    const runPath = path.join(this.dataRoot, 'state', 'runs', `${safeFileStem(runId, 'run')}.json`);
     try {
       if (!fs.existsSync(runPath)) {
         return null;
@@ -151,7 +157,7 @@ class Storage {
   }
 
   saveRun(run) {
-    const runPath = path.join(this.dataRoot, 'state', 'runs', `${run.run_id}.json`);
+    const runPath = path.join(this.dataRoot, 'state', 'runs', `${safeFileStem(run.run_id, 'run')}.json`);
     try {
       fs.writeFileSync(runPath, JSON.stringify(run, null, 2), 'utf8');
       this.updateRunsIndex(run);
@@ -280,7 +286,7 @@ class Storage {
   }
 
   saveAgentHeartbeat(heartbeat) {
-    const agentPath = path.join(this.dataRoot, 'state', 'agents', `${heartbeat.hostname}.json`);
+    const agentPath = path.join(this.dataRoot, 'state', 'agents', `${safeFileStem(heartbeat.hostname, 'agent')}.json`);
 
     try {
       const normalized = {
@@ -303,7 +309,7 @@ class Storage {
   }
 
   loadAgentHeartbeat(hostname) {
-    const agentPath = path.join(this.dataRoot, 'state', 'agents', `${hostname}.json`);
+    const agentPath = path.join(this.dataRoot, 'state', 'agents', `${safeFileStem(hostname, 'agent')}.json`);
 
     try {
       if (!fs.existsSync(agentPath)) {
@@ -345,7 +351,7 @@ class Storage {
   }
 
   deleteAgentHeartbeat(hostname) {
-    const agentPath = path.join(this.dataRoot, 'state', 'agents', `${hostname}.json`);
+    const agentPath = path.join(this.dataRoot, 'state', 'agents', `${safeFileStem(hostname, 'agent')}.json`);
 
     try {
       if (fs.existsSync(agentPath)) {
@@ -512,7 +518,7 @@ class Storage {
 
   // Alert Management
   loadAlert(alertId) {
-    const alertPath = path.join(this.dataRoot, 'state', 'alerts', `${alertId}.json`);
+    const alertPath = path.join(this.dataRoot, 'state', 'alerts', `${safeFileStem(alertId, 'alert')}.json`);
     try {
       if (!fs.existsSync(alertPath)) {
         return null;
@@ -526,7 +532,7 @@ class Storage {
   }
 
   saveAlert(alert) {
-    const alertPath = path.join(this.dataRoot, 'state', 'alerts', `${alert.alert_id}.json`);
+    const alertPath = path.join(this.dataRoot, 'state', 'alerts', `${safeFileStem(alert.alert_id, 'alert')}.json`);
     try {
       fs.writeFileSync(alertPath, JSON.stringify(alert, null, 2), 'utf8');
 
@@ -595,7 +601,7 @@ class Storage {
   }
 
   deleteAlert(alertId) {
-    const alertPath = path.join(this.dataRoot, 'state', 'alerts', `${alertId}.json`);
+    const alertPath = path.join(this.dataRoot, 'state', 'alerts', `${safeFileStem(alertId, 'alert')}.json`);
     try {
       if (fs.existsSync(alertPath)) {
         fs.unlinkSync(alertPath);

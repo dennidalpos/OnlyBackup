@@ -245,6 +245,11 @@
     background: var(--surface-hover);
     border-color: var(--primary-color);
 }
+.copy-token:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-color: var(--primary-color);
+}
 
 .copy-token:active {
     transform: translateY(1px);
@@ -599,7 +604,8 @@
     }
 }
 @media (max-width: 900px) {
-    .topbar { grid-template-columns: 1fr; justify-items: start; }
+    .topbar { grid-template-columns: 1fr; justify-items: start; flex-wrap: wrap; }
+    .topbar .user-info { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
     .dashboard-layout { grid-template-columns: 1fr; }
     .workspace-grid { grid-template-columns: 1fr; }
     .topbar-stats { width: 100%; }

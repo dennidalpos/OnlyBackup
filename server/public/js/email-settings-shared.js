@@ -12,7 +12,7 @@
         }
 
         const messageClass = type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'error';
-        container.innerHTML = `<div class="status-message ${messageClass}">${defaultEscapeHtml(message)}</div>`;
+        container.innerHTML = `<div class="status-message ${messageClass}" role="${messageClass === 'error' ? 'alert' : 'status'}">${defaultEscapeHtml(message)}</div>`;
     }
 
     function defaultSwitchTab(tabName) {
@@ -21,7 +21,10 @@
 
         tabButtons.forEach((button, index) => {
             if (useDataset) {
-                button.classList.toggle('active', button.dataset.tab === tabName);
+                const selected = button.dataset.tab === tabName;
+                button.classList.toggle('active', selected);
+                button.setAttribute('aria-selected', selected ? 'true' : 'false');
+                button.tabIndex = selected ? 0 : -1;
                 return;
             }
 
@@ -30,15 +33,19 @@
                 (tabName === 'templates' && index === tabButtons.length - 1);
 
             button.classList.toggle('active', shouldActivate);
+            button.setAttribute('aria-selected', shouldActivate ? 'true' : 'false');
+            button.tabIndex = shouldActivate ? 0 : -1;
         });
 
         document.querySelectorAll('.tab-content').forEach((content) => {
             content.classList.remove('active');
+            content.hidden = true;
         });
 
         const targetTab = document.getElementById(`${tabName}Tab`);
         if (targetTab) {
             targetTab.classList.add('active');
+            targetTab.hidden = false;
         }
     }
 
