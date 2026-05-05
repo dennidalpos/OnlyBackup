@@ -29,8 +29,7 @@ class AuthManager {
       this.storage.saveUsers([defaultAdmin]);
       this.logger.warn('Utente admin bootstrap creato', {
         username: 'admin',
-        generatedPassword: !process.env.ONLYBACKUP_INITIAL_ADMIN_PASSWORD && !process.env.ADMIN_PASSWORD,
-        initialPassword
+        generatedPassword: !process.env.ONLYBACKUP_INITIAL_ADMIN_PASSWORD && !process.env.ADMIN_PASSWORD
       });
     }
   }

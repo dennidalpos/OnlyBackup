@@ -4,10 +4,14 @@ Questa guida e pensata per chi deve avviare OnlyBackup per la prima volta su Win
 
 ## Prima Di Iniziare
 
-Ti servono solo:
+Per avviare solo il server ti servono:
 - Windows;
-- Node.js 18 o superiore;
+- Node.js 20.19.0 o superiore;
 - una finestra PowerShell aperta nella root del repository.
+
+`npm` deve essere disponibile nel `PATH` insieme a Node.js. Le dipendenze applicative vengono installate dal bootstrap con `npm ci`, quindi non serve eseguire comandi npm manuali prima del setup.
+
+Se Node.js, npm o un prerequisito richiesto mancano, gli script di setup si fermano prima di completare l'installazione e mostrano: nome software, versione minima, motivo, azione richiesta e comando di verifica.
 
 Percorso di esempio:
 
@@ -20,8 +24,8 @@ Set-Location D:\GITHUB\OnlyBackup
 Esegui questi comandi nell'ordine indicato:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -InitialAdminPassword "ChangeMe123!"
-powershell -ExecutionPolicy Bypass -File .\scripts\doctor.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\Initialize-OnlyBackup.ps1 -InitialAdminPassword "ChangeMe123!"
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-OnlyBackupPrerequisites.ps1
 Set-Location .\server
 npm start
 ```
@@ -34,20 +38,22 @@ http://localhost:8080/
 
 ## Cosa Fanno I Comandi
 
-### `bootstrap.ps1`
+### `Initialize-OnlyBackup.ps1`
 
 Prepara il minimo indispensabile per il server:
 - installa le dipendenze Node.js con `npm ci`;
 - crea le cartelle locali usate dall'applicazione sotto `data\`;
 - crea l'utente `admin` se non esiste ancora.
 
-### `doctor.ps1`
+### `Test-OnlyBackupPrerequisites.ps1`
 
 Controlla che il setup sia realmente pronto:
 - verifica Node.js e npm;
+- blocca Node.js assente o precedente a 20.19.0 con istruzioni di installazione;
 - verifica `config.json`;
 - verifica le dipendenze installate;
 - verifica la presenza delle directory dati minime;
+- verifica `robocopy.exe`, incluso nei client Windows 10/11 aggiornati e usato dall'agent per le copie;
 - segnala anche la disponibilita degli strumenti opzionali per MSI e servizio Windows.
 
 ### `npm start`
@@ -60,7 +66,7 @@ Al primo avvio usa:
 - utente: `admin`
 - password: quella passata a `-InitialAdminPassword`
 
-Se `admin` esiste gia, il bootstrap non modifica l'utente e non cambia la password.
+Se `admin` esiste gia, lo script di setup non modifica l'utente e non cambia la password.
 
 ## Configurazione Base
 
@@ -99,7 +105,7 @@ Esempio dei campi piu importanti:
 ## Configurazione Consigliata Per Un Primo Test
 
 Per una prova semplice puoi lasciare `config.json` cosi come si trova nel repository e:
-1. eseguire il bootstrap;
+1. eseguire `Initialize-OnlyBackup.ps1`;
 2. avviare il server;
 3. aprire `http://localhost:8080/`;
 4. accedere con `admin`;
@@ -123,6 +129,12 @@ Poi avvia PowerShell come amministratore ed esegui:
 powershell -ExecutionPolicy Bypass -File .\scripts\Install-OnlyBackupServerService.ps1
 ```
 
+Lo script non registra il servizio se Node.js e troppo vecchio, se `server\node_modules` manca o se i dati iniziali non sono stati creati. In quel caso esegui prima:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Initialize-OnlyBackup.ps1 -InitialAdminPassword "ChangeMe123!"
+```
+
 ## Generare L'Agent Windows
 
 Questa parte serve se vuoi creare il pacchetto MSI dell'agent da installare sui PC client.
@@ -131,13 +143,18 @@ Questa parte serve se vuoi creare il pacchetto MSI dell'agent da installare sui 
 
 Per generare l'MSI ti servono anche:
 - MSBuild compatibile con Visual Studio o Build Tools;
-- WiX Toolset 3.14.
+- .NET Framework 4.6.2 Developer Pack/Targeting Pack per le reference assembly di build;
+- WiX Toolset 3.14 installato nel sistema oppure la copia gia presente in `tools\wix314-binaries\`.
+
+Lo script di build scarica e verifica automaticamente l'installer offline .NET Framework 4.6.2 usato dal pacchetto MSI, salvandolo in `scripts\wix\payload\`.
 
 Puoi verificare i prerequisiti con:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\doctor.ps1 -RequirePackagingToolchain
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-OnlyBackupPrerequisites.ps1 -RequirePackagingToolchain
 ```
+
+Se il Targeting Pack .NET Framework 4.6.2 manca, la build MSI viene interrotta prima di MSBuild con un messaggio esplicito. Questo evita build apparentemente riuscite usando assembly non dichiarati della macchina locale.
 
 ### Scelta Del Server Da Contattare
 
@@ -162,6 +179,8 @@ Per creare un MSI che punta al server locale:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Build-AgentMsi.ps1 -UseLocalhost -WixPath .\tools\wix314-binaries
 ```
+
+Se `tools\wix314-binaries\` e presente, lo script lo rileva automaticamente e `-WixPath` puo essere omesso.
 
 ### Generazione MSI Per Un Server Reale
 
@@ -256,7 +275,7 @@ Restart-Service OnlyBackupAgent
 Per controllare che l'agent sia installato correttamente:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Quick-Check.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-OnlyBackupAgentInstall.ps1
 ```
 
 La verifica controlla:
@@ -269,7 +288,13 @@ La verifica controlla:
 Verificare il setup:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\doctor.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-OnlyBackupPrerequisites.ps1
+```
+
+Verificare automaticamente messaggio di prerequisito assente e percorso preflight riuscito:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-OnlyBackupPrerequisites.ps1 -SelfTest
 ```
 
 Pulire le dipendenze e gli output locali:
@@ -281,17 +306,26 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Clean-Repository.ps1 -Include
 Reinstallare solo le dipendenze senza toccare i dati:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -SkipDataInitialization
+powershell -ExecutionPolicy Bypass -File .\scripts\Initialize-OnlyBackup.ps1 -SkipDataInitialization
 ```
 
 ## Problemi Comuni
 
-### `doctor.ps1` segnala dipendenze mancanti
+### `Test-OnlyBackupPrerequisites.ps1` segnala una versione Node.js non compatibile
+
+Installa Node.js 20.19.0 o superiore e riapri PowerShell, poi verifica:
+
+```powershell
+node --version
+npm --version
+```
+
+### `Test-OnlyBackupPrerequisites.ps1` segnala dipendenze mancanti
 
 Riesegui:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\Initialize-OnlyBackup.ps1
 ```
 
 ### La porta 8080 e occupata
@@ -306,7 +340,7 @@ Poi riavvia il server.
 
 ### Vuoi cambiare il percorso dei dati
 
-Modifica `dataRoot` in `config.json` prima di eseguire il bootstrap.
+Modifica `dataRoot` in `config.json` prima di eseguire `Initialize-OnlyBackup.ps1`.
 
 Esempio:
 
@@ -330,7 +364,7 @@ Restart-Service OnlyBackupAgent
 
 ## Note Importanti
 
-- `doctor.ps1` non modifica il repository.
+- `Test-OnlyBackupPrerequisites.ps1` non modifica il repository.
 - `Clean-Repository.ps1` non rimuove automaticamente `data\`.
 - Gli strumenti per build MSI e agent Windows non servono per il primo avvio del solo server.
 - Lo script `Build-AgentMsi.ps1` e non interattivo solo se usi `-UseLocalhost` oppure `-ServerHost`.

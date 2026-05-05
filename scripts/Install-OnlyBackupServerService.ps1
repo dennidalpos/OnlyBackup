@@ -9,6 +9,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+$requiredNodeVersion = [version]"20.19.0"
 
 function Assert-Administrator {
     $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).
@@ -45,7 +46,13 @@ function Resolve-NssmExecutablePath {
         }
     }
 
-    throw "Impossibile trovare nssm. Copia nssm.exe in tools\nssm\ oppure passa -NssmPath esplicito."
+    throw @"
+Prerequisito mancante: nssm
+Versione minima/supportata: versione stabile corrente di nssm 2.x per Windows
+Motivo: serve per registrare OnlyBackup Server come servizio Windows.
+Azione richiesta: copia nssm.exe in tools\nssm\, tools\nssm\win64\ o tools\nssm\win32\, oppure passa -NssmPath con il percorso completo.
+Verifica: .\tools\nssm\win64\nssm.exe version
+"@
 }
 
 function Invoke-Nssm {
@@ -84,7 +91,63 @@ function Resolve-ExecutablePath {
         return $resolved.Path
     }
 
-    throw ("Impossibile trovare {0}: {1}" -f $FallbackLabel, $Executable)
+    throw @"
+Prerequisito mancante: $FallbackLabel
+Versione minima/supportata: Node.js >= $requiredNodeVersion con npm incluso
+Motivo: il servizio Windows avvia il server OnlyBackup tramite Node.js.
+Azione richiesta: installa Node.js LTS 20.x o superiore dal sito ufficiale https://nodejs.org/ e riapri PowerShell, oppure passa -NodePath con il percorso completo di node.exe.
+Verifica: node --version
+"@
+}
+
+function Assert-NodeVersion {
+    param([Parameter(Mandatory = $true)][string]$Executable)
+
+    $rawVersion = (& $Executable --version).Trim()
+    $versionText = $rawVersion.TrimStart("v")
+    $version = $null
+
+    if (-not [version]::TryParse($versionText, [ref]$version)) {
+        throw "Prerequisito non verificabile: Node.js ha restituito una versione non interpretabile: $rawVersion. Verifica con: node --version"
+    }
+
+    if ($version -lt $requiredNodeVersion) {
+        throw @"
+Prerequisito non compatibile: Node.js
+Versione trovata: $rawVersion
+Versione minima/supportata: >= $requiredNodeVersion
+Motivo: il servizio Windows avvia il server OnlyBackup e le dipendenze npm richiedono Node.js moderno.
+Azione richiesta: installa Node.js LTS 20.x o superiore dal sito ufficiale https://nodejs.org/ e riapri PowerShell, oppure passa -NodePath con un node.exe compatibile.
+Verifica: node --version
+"@
+    }
+}
+
+function Assert-ServerSetupCompleted {
+    param([Parameter(Mandatory = $true)][string]$ServerDirectory)
+
+    $nodeModulesPath = Join-Path $ServerDirectory "node_modules"
+    $usersFilePath = Join-Path $repoRoot "data\users\users.json"
+
+    if (-not (Test-Path $nodeModulesPath)) {
+        throw @"
+Prerequisito di setup mancante: dipendenze npm server
+Versione minima/supportata: package-lock.json del repository corrente
+Motivo: il servizio Windows avvia il server senza eseguire npm ci automaticamente.
+Azione richiesta: esegui powershell -ExecutionPolicy Bypass -File .\scripts\Initialize-OnlyBackup.ps1 prima di installare il servizio.
+Verifica: Test-Path .\server\node_modules
+"@
+    }
+
+    if (-not (Test-Path $usersFilePath)) {
+        throw @"
+Prerequisito di setup mancante: dati iniziali OnlyBackup
+Versione minima/supportata: struttura data\ creata dallo script Initialize-OnlyBackup.ps1
+Motivo: al primo avvio il servizio deve trovare utente admin e directory dati gia inizializzati.
+Azione richiesta: esegui powershell -ExecutionPolicy Bypass -File .\scripts\Initialize-OnlyBackup.ps1 -InitialAdminPassword "ChangeMe123!" prima di installare il servizio.
+Verifica: Test-Path .\data\users\users.json
+"@
+    }
 }
 if (-not $AppDirectory) {
     $AppDirectory = Join-Path $repoRoot "server"
@@ -101,11 +164,14 @@ if (-not $nodeExecutable) {
 
 $nssmExecutable = Resolve-NssmExecutablePath -Executable $NssmPath
 $nodeExecutable = Resolve-ExecutablePath -Executable $nodeExecutable -FallbackLabel "node"
+Assert-NodeVersion -Executable $nodeExecutable
 
 $serverEntry = Join-Path $AppDirectory "src\server.js"
 if (-not (Test-Path $serverEntry)) {
     throw "Entry server non trovata: $serverEntry"
 }
+
+Assert-ServerSetupCompleted -ServerDirectory $AppDirectory
 
 $logsDir = Join-Path $repoRoot "logs"
 if (-not (Test-Path $logsDir)) {

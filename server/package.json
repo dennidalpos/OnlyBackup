@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "set NODE_ENV=development&& node src/server.js",
-    "test": "set NODE_ENV=test&& set ONLYBACKUP_INITIAL_ADMIN_PASSWORD=TestOnlyBackup123!&& node ../scripts/Test-ServerSmoke.js"
+    "test": "set NODE_ENV=test&& set ONLYBACKUP_INITIAL_ADMIN_PASSWORD=TestOnlyBackup123!&& node ../scripts/support/Test-OnlyBackupServerSmoke.js"
   },
   "keywords": [
     "backup",
@@ -28,7 +28,7 @@
     "winston-daily-rotate-file": "^5.0.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.19.0"
   },
   "packageManager": "npm@11.7.0"
 }

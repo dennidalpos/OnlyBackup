@@ -17,20 +17,67 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $serverDir = Join-Path $repoRoot "server"
 $packageLockPath = Join-Path $serverDir "package-lock.json"
 $configPath = Join-Path $repoRoot "config.json"
-$initDataScript = Join-Path $PSScriptRoot "init-data.js"
+$initDataScript = Join-Path $PSScriptRoot "support\Initialize-OnlyBackupData.js"
+$requiredNodeVersion = [version]"20.19.0"
 
 function Resolve-RequiredCommand {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$Name
+        [string]$Name,
+
+        [Parameter(Mandatory = $true)]
+        [string]$SoftwareName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$MinimumVersion,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Reason,
+
+        [Parameter(Mandatory = $true)]
+        [string]$InstallInstruction,
+
+        [Parameter(Mandatory = $true)]
+        [string]$VerificationCommand
     )
 
     $command = Get-Command $Name -ErrorAction SilentlyContinue
     if (-not $command) {
-        throw "Comando richiesto non trovato: $Name"
+        throw @"
+Prerequisito mancante: $SoftwareName
+Versione minima/supportata: $MinimumVersion
+Motivo: $Reason
+Azione richiesta: $InstallInstruction
+Verifica: $VerificationCommand
+"@
     }
 
     return $command.Path
+}
+
+function Test-NodeVersion {
+    param([Parameter(Mandatory = $true)][string]$NodeExecutable)
+
+    $rawVersion = (& $NodeExecutable --version).Trim()
+    $versionText = $rawVersion.TrimStart("v")
+    $version = $null
+
+    if (-not [version]::TryParse($versionText, [ref]$version)) {
+        throw "Prerequisito non verificabile: Node.js ha restituito una versione non interpretabile: $rawVersion. Verifica con: node --version"
+    }
+
+    if ($version -lt $requiredNodeVersion) {
+        throw @"
+Prerequisito non compatibile: Node.js
+Versione trovata: $rawVersion
+Versione minima/supportata: >= $requiredNodeVersion
+Motivo: il server OnlyBackup usa dipendenze npm bloccate da package-lock.json e richiede Node.js moderno.
+Azione richiesta: installa Node.js LTS 20.x o superiore dal sito ufficiale https://nodejs.org/ e riapri PowerShell.
+Verifica: node --version
+"@
+    }
+
+    Write-Host "Node.js compatibile: $rawVersion" -ForegroundColor Green
 }
 
 function Invoke-CheckedCommand {
@@ -71,11 +118,26 @@ if (-not (Test-Path $configPath)) {
 }
 
 if (-not (Test-Path $initDataScript)) {
-    throw "Script init-data.js non trovato: $initDataScript"
+    throw "Script support\Initialize-OnlyBackupData.js non trovato: $initDataScript"
 }
 
-$nodeExecutable = Resolve-RequiredCommand -Name "node"
-$npmExecutable = Resolve-RequiredCommand -Name "npm"
+$nodeExecutable = Resolve-RequiredCommand `
+    -Name "node" `
+    -SoftwareName "Node.js" `
+    -MinimumVersion ">= $requiredNodeVersion" `
+    -Reason "serve per eseguire il server OnlyBackup e lo script di inizializzazione dati" `
+    -InstallInstruction "installa Node.js LTS 20.x o superiore dal sito ufficiale https://nodejs.org/ e riapri PowerShell" `
+    -VerificationCommand "node --version"
+
+Test-NodeVersion -NodeExecutable $nodeExecutable
+
+$npmExecutable = Resolve-RequiredCommand `
+    -Name "npm" `
+    -SoftwareName "npm" `
+    -MinimumVersion "incluso con Node.js LTS 20.x o superiore" `
+    -Reason "serve per installare le dipendenze server con npm ci da package-lock.json" `
+    -InstallInstruction "installa Node.js LTS dal sito ufficiale https://nodejs.org/ includendo npm, poi riapri PowerShell" `
+    -VerificationCommand "npm --version"
 
 Write-Host "Repository root: $repoRoot" -ForegroundColor Cyan
 Write-Host "Server directory: $serverDir" -ForegroundColor Cyan
@@ -115,8 +177,8 @@ else {
 }
 
 Write-Host "" 
-Write-Host "Bootstrap completato." -ForegroundColor Green
+Write-Host "Setup iniziale completato." -ForegroundColor Green
 Write-Host "Passi successivi consigliati:" -ForegroundColor Green
-Write-Host "  1. powershell -ExecutionPolicy Bypass -File .\scripts\doctor.ps1" -ForegroundColor Green
+Write-Host "  1. powershell -ExecutionPolicy Bypass -File .\scripts\Test-OnlyBackupPrerequisites.ps1" -ForegroundColor Green
 Write-Host "  2. Set-Location .\server" -ForegroundColor Green
 Write-Host "  3. npm start" -ForegroundColor Green

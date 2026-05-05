@@ -23,6 +23,9 @@
              Comments="Installazione OnlyBackup Agent per Windows"
              Manufacturer="$(var.Manufacturer)" />
 
+    <Icon Id="OnlyBackupAgentIcon" SourceFile="$(var.ProjectDir)\Assets\OnlyBackupAgent.ico" />
+    <Property Id="ARPPRODUCTICON" Value="OnlyBackupAgentIcon" />
+
     <Property Id="NETFRAMEWORK462">
       <RegistrySearch Id="NetFramework462Release"
                       Root="HKLM"

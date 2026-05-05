@@ -9,10 +9,10 @@ param(
     [switch]$UseLocalhost,
 
     [Parameter()]
-    [string]$WixPath = "C:\Program Files (x86)\WiX Toolset v3.14\bin",
+    [string]$WixPath,
 
     [Parameter()]
-    [string]$MsBuildPath = "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe",
+    [string]$MsBuildPath,
 
     [Parameter()]
     [string]$Configuration = "Release",
@@ -161,6 +161,13 @@ function Test-BuildPrerequisites {
     return $true
 }
 
+function Test-DotNet462TargetingPack {
+    $referenceAssembliesPath = "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.6.2"
+    $mscorlibReference = Join-Path $referenceAssembliesPath "mscorlib.dll"
+
+    return (Test-Path $mscorlibReference)
+}
+
 Write-Header "OnlyBackup Agent - Build MSI Script"
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -207,8 +214,11 @@ Write-Info "Configurazione: $Configuration"
 
 Write-Header "Verifica Prerequisiti"
 
-if (-not (Test-Path $MsBuildPath)) {
+if (-not $MsBuildPath -or -not (Test-Path $MsBuildPath)) {
     $AlternativePaths = @(
+        (Get-Command "MSBuild.exe" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -First 1),
+        "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe",
+        "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe",
         "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\MSBuild.exe",
         "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin\MSBuild.exe",
         "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\MSBuild.exe"
@@ -216,6 +226,10 @@ if (-not (Test-Path $MsBuildPath)) {
 
     $MsBuildFound = $false
     foreach ($path in $AlternativePaths) {
+        if (-not $path) {
+            continue
+        }
+
         if (Test-Path $path) {
             $MsBuildPath = $path
             $MsBuildFound = $true
@@ -231,11 +245,45 @@ if (-not (Test-Path $MsBuildPath)) {
 
 Write-Success "MSBuild trovato: $MsBuildPath"
 
+if (-not (Test-DotNet462TargetingPack)) {
+    Write-ErrorMessage @"
+Prerequisito mancante: .NET Framework 4.6.2 Developer Pack/Targeting Pack
+Versione minima/supportata: .NET Framework 4.6.2 Targeting Pack
+Motivo: serve a MSBuild per compilare agent\OnlyBackupAgent\OnlyBackupAgent.csproj con TargetFrameworkVersion v4.6.2 senza usare assembly dalla GAC.
+Azione richiesta: installa ".NET Framework 4.6.2 Developer Pack" dal sito ufficiale Microsoft oppure aggiungi il componente targeting pack tramite Visual Studio Build Tools.
+Verifica: Test-Path 'C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.6.2\mscorlib.dll'
+"@
+    exit 1
+}
+
+Write-Success ".NET Framework 4.6.2 Targeting Pack trovato"
+
+if (-not $WixPath) {
+    $WixPathCandidates = @(
+        (Join-Path $RootDir "tools\wix314-binaries"),
+        "C:\Program Files (x86)\WiX Toolset v3.14\bin"
+    )
+
+    foreach ($path in $WixPathCandidates) {
+        if ((Test-Path (Join-Path $path "candle.exe")) -and (Test-Path (Join-Path $path "light.exe"))) {
+            $WixPath = $path
+            break
+        }
+    }
+}
+
+$WixPathLabel = if ($WixPath) { $WixPath } else { "<non impostato>" }
+if (-not $WixPath) {
+    Write-ErrorMessage "WiX Toolset 3.14 non trovato in: $WixPathLabel"
+    Write-Info "Scarica WiX 3.14 da: https://github.com/wixtoolset/wix3/releases"
+    exit 1
+}
+
 $CandleExe = Join-Path $WixPath "candle.exe"
 $LightExe = Join-Path $WixPath "light.exe"
 
 if (-not (Test-Path $CandleExe) -or -not (Test-Path $LightExe)) {
-    Write-ErrorMessage "WiX Toolset 3.14 non trovato in: $WixPath"
+    Write-ErrorMessage "WiX Toolset 3.14 non trovato in: $WixPathLabel"
     Write-Info "Scarica WiX 3.14 da: https://github.com/wixtoolset/wix3/releases"
     exit 1
 }
@@ -500,5 +548,5 @@ Write-Info "Per installare l'agent su un client Windows:"
 Write-Host "  msiexec /i OnlyBackupAgent.msi /qn" -ForegroundColor Cyan
 Write-Host ""
 Write-Info "Per testare l'upgrade (sviluppatori):"
-Write-Host "  .\scripts\Test-MsiUpgrade.ps1 -OldMsiPath <vecchio.msi> -NewMsiPath $MsiFile" -ForegroundColor Cyan
+Write-Host "  .\scripts\Test-AgentMsiUpgrade.ps1 -OldMsiPath <vecchio.msi> -NewMsiPath $MsiFile" -ForegroundColor Cyan
 Write-Host ""

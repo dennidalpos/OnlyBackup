@@ -1,3 +1,41 @@
+const REQUIRED_NODE_VERSION = [20, 19, 0];
+
+function compareNodeVersion(actual, required) {
+  for (let index = 0; index < required.length; index += 1) {
+    const actualPart = actual[index] || 0;
+    const requiredPart = required[index] || 0;
+
+    if (actualPart > requiredPart) {
+      return 1;
+    }
+
+    if (actualPart < requiredPart) {
+      return -1;
+    }
+  }
+
+  return 0;
+}
+
+function assertRuntimePrerequisites() {
+  const actual = process.versions.node.split('.').map(part => Number.parseInt(part, 10));
+
+  if (actual.some(part => Number.isNaN(part)) || compareNodeVersion(actual, REQUIRED_NODE_VERSION) < 0) {
+    throw new Error(
+      [
+        'Prerequisito non compatibile: Node.js',
+        `Versione trovata: v${process.versions.node}`,
+        'Versione minima/supportata: >= 20.19.0',
+        'Motivo: il server OnlyBackup usa dipendenze npm che richiedono Node.js moderno.',
+        'Azione richiesta: installa Node.js LTS 20.x o superiore dal sito ufficiale https://nodejs.org/ e riapri PowerShell.',
+        'Verifica: node --version'
+      ].join('\n')
+    );
+  }
+}
+
+assertRuntimePrerequisites();
+
 const express = require('express');
 const compression = require('compression');
 const cookieParser = require('cookie-parser');

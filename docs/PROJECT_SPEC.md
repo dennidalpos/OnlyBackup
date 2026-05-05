@@ -23,13 +23,14 @@ Fornire un sistema centralizzato di backup e restore per client Windows, compost
 - `server/src/api/routes.js`: punto di composizione delle API HTTP; le aree operative principali sono distribuite in moduli dedicati sotto `server/src/api/`.
 - `server/src/storage/`: persistenza file-based sotto `dataRoot`, con directory per config, stato, utenti, log e alert.
 - `server/public/`: dashboard HTML/CSS/JS servita come frontend statico, con asset frontend suddivisi in piu file per aree funzionali.
+- `server/public/assets/brand/`: logo, mark, favicon, web manifest icons e immagini social di OnlyBackup.
 - `agent/OnlyBackupAgent/`: agent .NET Framework 4.6.2 eseguibile come servizio Windows o console, con componenti di comunicazione HTTP e motore backup basato su filesystem/robocopy.
 - `scripts/`: automazione operativa Windows per installazione del server come servizio NSSM, riavvio server, build MSI, validazione pacchetti e utilita di supporto.
 - `tools/wix314-binaries/`: copia versionata della toolchain WiX 3.14 utilizzabile come alternativa all'installazione globale per il packaging MSI.
 
 ## Constraints
 - Ambiente operativo di riferimento: Windows.
-- Server: Node.js `>= 18`.
+- Server: Node.js `>= 20.19.0`.
 - Agent: .NET Framework 4.6.2.
 - Packaging MSI: WiX Toolset 3.14, installato nel sistema oppure referenziato tramite `-WixPath`.
 - Configurazione server letta da `config.json` nella root o da `CONFIG_PATH`.

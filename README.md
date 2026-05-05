@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="server/public/assets/brand/onlybackup-logo-on-light.svg" alt="OnlyBackup" width="320">
+</p>
+
 # OnlyBackup
 
 OnlyBackup e un sistema centralizzato di backup e restore per ambienti Windows composto da:
@@ -8,11 +12,20 @@ OnlyBackup e un sistema centralizzato di backup e restore per ambienti Windows c
 ## Requisiti
 
 - Windows come ambiente operativo di riferimento.
-- Node.js `>= 18` per il server.
-- .NET Framework 4.6.2 per l'agent.
+- Node.js `>= 20.19.0` per il server.
+- .NET Framework 4.6.2 per eseguire l'agent; .NET Framework 4.6.2 Developer Pack/Targeting Pack per compilarlo.
 - MSBuild compatibile con Visual Studio Build Tools o Visual Studio.
 - WiX Toolset 3.14 per il packaging MSI dell'agent, installato nel sistema oppure disponibile in `tools\wix314-binaries\`.
 - `nssm` se si vuole installare il server come servizio Windows.
+
+Prerequisiti gestiti dagli script:
+- `Initialize-OnlyBackup.ps1` installa le dipendenze server con `npm ci` e inizializza i dati locali;
+- `Build-AgentMsi.ps1` scarica, conserva in `scripts\wix\payload\` e verifica il pacchetto offline .NET Framework 4.6.2 usato dal bootstrapper MSI.
+
+Prerequisiti manuali:
+- Node.js `>= 20.19.0` e npm devono essere gia disponibili nel `PATH`; `Initialize-OnlyBackup.ps1`, `Test-OnlyBackupPrerequisites.ps1`, `Install-OnlyBackupServerService.ps1` e il bootstrap server bloccano l'esecuzione con messaggio esplicito se mancano o sono troppo vecchi;
+- MSBuild e .NET Framework 4.6.2 Developer Pack/Targeting Pack devono essere installati se vuoi compilare l'agent; `Build-AgentMsi.ps1` blocca la build prima del packaging se il Targeting Pack manca;
+- `nssm.exe` deve essere copiato manualmente o disponibile nel `PATH` se vuoi installare il server come servizio; lo script servizio si ferma prima della registrazione se manca o se il setup server non e completo.
 
 ## Setup Iniziale Rapido
 
@@ -23,18 +36,18 @@ Guida dettagliata per utenti finali, setup server e agent:
 Per il primo avvio del server da root repository:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -InitialAdminPassword "ChangeMe123!"
-powershell -ExecutionPolicy Bypass -File .\scripts\doctor.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\Initialize-OnlyBackup.ps1 -InitialAdminPassword "ChangeMe123!"
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-OnlyBackupPrerequisites.ps1
 Set-Location .\server
 npm start
 ```
 
-`bootstrap.ps1` esegue il setup minimo non interattivo:
+`Initialize-OnlyBackup.ps1` esegue il setup minimo non interattivo:
 - installa le dipendenze del server con `npm ci`;
 - inizializza le directory sotto `data\`;
 - crea l'utente `admin` se non esiste gia.
 
-`doctor.ps1` non modifica il repository: verifica prerequisiti e conferma che il setup minimo sia completo.
+`Test-OnlyBackupPrerequisites.ps1` non modifica il repository: verifica prerequisiti e conferma che il setup minimo sia completo.
 
 Il server legge la configurazione da `..\config.json` oppure da `CONFIG_PATH`. Di default l'interfaccia risponde su `http://localhost:8080/`.
 
@@ -47,7 +60,7 @@ Se non passi `-InitialAdminPassword`, lo script di inizializzazione genera una p
 Se vuoi eseguire solo una parte del setup:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -SkipDataInitialization
+powershell -ExecutionPolicy Bypass -File .\scripts\Initialize-OnlyBackup.ps1 -SkipDataInitialization
 ```
 
 Questo installa solo le dipendenze del server senza creare o aggiornare i dati locali.
@@ -70,9 +83,9 @@ Il progetto dell'agent e in `agent\OnlyBackupAgent\OnlyBackupAgent.csproj`.
 
 ### Server
 
-Il server non richiede una fase di build dedicata: dopo `npm install` puo essere eseguito direttamente con Node.js.
+Il server non richiede una fase di build dedicata: dopo `npm ci` puo essere eseguito direttamente con Node.js.
 
-Il repository non espone oggi un entrypoint `compile` o `build` distinto per il server: il flusso operativo principale lato server e `bootstrap -> doctor -> npm start`.
+Il repository non espone oggi un entrypoint `compile` o `build` distinto per il server: il flusso operativo principale lato server e `Initialize-OnlyBackup.ps1 -> Test-OnlyBackupPrerequisites.ps1 -> npm start`.
 
 ### Agent
 
@@ -82,7 +95,7 @@ Per compilare l'agent e creare il pacchetto MSI:
 powershell -ExecutionPolicy Bypass -File .\scripts\Build-AgentMsi.ps1 -UseLocalhost
 ```
 
-Se vuoi usare la toolchain WiX gia presente nel repository senza installazione globale:
+Lo script usa automaticamente la toolchain WiX gia presente in `tools\wix314-binaries\`, se disponibile. Puoi comunque passare un percorso esplicito:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Build-AgentMsi.ps1 -UseLocalhost -WixPath .\tools\wix314-binaries
@@ -132,11 +145,34 @@ Gli script cercano `nssm` prima in `tools\nssm\` e poi nel `PATH`. In alternativ
 ## Test E Verifica
 
 Verifiche disponibili:
-- `scripts\doctor.ps1` controlla prerequisiti minimi del setup iniziale del server e segnala i componenti opzionali mancanti.
+- `scripts\Invoke-RepositoryGate.ps1` esegue il gate locale: parsing script/JSON, preflight, smoke test server e packaging MSI.
+- `scripts\Test-OnlyBackupPrerequisites.ps1` controlla prerequisiti minimi del setup iniziale del server e segnala i componenti opzionali mancanti.
+- `scripts\Test-OnlyBackupPrerequisites.ps1 -SelfTest` verifica il percorso automatico di prerequisito assente, messaggio atteso e preflight riuscito.
 - `npm test` esegue uno smoke test end-to-end del server: bootstrap auth/admin, route alert/email/settings, heartbeat client, CRUD job, esecuzione manuale contro un fake agent, log e backup analyze/delete.
 - `scripts\Validate-MsiPackage.ps1` valida metadati e integrita del pacchetto MSI prodotto.
-- `scripts\Test-MsiUpgrade.ps1` verifica la coerenza di un upgrade tra due MSI.
-- `scripts\Quick-Check.ps1` esegue un controllo rapido di un'installazione Windows dell'agent.
+- `scripts\Test-AgentMsiUpgrade.ps1` verifica la coerenza di un upgrade tra due MSI.
+- `scripts\Test-OnlyBackupAgentInstall.ps1` esegue un controllo rapido di un'installazione Windows dell'agent.
+
+Inventario completo e stato degli script: `scripts\script.md`.
+
+Asset applicativi, brand kit e riferimenti tecnici: `docs\ASSETS.md`.
+
+## Comandi Supportati
+
+| Area | Comando | Stato |
+| --- | --- | --- |
+| Setup server | `powershell -ExecutionPolicy Bypass -File .\scripts\Initialize-OnlyBackup.ps1 -InitialAdminPassword "ChangeMe123!"` | Supportato |
+| Preflight | `powershell -ExecutionPolicy Bypass -File .\scripts\Test-OnlyBackupPrerequisites.ps1` | Supportato |
+| Install dipendenze server | `Set-Location .\server; npm ci` | Supportato |
+| Run server | `Set-Location .\server; npm start` | Supportato, processo long-running |
+| Dev server | `Set-Location .\server; npm run dev` | Supportato, imposta `NODE_ENV=development` |
+| Test server | `Set-Location .\server; npm test` | Supportato |
+| Gate repository | `powershell -ExecutionPolicy Bypass -File .\scripts\Invoke-RepositoryGate.ps1` | Supportato |
+| Audit dipendenze | `Set-Location .\server; npm audit --audit-level=low` | Supportato; oggi segnala vulnerabilita residue tracciate in `PROJECT_STATUS.json` |
+| Build server | nessun comando | Non previsto: server eseguito direttamente da Node.js |
+| Lint/typecheck | nessun comando | Non presente nel manifest |
+| Package agent | `powershell -ExecutionPolicy Bypass -File .\scripts\Build-AgentMsi.ps1 -UseLocalhost` | Supportato |
+| Pulizia output | `powershell -ExecutionPolicy Bypass -File .\scripts\Clean-Repository.ps1` | Supportato; non rimuove `data\` |
 
 ## Publish E Packaging
 
@@ -176,8 +212,9 @@ Lo stato runtime locale sotto `data\` non viene rimosso automaticamente dallo sc
 |-- server/
 |   |-- public/
 |   `-- src/
-|-- AGENTS.md
-|-- PROJECT_SPEC.md
+|-- docs/
+|   |-- PROJECT_SPEC.md
+|   `-- SETUP_UTENTE_FINALE.md
 |-- PROJECT_STATUS.json
 |-- README.md
 |-- LICENSE

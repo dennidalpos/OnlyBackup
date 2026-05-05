@@ -4,7 +4,7 @@ const http = require('http');
 const os = require('os');
 const path = require('path');
 
-const OnlyBackupServer = require('../server/src/server');
+const OnlyBackupServer = require('../../server/src/server');
 
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {

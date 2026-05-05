@@ -296,6 +296,13 @@
     display: grid;
     place-items: center;
     font-weight: 700;
+    overflow: hidden;
+    flex: 0 0 auto;
+}
+.brand-mark img {
+    width: 100%;
+    height: 100%;
+    display: block;
 }
 .brand-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
 .brand-subtitle { font-size: 0.75rem; color: var(--text-secondary); }

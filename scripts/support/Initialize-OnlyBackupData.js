@@ -1,14 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const bcrypt = require('../server/node_modules/bcryptjs');
+const bcrypt = require('../../server/node_modules/bcryptjs');
 
 function resolveConfigPath() {
   const candidates = [
     process.env.CONFIG_PATH,
     path.join(process.cwd(), 'config.json'),
     path.join(process.cwd(), '..', 'config.json'),
-    path.join(__dirname, '..', 'config.json')
+    path.join(__dirname, '..', '..', 'config.json')
   ].filter(Boolean);
 
   for (const candidate of candidates) {

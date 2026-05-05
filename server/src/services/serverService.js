@@ -64,7 +64,7 @@ class ServerService {
   restartWindows(cwd, nodeArgs) {
     this.logger.info('Riavvio Windows in corso', { cwd });
 
-    const restartScript = path.resolve(cwd, '..', 'scripts', 'Restart-OnlyBackupServer.ps1');
+    const restartScript = path.resolve(cwd, '..', 'scripts', 'support', 'Restart-OnlyBackupServerProcess.ps1');
     const nodeExecutable = process.execPath;
     const serverScript = nodeArgs[1];
     const restartArguments = JSON.stringify(nodeArgs.slice(2));
