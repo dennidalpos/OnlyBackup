@@ -102,6 +102,10 @@ Invoke-GateStep -Name "Preflight repository" -Action {
 Invoke-GateStep -Name "Server smoke test" -Action { Invoke-NpmTest }
 
 if (-not $SkipPackage) {
+    Invoke-GateStep -Name "Server setup package" -Action {
+        & (Join-Path $scriptsRoot "Setup-OnlyBackupServer.ps1") -SkipDependencyInstall -SkipDataInitialization -BuildPackage
+    }
+
     Invoke-GateStep -Name "Agent MSI package" -Action {
         & (Join-Path $scriptsRoot "Build-AgentMsi.ps1") -UseLocalhost
     }
