@@ -124,6 +124,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1 -I
 
 Il pacchetto viene generato in `output\server-setup\OnlyBackupServerSetup\` e lo zip in `output\server-setup\OnlyBackupServerSetup.zip`. Include server, dipendenze npm, wrapper servizio, sorgenti/asset agent, WiX 3.14, payload offline .NET Framework 4.6.2, config, script install/uninstall, prerequisiti e loghi/immagini.
 
+Sul PC target il package non richiede `npm`: le dipendenze sono gia incluse. Richiede invece Node.js `>= 20.19.0` come runtime del server. Se Node.js manca o e troppo vecchio, `Install-OnlyBackupServer.ps1` e l'installer Inno si bloccano prima dell'installazione del servizio con nome software, versione minima, motivo, azione richiesta e comando di verifica. Se .NET Framework 4.6.2 runtime manca, il setup usa il payload offline incluso; se il payload non e presente, si blocca prima di installare il servizio.
+
 La UI admin puo generare l'MSI agent usando i file inclusi nel setup: `agent\`, `scripts\Build-AgentMsi.ps1`, `scripts\support\wix\`, `tools\wix314-binaries\` e `assets\agent\`. Sul server restano da installare manualmente MSBuild e .NET Framework 4.6.2 Developer Pack/Targeting Pack se vuoi generare MSI agent dalla UI.
 
 Per creare anche l'installer `.exe` con Inno Setup:
@@ -132,7 +134,7 @@ Per creare anche l'installer `.exe` con Inno Setup:
 powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1 -InitialAdminPassword "ChangeMe123!" -BuildInstaller -InnoCompilerPath "C:\Program Files (x86)\Inno Setup 6"
 ```
 
-Serve Inno Setup 6.x (`ISCC.exe`), anche passando la cartella `C:\Program Files (x86)\Inno Setup 6` con `-InnoCompilerPath`. Durante l'installazione l'installer mostra la licenza, richiede l'accettazione delle condizioni, chiede la password iniziale dell'utente `admin`, installa e avvia il servizio server automaticamente, e chiede se creare sul desktop il collegamento alla UI admin.
+Serve Inno Setup 6.x (`ISCC.exe`), anche passando la cartella `C:\Program Files (x86)\Inno Setup 6` con `-InnoCompilerPath`. Durante l'installazione l'installer verifica Node.js `>= 20.19.0`, mostra la licenza, richiede l'accettazione delle condizioni, chiede la password iniziale dell'utente `admin`, installa .NET Framework 4.6.2 runtime se serve, installa e avvia il servizio server automaticamente, e chiede se creare sul desktop il collegamento alla UI admin.
 
 Output principale: `output\server-setup\inno\OnlyBackupServerSetup.exe`.
 
@@ -240,6 +242,8 @@ Al termine della build trovi:
 ## Installare E Configurare L'Agent
 
 Sul PC client installa il pacchetto MSI generato.
+
+L'MSI dell'agent installa il payload .NET Framework 4.6.2 quando necessario e blocca l'installazione se `robocopy.exe` non e disponibile in Windows, con messaggio esplicito. Su Windows 10/11 aggiornato `robocopy.exe` e incluso in `System32`.
 
 Installazione standard:
 

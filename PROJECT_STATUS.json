@@ -22,7 +22,7 @@
       "status": "todo",
       "risk": "medium",
       "priority": "medium",
-      "context": "npm audit --audit-level=low segnala vulnerabilita moderate su nodemailer <=8.0.4 e uuid <14.0.0. Le fix disponibili richiedono upgrade major (nodemailer 8.x, uuid 14.x), quindi vanno pianificate e validate separatamente su invio SMTP/OAuth e generazione sessioni/run/alert."
+      "context": "npm audit --audit-level=low segnala vulnerabilita moderate su nodemailer <=8.0.4. La fix disponibile richiede upgrade breaking a nodemailer 8.x, quindi va pianificata e validata separatamente su invio SMTP/OAuth e compatibilita configurazioni email esistenti. uuid non risulta piu segnalato dall'audit corrente."
     }
   ]
 }

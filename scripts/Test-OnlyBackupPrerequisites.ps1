@@ -140,6 +140,24 @@ function Get-FirstExistingPath {
     return $null
 }
 
+function Test-DotNet462OrNewerInstalled {
+    foreach ($keyPath in @(
+        "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\NET Framework Setup\NDP\v4\Full"
+    )) {
+        try {
+            $release = (Get-ItemProperty -LiteralPath $keyPath -Name Release -ErrorAction Stop).Release
+            if ($release -ge 394802) {
+                return $true
+            }
+        }
+        catch {
+        }
+    }
+
+    return $false
+}
+
 Write-Host "OnlyBackup prerequisites check" -ForegroundColor Cyan
 Write-Host "Repository root: $repoRoot" -ForegroundColor Cyan
 
@@ -330,6 +348,18 @@ else {
 }
 
 if ($RequireServerServiceTooling) {
+    if (Test-DotNet462OrNewerInstalled) {
+        Add-Ok ".NET Framework 4.6.2 runtime disponibile per eseguire il servizio server."
+    }
+    else {
+        Add-PrerequisiteError `
+            -Name ".NET Framework runtime" `
+            -MinimumVersion ">= 4.6.2" `
+            -Reason "serve per eseguire OnlyBackupServerService.exe come servizio Windows" `
+            -Action "installa .NET Framework 4.6.2 o superiore dal sito ufficiale Microsoft, oppure usa il package/installer server che include il payload offline .NET verificato" `
+            -Verification "Test-Path 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319'"
+    }
+
     if ($msBuildPath) {
         Add-Ok "MSBuild disponibile per compilare il servizio server."
     }

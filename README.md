@@ -27,6 +27,8 @@ Prerequisiti manuali:
 - MSBuild e .NET Framework 4.6.2 Developer Pack/Targeting Pack devono essere installati se vuoi compilare l'agent; `Build-AgentMsi.ps1` blocca la build prima del packaging se il Targeting Pack manca;
 - Il servizio server usa un wrapper .NET Framework incluso nel repository e installato con strumenti Windows integrati; non richiede NSSM o altri service wrapper esterni.
 
+Nei package distribuibili il runtime .NET Framework 4.6.2 e incluso come payload offline e viene installato dal setup quando necessario. L'installer server si blocca prima di installare il servizio se Node.js `>= 20.19.0` non e disponibile; l'MSI agent si blocca se `robocopy.exe` non e presente sul client Windows.
+
 ## Setup Iniziale Rapido
 
 Guida dettagliata per utenti finali, setup server e agent:

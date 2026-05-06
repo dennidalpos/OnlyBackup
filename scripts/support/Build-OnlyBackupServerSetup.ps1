@@ -228,7 +228,60 @@ $serviceDir = Join-Path $packageRoot "service"
 $configPath = Join-Path $packageRoot "config.json"
 $initDataScript = Join-Path $packageRoot "scripts\support\Initialize-OnlyBackupData.js"
 $installServiceScript = Join-Path $packageRoot "scripts\Install-OnlyBackupServerService.ps1"
+$dotNetRuntimePayload = Join-Path $packageRoot "prerequisites\NDP462-KB3151800-x86-x64-AllOS-ENU.exe"
 $requiredNodeVersion = [version]"20.19.0"
+
+function Test-DotNet462OrNewerInstalled {
+    $release = $null
+    foreach ($keyPath in @(
+        "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\NET Framework Setup\NDP\v4\Full"
+    )) {
+        try {
+            $release = (Get-ItemProperty -LiteralPath $keyPath -Name Release -ErrorAction Stop).Release
+            if ($release -ge 394802) {
+                return $true
+            }
+        }
+        catch {
+        }
+    }
+
+    return $false
+}
+
+function Install-DotNetRuntimeIfNeeded {
+    if (Test-DotNet462OrNewerInstalled) {
+        Write-Host ".NET Framework 4.6.2 o superiore gia presente." -ForegroundColor Green
+        return
+    }
+
+    if (-not (Test-Path $dotNetRuntimePayload)) {
+        throw @"
+Prerequisito mancante: .NET Framework runtime
+Versione minima/supportata: >= 4.6.2
+Motivo: il wrapper Windows Service OnlyBackupServerService.exe richiede .NET Framework 4.6.2 o superiore.
+Azione richiesta: installa .NET Framework 4.6.2 o superiore dal sito ufficiale Microsoft oppure rigenera il package includendo prerequisites\NDP462-KB3151800-x86-x64-AllOS-ENU.exe.
+Verifica: Test-Path 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319'
+"@
+    }
+
+    Write-Host "Installazione .NET Framework 4.6.2 runtime..." -ForegroundColor Yellow
+    & $dotNetRuntimePayload /q /norestart
+    if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 3010) {
+        throw "Installazione .NET Framework 4.6.2 fallita con exit code $LASTEXITCODE"
+    }
+
+    if (-not (Test-DotNet462OrNewerInstalled)) {
+        throw @"
+Prerequisito non completato: .NET Framework runtime
+Versione minima/supportata: >= 4.6.2
+Motivo: il wrapper Windows Service OnlyBackupServerService.exe richiede .NET Framework 4.6.2 o superiore.
+Azione richiesta: riavvia Windows se richiesto dall'installer .NET, poi rilancia Install-OnlyBackupServer.ps1.
+Verifica: Test-Path 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319'
+"@
+    }
+}
 
 function Resolve-ExecutablePath {
     param([Parameter(Mandatory = $true)][string]$Executable)
@@ -289,6 +342,8 @@ foreach ($requiredPath in @(
         throw "Pacchetto setup incompleto: manca $requiredPath"
     }
 }
+
+Install-DotNetRuntimeIfNeeded
 
 $nodeExecutable = Resolve-ExecutablePath -Executable $NodePath
 Assert-NodeVersion -Executable $nodeExecutable
@@ -414,12 +469,11 @@ Questo pacchetto contiene il server OnlyBackup pronto per l'installazione come s
 - Windows.
 - PowerShell 7+ consigliato.
 - Node.js 20.19.0 o superiore disponibile nel PATH oppure passato con `-NodePath`.
-- .NET Framework 4.6.2 runtime per eseguire il wrapper servizio.
 - PowerShell avviata come amministratore per installare o rimuovere il servizio.
 - Per generare MSI agent dalla UI admin: MSBuild e .NET Framework 4.6.2 Developer Pack/Targeting Pack sul server. WiX 3.14 e il payload offline .NET sono inclusi nel package.
 - Sui client agent: Windows Installer, .NET Framework 4.6.2 runtime e `robocopy.exe` incluso in Windows.
 
-Se `prerequisites\NDP462-KB3151800-x86-x64-AllOS-ENU.exe` e presente, e il runtime offline .NET Framework 4.6.2 usato dal progetto.
+Se .NET Framework 4.6.2 runtime manca, `Install-OnlyBackupServer.ps1` usa automaticamente `prerequisites\NDP462-KB3151800-x86-x64-AllOS-ENU.exe`. Se il payload manca, il setup si blocca con messaggio esplicito prima di installare il servizio.
 
 ## Installazione
 
@@ -465,7 +519,7 @@ function Write-PrerequisitesManifest {
                 name = ".NET Framework offline installer"
                 version = "4.6.2"
                 path = "prerequisites\NDP462-KB3151800-x86-x64-AllOS-ENU.exe"
-                reason = "Usato dall'installer server quando necessario e incluso come payload nell'MSI agent."
+                reason = "Installato automaticamente dal setup server quando necessario e incluso come payload nell'MSI agent."
             }
         )
         manualPrerequisites = @(
@@ -475,13 +529,6 @@ function Write-PrerequisitesManifest {
                 reason = "Runtime richiesto per avviare il server OnlyBackup."
                 verify = "node --version"
                 install = "Installa Node.js LTS dal sito ufficiale https://nodejs.org/."
-            },
-            [ordered]@{
-                name = ".NET Framework"
-                version = ">= 4.6.2 runtime"
-                reason = "Runtime richiesto dal wrapper Windows Service OnlyBackupServerService.exe."
-                verify = "Test-Path 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319'"
-                install = "Installa .NET Framework 4.6.2 o superiore. Usa il payload in prerequisites se presente."
             },
             [ordered]@{
                 name = "PowerShell amministratore"
@@ -516,9 +563,19 @@ function Write-PrerequisitesManifest {
             "assets\brand\onlybackup-logo.svg",
             "assets\brand\onlybackup-logo-on-light.svg",
             "assets\brand\onlybackup-logo-320x80.png",
+            "assets\brand\onlybackup-mark.svg",
+            "assets\brand\onlybackup-mark-128.png",
             "assets\brand\onlybackup-icon-192.png",
             "assets\brand\onlybackup-icon-512.png",
             "assets\brand\favicon.ico",
+            "assets\brand\favicon-32.png",
+            "assets\brand\apple-touch-icon.png",
+            "assets\brand\onlybackup-social-og.svg",
+            "assets\brand\onlybackup-social-og.png",
+            "assets\brand\onlybackup-social-twitter.svg",
+            "assets\brand\onlybackup-social-twitter.png",
+            "assets\brand\onlybackup-social-post.svg",
+            "assets\brand\onlybackup-social-post.png",
             "assets\agent\OnlyBackupAgent.ico",
             "assets\agent\OnlyBackupAgent.png"
         )
@@ -539,6 +596,7 @@ function Test-PackageContents {
         (Join-Path $serverPackageDir "package-lock.json"),
         (Join-Path $serverPackageDir "node_modules\bcryptjs\package.json"),
         (Join-Path $serverPackageDir "public\assets\brand\onlybackup-logo.svg"),
+        (Join-Path $serverPackageDir "public\assets\brand\onlybackup-social-twitter.svg"),
         (Join-Path $agentPackageDir "OnlyBackupAgent.sln"),
         (Join-Path $agentPackageDir "OnlyBackupAgent\OnlyBackupAgent.csproj"),
         (Join-Path $agentPackageDir "OnlyBackupAgent\Assets\OnlyBackupAgent.ico"),
@@ -548,6 +606,7 @@ function Test-PackageContents {
         (Join-Path $prerequisitesPackageDir "NDP462-KB3151800-x86-x64-AllOS-ENU.exe"),
         (Join-Path $scriptsPackageDir "support\wix\payload\NDP462-KB3151800-x86-x64-AllOS-ENU.exe"),
         (Join-Path $assetsPackageDir "onlybackup-logo.svg"),
+        (Join-Path $assetsPackageDir "onlybackup-social-twitter.svg"),
         (Join-Path $agentAssetsPackageDir "OnlyBackupAgent.ico"),
         (Join-Path $servicePackageDir "OnlyBackupServerService.exe"),
         (Join-Path $servicePackageDir "OnlyBackupServerService.exe.config"),

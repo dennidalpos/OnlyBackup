@@ -35,6 +35,15 @@
                       Win64="yes" />
     </Property>
 
+    <Property Id="ROBOCOPYEXE">
+      <DirectorySearch Id="SearchRobocopySystemFolder"
+                       Path="[SystemFolder]"
+                       Depth="0">
+        <FileSearch Id="SearchRobocopyExe"
+                    Name="robocopy.exe" />
+      </DirectorySearch>
+    </Property>
+
     <!-- MajorUpgrade: gestisce upgrade automatico da versioni precedenti -->
     <MajorUpgrade DowngradeErrorMessage="Una versione più recente di $(var.ProductName) è già installata. Disinstallare prima di procedere."
                   AllowSameVersionUpgrades="no"
@@ -52,6 +61,10 @@
 
     <Condition Message="OnlyBackup Agent richiede Windows 7/Server 2008 R2 o superiore.">
       <![CDATA[Installed OR (VersionNT >= 601)]]>
+    </Condition>
+
+    <Condition Message="Prerequisito mancante/non compatibile: Robocopy. Versione minima/supportata: robocopy.exe incluso in Windows 10/11 aggiornato. Motivo: OnlyBackup Agent usa robocopy.exe per eseguire copie backup affidabili. Azione richiesta: usa un client Windows 10/11 aggiornato o ripara i componenti Windows se robocopy.exe manca da System32. Verifica: Get-Command robocopy.exe">
+      <![CDATA[Installed OR ROBOCOPYEXE]]>
     </Condition>
 
     <Feature Id="ProductFeature" Title="OnlyBackup Agent" Level="1">

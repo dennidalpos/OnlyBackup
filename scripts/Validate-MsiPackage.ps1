@@ -50,6 +50,44 @@ function Get-MsiProperty {
     return $record.GetType().InvokeMember("StringData", [System.Reflection.BindingFlags]::GetProperty, $null, $record, 1)
 }
 
+function Test-MsiTableContains {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Database,
+
+        [Parameter(Mandatory = $true)]
+        [string]$TableName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ColumnName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExpectedValue
+    )
+
+    $query = "SELECT ``$ColumnName`` FROM ``$TableName``"
+    $view = $Database.GetType().InvokeMember(
+        "OpenView",
+        [System.Reflection.BindingFlags]::InvokeMethod,
+        $null,
+        $Database,
+        @($query)
+    )
+    $view.GetType().InvokeMember("Execute", [System.Reflection.BindingFlags]::InvokeMethod, $null, $view, $null) | Out-Null
+
+    while ($true) {
+        $record = $view.GetType().InvokeMember("Fetch", [System.Reflection.BindingFlags]::InvokeMethod, $null, $view, $null)
+        if (-not $record) {
+            return $false
+        }
+
+        $value = $record.GetType().InvokeMember("StringData", [System.Reflection.BindingFlags]::GetProperty, $null, $record, 1)
+        if ($value -eq $ExpectedValue) {
+            return $true
+        }
+    }
+}
+
 $productName = Get-MsiProperty -Database $database -PropertyName "ProductName"
 $productVersion = Get-MsiProperty -Database $database -PropertyName "ProductVersion"
 $productCode = Get-MsiProperty -Database $database -PropertyName "ProductCode"
@@ -57,6 +95,16 @@ $upgradeCode = Get-MsiProperty -Database $database -PropertyName "UpgradeCode"
 
 if (-not $productName -or -not $productVersion -or -not $productCode) {
     throw "Metadati MSI incompleti in $resolvedPath"
+}
+
+if ($productName -eq "OnlyBackup Agent") {
+    if (-not (Test-MsiTableContains -Database $database -TableName "AppSearch" -ColumnName "Property" -ExpectedValue "ROBOCOPYEXE")) {
+        throw "Launch condition MSI incompleta: manca AppSearch per ROBOCOPYEXE."
+    }
+
+    if (-not (Test-MsiTableContains -Database $database -TableName "LaunchCondition" -ColumnName "Condition" -ExpectedValue "Installed OR ROBOCOPYEXE")) {
+        throw "Launch condition MSI incompleta: manca blocco esplicito su robocopy.exe."
+    }
 }
 
 Write-Host "MSI valido: $resolvedPath" -ForegroundColor Green

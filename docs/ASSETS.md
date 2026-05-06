@@ -32,6 +32,7 @@ agent\OnlyBackupAgent\Assets\
 | `onlybackup-icon-512.png` | Web manifest icon | 512x512 |
 | `onlybackup-social-og.svg` | Sorgente Open Graph | 1200x630 viewBox |
 | `onlybackup-social-og.png` | Open Graph image | 1200x630 |
+| `onlybackup-social-twitter.svg` | Sorgente Twitter/X card | 1200x675 viewBox |
 | `onlybackup-social-twitter.png` | Twitter/X card image | 1200x675 |
 | `onlybackup-social-post.svg` | Sorgente social square | 1200x1200 viewBox |
 | `onlybackup-social-post.png` | Immagine social square | 1200x1200 |
@@ -87,13 +88,48 @@ $paths = @(
   'server\public\assets\brand\onlybackup-icon-192.png',
   'server\public\assets\brand\onlybackup-icon-512.png',
   'server\public\assets\brand\onlybackup-mark.svg',
+  'server\public\assets\brand\onlybackup-logo.svg',
+  'server\public\assets\brand\onlybackup-logo-on-light.svg',
+  'server\public\assets\brand\onlybackup-logo-320x80.png',
   'server\public\assets\brand\onlybackup-social-og.png',
+  'server\public\assets\brand\onlybackup-social-og.svg',
   'server\public\assets\brand\onlybackup-social-twitter.png',
+  'server\public\assets\brand\onlybackup-social-twitter.svg',
+  'server\public\assets\brand\onlybackup-social-post.png',
+  'server\public\assets\brand\onlybackup-social-post.svg',
   'server\public\site.webmanifest',
   'agent\OnlyBackupAgent\Assets\OnlyBackupAgent.ico'
 )
 $paths | ForEach-Object {
   if (-not (Test-Path $_)) { throw "Asset mancante: $_" }
+}
+```
+
+Verifica dimensioni raster principali:
+
+```powershell
+Add-Type -AssemblyName System.Drawing
+$expectedSizes = @{
+  'server\public\assets\brand\favicon-32.png' = '32x32'
+  'server\public\assets\brand\apple-touch-icon.png' = '180x180'
+  'server\public\assets\brand\onlybackup-icon-192.png' = '192x192'
+  'server\public\assets\brand\onlybackup-icon-512.png' = '512x512'
+  'server\public\assets\brand\onlybackup-logo-320x80.png' = '320x80'
+  'server\public\assets\brand\onlybackup-mark-128.png' = '128x128'
+  'server\public\assets\brand\onlybackup-social-og.png' = '1200x630'
+  'server\public\assets\brand\onlybackup-social-twitter.png' = '1200x675'
+  'server\public\assets\brand\onlybackup-social-post.png' = '1200x1200'
+  'agent\OnlyBackupAgent\Assets\OnlyBackupAgent.png' = '512x512'
+}
+foreach ($item in $expectedSizes.GetEnumerator()) {
+  $image = [System.Drawing.Image]::FromFile((Resolve-Path $item.Key).Path)
+  try {
+    $actual = "$($image.Width)x$($image.Height)"
+    if ($actual -ne $item.Value) { throw "$($item.Key): atteso $($item.Value), trovato $actual" }
+  }
+  finally {
+    $image.Dispose()
+  }
 }
 ```
 

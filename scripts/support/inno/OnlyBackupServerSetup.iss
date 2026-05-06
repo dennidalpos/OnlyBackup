@@ -120,11 +120,18 @@ begin
     RaiseException('Impossibile preparare la password admin iniziale.');
 end;
 
-function IsNodeAvailable(): Boolean;
+function IsNodeCompatible(): Boolean;
 var
   ResultCode: Integer;
 begin
-  Result := Exec(ExpandConstant('{cmd}'), '/C node --version', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
+  Result := Exec(
+    ExpandConstant('{cmd}'),
+    '/C node -e "const r=[20,19,0]; const v=process.versions.node.split(''.'').map(Number); process.exit(v.some(Number.isNaN) || v[0]<r[0] || (v[0]===r[0] && (v[1]<r[1] || (v[1]===r[1] && v[2]<r[2]))) ? 1 : 0)"',
+    '',
+    SW_HIDE,
+    ewWaitUntilTerminated,
+    ResultCode
+  ) and (ResultCode = 0);
 end;
 
 function IsDotNet462OrNewerInstalled(): Boolean;
@@ -147,9 +154,11 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   Result := '';
-  if not IsNodeAvailable() then
-    Result := 'Prerequisito mancante: Node.js 20.19.0 o superiore.' + #13#10 +
-      'Installa Node.js LTS dal sito ufficiale https://nodejs.org/, riapri PowerShell e rilancia il setup.' + #13#10 +
+  if not IsNodeCompatible() then
+    Result := 'Prerequisito mancante/non compatibile: Node.js' + #13#10 +
+      'Versione minima/supportata: >= 20.19.0' + #13#10 +
+      'Motivo: il servizio OnlyBackup Server avvia il server Node.js incluso nel package.' + #13#10 +
+      'Azione richiesta: installa Node.js LTS 20.x o superiore dal sito ufficiale https://nodejs.org/, riapri PowerShell e rilancia il setup.' + #13#10 +
       'Verifica: node --version';
 
   if Result = '' then

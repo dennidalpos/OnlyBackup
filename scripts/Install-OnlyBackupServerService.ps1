@@ -15,6 +15,38 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $requiredNodeVersion = [version]"20.19.0"
 
+function Test-DotNet462OrNewerInstalled {
+    foreach ($keyPath in @(
+        "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full",
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\NET Framework Setup\NDP\v4\Full"
+    )) {
+        try {
+            $release = (Get-ItemProperty -LiteralPath $keyPath -Name Release -ErrorAction Stop).Release
+            if ($release -ge 394802) {
+                return $true
+            }
+        }
+        catch {
+        }
+    }
+
+    return $false
+}
+
+function Assert-DotNetRuntime {
+    if (Test-DotNet462OrNewerInstalled) {
+        return
+    }
+
+    throw @"
+Prerequisito mancante/non compatibile: .NET Framework runtime
+Versione minima/supportata: >= 4.6.2
+Motivo: OnlyBackupServerService.exe richiede .NET Framework 4.6.2 o superiore per installarsi e avviare il server come servizio Windows.
+Azione richiesta: installa .NET Framework 4.6.2 o superiore dal sito ufficiale Microsoft, oppure usa il package/installer server che include il payload offline .NET verificato.
+Verifica: Test-Path 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319'
+"@
+}
+
 function Assert-Administrator {
     $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).
         IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -122,6 +154,7 @@ function Set-AppSetting {
 }
 
 Assert-Administrator
+Assert-DotNetRuntime
 
 if ($ServiceName -ne "OnlyBackupServer") {
     throw "Il wrapper integrato supporta il nome servizio fisso OnlyBackupServer."
