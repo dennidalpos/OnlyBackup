@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("OnlyBackup")]
 [assembly: AssemblyProduct("OnlyBackup Server")]
-[assembly: AssemblyCopyright("Copyright (c) 2026 OnlyBackup")]
+[assembly: AssemblyCopyright("Copyright (c) 2026 OnlyBackup Server")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

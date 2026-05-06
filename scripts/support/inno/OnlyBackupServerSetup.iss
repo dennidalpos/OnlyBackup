@@ -19,6 +19,7 @@ AppId={{6F2B6B77-78E6-4EF2-A0D2-74D29F62629E}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
+AppCopyright=Copyright (c) 2026 OnlyBackup Server
 DefaultDirName={autopf}\OnlyBackup\Server
 DefaultGroupName=OnlyBackup Server
 DisableProgramGroupPage=yes

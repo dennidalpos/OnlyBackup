@@ -251,10 +251,11 @@ Lo stato runtime locale sotto `data\` non viene rimosso automaticamente dallo sc
 |   `-- OnlyBackupAgent/
 |-- data/
 |-- scripts/
-|   |-- agent/
-|   |-- server/
-|   |-- setup/
-|   `-- verification/
+|   |-- support/
+|   |-- Build-AgentMsi.ps1
+|   |-- Setup-OnlyBackupServer.ps1
+|   |-- Test-OnlyBackupPrerequisites.ps1
+|   `-- Invoke-RepositoryGate.ps1
 |-- tools/
 |   `-- wix314-binaries/
 |-- server/

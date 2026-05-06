@@ -16,7 +16,7 @@ Fornire un sistema centralizzato di backup e restore per client Windows, compost
 - Agent Linux o macOS.
 - Storage applicativo basato su database relazionale o servizio cloud gestito.
 - Build/publish self-contained come default.
-- Pipeline CI/CD o packaging server dedicato oltre ai flussi PowerShell e Node.js presenti nel repository.
+- Pipeline CI/CD; non esiste una directory `.github` o un workflow versionato nel repository.
 
 ## Architecture
 - `server/`: applicazione Node.js basata su Express con entrypoint `server/src/server.js`.
@@ -25,7 +25,8 @@ Fornire un sistema centralizzato di backup e restore per client Windows, compost
 - `server/public/`: dashboard HTML/CSS/JS servita come frontend statico, con asset frontend suddivisi in piu file per aree funzionali.
 - `server/public/assets/brand/`: logo, mark, favicon, web manifest icons e immagini social di OnlyBackup.
 - `agent/OnlyBackupAgent/`: agent .NET Framework 4.6.2 eseguibile come servizio Windows o console, con componenti di comunicazione HTTP e motore backup basato su filesystem/robocopy.
-- `scripts/`: automazione operativa Windows per installazione del server come servizio NSSM, riavvio server, build MSI, validazione pacchetti e utilita di supporto.
+- `server/service-wrapper/`: wrapper .NET Framework 4.6.2 che avvia il server Node.js come servizio Windows, senza NSSM.
+- `scripts/`: automazione operativa Windows per setup server, installazione servizio, package server self-contained, installer Inno opzionale, build MSI agent, validazione pacchetti e utilita di supporto.
 - `tools/wix314-binaries/`: copia versionata della toolchain WiX 3.14 utilizzabile come alternativa all'installazione globale per il packaging MSI.
 
 ## Constraints

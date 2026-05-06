@@ -86,6 +86,14 @@ function Assert-InnoScript {
         throw "Script Inno non valido: manca il task per il collegamento desktop alla UI admin."
     }
 
+    if ($content -notmatch 'LicenseFile=\{#SourceDir\}\\LICENSE') {
+        throw "Script Inno non valido: manca la schermata di accettazione licenza."
+    }
+
+    if ($content -notmatch 'AppCopyright=.*OnlyBackup Server') {
+        throw "Script Inno non valido: il copyright deve includere esplicitamente OnlyBackup Server."
+    }
+
     if ($content -notmatch '\{#SourceDir\}\\\*' -or $content -notmatch 'recursesubdirs') {
         throw "Script Inno non valido: non include ricorsivamente il package server self-contained."
     }
@@ -96,6 +104,7 @@ function Assert-PackageContents {
         (Join-Path $packageRoot "Install-OnlyBackupServer.ps1"),
         (Join-Path $packageRoot "Uninstall-OnlyBackupServer.ps1"),
         (Join-Path $packageRoot "config.json"),
+        (Join-Path $packageRoot "LICENSE"),
         (Join-Path $packageRoot "server\src\server.js"),
         (Join-Path $packageRoot "server\node_modules\bcryptjs\package.json"),
         (Join-Path $packageRoot "service\OnlyBackupServerService.exe"),
