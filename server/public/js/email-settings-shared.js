@@ -60,6 +60,7 @@
         const onReady = typeof options.onReady === 'function' ? options.onReady : async () => {};
         const onSettingsLoaded = typeof options.onSettingsLoaded === 'function' ? options.onSettingsLoaded : null;
         const escapeHtml = typeof options.escapeHtml === 'function' ? options.escapeHtml : defaultEscapeHtml;
+        const oauthPopupName = 'onlybackupEmailOAuth';
 
         async function loadEmailSettings() {
             try {
@@ -138,6 +139,71 @@
             }
         }
 
+        function openOAuthDialog() {
+            document.getElementById('authType').value = 'oauth2';
+            toggleAuthType();
+
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.style.display = 'flex';
+            modal.innerHTML = `
+                <div class="modal-backdrop"></div>
+                <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="oauthDialogTitle" tabindex="-1">
+                    <h3 id="oauthDialogTitle">Registra account email</h3>
+                    <div class="dialog-message">
+                        <p>Seleziona il provider, poi completa l'accesso e l'MFA nella finestra del provider. OnlyBackup salvera il token necessario per inviare le notifiche.</p>
+                    </div>
+                    <div class="oauth-provider-dialog" role="radiogroup" aria-label="Provider email">
+                        <label class="oauth-provider-option">
+                            <input type="radio" name="oauthProvider" value="google" checked>
+                            <span>
+                                <span class="oauth-provider-title">Google Workspace / Gmail</span>
+                                <span class="oauth-provider-meta">Usa l'accesso Google e il consenso SMTP per l'account configurato.</span>
+                            </span>
+                        </label>
+                        <label class="oauth-provider-option">
+                            <input type="radio" name="oauthProvider" value="microsoft">
+                            <span>
+                                <span class="oauth-provider-title">Microsoft 365 / Outlook</span>
+                                <span class="oauth-provider-meta">Usa l'accesso Microsoft e il consenso SMTP.Send per l'account configurato.</span>
+                            </span>
+                        </label>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-outline btn-cancel">Annulla</button>
+                        <button type="button" class="btn btn-primary btn-confirm">Accedi al provider</button>
+                    </div>
+                </div>
+            `;
+
+            const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            const close = () => {
+                document.removeEventListener('keydown', keyHandler);
+                if (modal.parentElement) {
+                    document.body.removeChild(modal);
+                }
+                if (previousFocus && document.contains(previousFocus)) {
+                    previousFocus.focus();
+                }
+            };
+            const keyHandler = (event) => {
+                if (event.key === 'Escape') {
+                    close();
+                }
+            };
+
+            document.body.appendChild(modal);
+            modal.querySelector('.modal-backdrop').addEventListener('click', close);
+            modal.querySelector('.btn-cancel').addEventListener('click', close);
+            modal.querySelector('.btn-confirm').addEventListener('click', async () => {
+                const provider = modal.querySelector('input[name="oauthProvider"]:checked')?.value || 'google';
+                close();
+                await startOAuthLogin(provider);
+            });
+            document.addEventListener('keydown', keyHandler);
+            modal.querySelector('.modal-content').focus();
+        }
+
         async function startOAuthLogin(provider) {
             try {
                 document.getElementById('authType').value = 'oauth2';
@@ -166,7 +232,8 @@
                         clientId,
                         clientSecret,
                         authUser,
-                        returnTo: window.location.pathname
+                        returnTo: window.location.pathname,
+                        popup: true
                     })
                 });
 
@@ -175,7 +242,14 @@
                     throw new Error(data.error || 'Errore avvio OAuth');
                 }
 
-                window.location.href = data.url;
+                const popup = window.open(data.url, oauthPopupName, 'width=720,height=760,menubar=no,toolbar=no,location=yes,status=yes,scrollbars=yes,resizable=yes');
+                if (!popup) {
+                    showMessage('warning', 'Popup bloccato dal browser. Apro il provider in questa finestra.');
+                    window.location.href = data.url;
+                    return;
+                }
+
+                showMessage('warning', 'Completa l\'accesso nella finestra del provider.');
             } catch (error) {
                 console.error('Errore OAuth start:', error);
                 showMessage('error', error.message || 'Impossibile avviare OAuth');
@@ -190,6 +264,17 @@
                 return;
             }
 
+            if (params.get('oauthPopup') === '1' && window.opener) {
+                window.opener.postMessage({
+                    type: 'onlybackup:email-oauth',
+                    status,
+                    provider: params.get('provider') || '',
+                    message: params.get('message') || ''
+                }, window.location.origin);
+                window.close();
+                return;
+            }
+
             if (status === 'success') {
                 const provider = params.get('provider') || 'OAuth';
                 showMessage('success', `Collegamento ${provider} completato. Refresh token salvato.`);
@@ -199,6 +284,28 @@
             }
 
             window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        function setupOAuthPopupListener() {
+            if (document.body.dataset.oauthPopupListenerBound === 'true') {
+                return;
+            }
+
+            document.body.dataset.oauthPopupListenerBound = 'true';
+            window.addEventListener('message', async (event) => {
+                if (event.origin !== window.location.origin || event.data?.type !== 'onlybackup:email-oauth') {
+                    return;
+                }
+
+                if (event.data.status === 'success') {
+                    const provider = event.data.provider || 'OAuth';
+                    showMessage('success', `Collegamento ${provider} completato. Account email registrato.`);
+                    await loadEmailSettings();
+                    return;
+                }
+
+                showMessage('error', event.data.message || 'Errore durante il login OAuth.');
+            });
         }
 
         async function saveEmailSettings() {
@@ -457,6 +564,7 @@
         async function initialize() {
             await loadEmailSettings();
             await onReady(api);
+            setupOAuthPopupListener();
             handleOAuthCallback();
             setupTemplateCopy();
         }
@@ -468,6 +576,7 @@
             initialize,
             loadEmailSettings,
             loadTemplate,
+            openOAuthDialog,
             populateEmailSettings,
             resetTemplate,
             saveEmailSettings,

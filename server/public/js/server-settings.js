@@ -933,6 +933,7 @@ window.rebootServer = rebootServer;
 window.exportConfig = exportConfig;
 window.importConfig = importConfig;
 window.toggleAuthType = () => emailSettingsController.toggleAuthType();
+window.openOAuthDialog = () => emailSettingsController.openOAuthDialog();
 window.startOAuthLogin = (provider) => emailSettingsController.startOAuthLogin(provider);
 window.saveEmailSettings = () => emailSettingsController.saveEmailSettings();
 window.testEmail = () => emailSettingsController.testEmail();

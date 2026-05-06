@@ -160,6 +160,47 @@
     font-size: 0.75rem;
 }
 
+.oauth-provider-dialog {
+    display: grid;
+    gap: 12px;
+}
+
+.oauth-provider-option {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: start;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--panel-bg);
+    cursor: pointer;
+}
+
+.oauth-provider-option:hover,
+.oauth-provider-option:has(input:checked) {
+    border-color: var(--primary-color);
+    background: var(--surface-hover);
+}
+
+.oauth-provider-option input {
+    margin-top: 3px;
+}
+
+.oauth-provider-title {
+    display: block;
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
+.oauth-provider-meta {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+}
+
 .template-editor {
     margin-top: 20px;
 }

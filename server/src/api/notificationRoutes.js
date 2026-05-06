@@ -91,7 +91,7 @@ function registerNotificationRoutes(router, deps) {
   router.post('/api/email/oauth/start', requireAuth, (req, res) => {
     try {
       cleanupOauthStates();
-      const { provider, clientId, clientSecret, authUser, returnTo } = req.body || {};
+      const { provider, clientId, clientSecret, authUser, returnTo, popup } = req.body || {};
       const config = getOAuthConfig(provider);
 
       if (!config) {
@@ -129,6 +129,7 @@ function registerNotificationRoutes(router, deps) {
         codeVerifier,
         redirectUri,
         returnTo,
+        popup: popup === true,
         createdAt: Date.now()
       });
 
@@ -171,7 +172,8 @@ function registerNotificationRoutes(router, deps) {
       }
       return res.redirect(buildOAuthRedirect(stateData?.returnTo, {
         oauth: 'error',
-        message: error_description || error
+        message: error_description || error,
+        oauthPopup: stateData?.popup ? '1' : undefined
       }));
     }
 
@@ -197,7 +199,8 @@ function registerNotificationRoutes(router, deps) {
       if (!config) {
         return res.redirect(buildOAuthRedirect(stateData.returnTo, {
           oauth: 'error',
-          message: 'Provider OAuth non supportato'
+          message: 'Provider OAuth non supportato',
+          oauthPopup: stateData.popup ? '1' : undefined
         }));
       }
 
@@ -214,7 +217,8 @@ function registerNotificationRoutes(router, deps) {
       if (!emailService) {
         return res.redirect(buildOAuthRedirect(stateData.returnTo, {
           oauth: 'error',
-          message: 'Servizio email non disponibile'
+          message: 'Servizio email non disponibile',
+          oauthPopup: stateData.popup ? '1' : undefined
         }));
       }
 
@@ -225,7 +229,8 @@ function registerNotificationRoutes(router, deps) {
       if (!refreshToken) {
         return res.redirect(buildOAuthRedirect(stateData.returnTo, {
           oauth: 'error',
-          message: 'Refresh token non ricevuto. Ripetere il consenso.'
+          message: 'Refresh token non ricevuto. Ripetere il consenso.',
+          oauthPopup: stateData.popup ? '1' : undefined
         }));
       }
 
@@ -252,19 +257,22 @@ function registerNotificationRoutes(router, deps) {
       if (!result.success) {
         return res.redirect(buildOAuthRedirect(stateData.returnTo, {
           oauth: 'error',
-          message: result.error || 'Errore salvataggio impostazioni OAuth'
+          message: result.error || 'Errore salvataggio impostazioni OAuth',
+          oauthPopup: stateData.popup ? '1' : undefined
         }));
       }
 
       return res.redirect(buildOAuthRedirect(stateData.returnTo, {
         oauth: 'success',
-        provider: stateData.provider
+        provider: stateData.provider,
+        oauthPopup: stateData.popup ? '1' : undefined
       }));
     } catch (err) {
       logger.error('Errore callback OAuth email', { error: err.message });
       return res.redirect(buildOAuthRedirect(stateData?.returnTo, {
         oauth: 'error',
-        message: err.message || 'Errore callback OAuth'
+        message: err.message || 'Errore callback OAuth',
+        oauthPopup: stateData?.popup ? '1' : undefined
       }));
     }
   });

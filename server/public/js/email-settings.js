@@ -14,6 +14,7 @@ const emailSettingsController = createEmailSettingsController({
 
 window.switchTab = (tabName) => emailSettingsController.switchTab(tabName);
 window.toggleAuthType = () => emailSettingsController.toggleAuthType();
+window.openOAuthDialog = () => emailSettingsController.openOAuthDialog();
 window.startOAuthLogin = (provider) => emailSettingsController.startOAuthLogin(provider);
 window.saveEmailSettings = () => emailSettingsController.saveEmailSettings();
 window.testEmail = () => emailSettingsController.testEmail();
