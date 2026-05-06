@@ -72,15 +72,56 @@ function initSchedulerState(basePath) {
   }
 }
 
+function resolveAdminPassword(password) {
+  return password || process.env.ONLYBACKUP_INITIAL_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || crypto.randomBytes(12).toString('hex');
+}
+
+function shouldResetExistingAdmin() {
+  return process.env.ONLYBACKUP_RESET_ADMIN_PASSWORD === '1';
+}
+
+function resetExistingAdminPassword(usersPath, password) {
+  const adminPassword = resolveAdminPassword(password);
+  const users = JSON.parse(fs.readFileSync(usersPath, 'utf8'));
+  if (!Array.isArray(users)) {
+    throw new Error(`File utenti non valido: ${usersPath}`);
+  }
+
+  const adminIndex = users.findIndex((user) => user && user.username === 'admin');
+  const adminUser = {
+    ...(adminIndex >= 0 ? users[adminIndex] : {}),
+    username: 'admin',
+    passwordHash: bcrypt.hashSync(adminPassword, 10),
+    role: adminIndex >= 0 ? (users[adminIndex].role || 'admin') : 'admin',
+    mustChangePassword: true,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (adminIndex >= 0) {
+    users[adminIndex] = adminUser;
+  } else {
+    adminUser.createdAt = new Date().toISOString();
+    users.push(adminUser);
+  }
+
+  fs.writeFileSync(usersPath, JSON.stringify(users, null, 2), 'utf8');
+  console.log(`Password iniziale admin aggiornata in ${usersPath}`);
+}
+
 function initDefaultAdmin(basePath, password) {
   const usersPath = path.join(basePath, 'users', 'users.json');
 
   if (fs.existsSync(usersPath)) {
+    if (shouldResetExistingAdmin()) {
+      resetExistingAdminPassword(usersPath, password);
+      return;
+    }
+
     console.log('File utenti già presente: nessuna modifica.');
     return;
   }
 
-  const adminPassword = password || process.env.ONLYBACKUP_INITIAL_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || crypto.randomBytes(12).toString('hex');
+  const adminPassword = resolveAdminPassword(password);
   const passwordHash = bcrypt.hashSync(adminPassword, 10);
   const defaultUser = {
     username: 'admin',

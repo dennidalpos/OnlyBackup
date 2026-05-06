@@ -1,9 +1,11 @@
 const assert = require('assert');
+const { spawnSync } = require('child_process');
 const fs = require('fs');
 const http = require('http');
 const os = require('os');
 const path = require('path');
 
+const bcrypt = require('../../server/node_modules/bcryptjs');
 const OnlyBackupServer = require('../../server/src/server');
 const Logger = require('../../server/src/logging/logger');
 const Storage = require('../../server/src/storage/storage');
@@ -110,7 +112,8 @@ function assertLoggerRedactsSensitiveMetadata() {
         oauth2: {
           clientSecret: 'client-secret',
           refreshToken: 'refresh-token',
-          accessToken: 'access-token'
+          accessToken: 'access-token',
+          tokenCache: 'token-cache'
         }
       },
       nested: [{ token: 'token-value' }]
@@ -123,8 +126,68 @@ function assertLoggerRedactsSensitiveMetadata() {
     assert.strictEqual(sanitized.smtp.oauth2.clientSecret, '[REDACTED]');
     assert.strictEqual(sanitized.smtp.oauth2.refreshToken, '[REDACTED]');
     assert.strictEqual(sanitized.smtp.oauth2.accessToken, '[REDACTED]');
+    assert.strictEqual(sanitized.smtp.oauth2.tokenCache, '[REDACTED]');
     assert.strictEqual(sanitized.nested[0].token, '[REDACTED]');
     logger.close();
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function runDataInitialization(configPath, password, resetAdminPassword = false) {
+  const initScript = path.join(__dirname, 'Initialize-OnlyBackupData.js');
+  const result = spawnSync(process.execPath, [initScript], {
+    cwd: path.join(__dirname, '..', '..'),
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      CONFIG_PATH: configPath,
+      ONLYBACKUP_INITIAL_ADMIN_PASSWORD: password,
+      ...(resetAdminPassword ? { ONLYBACKUP_RESET_ADMIN_PASSWORD: '1' } : {})
+    }
+  });
+
+  assert.strictEqual(
+    result.status,
+    0,
+    `Inizializzazione dati fallita.\nSTDOUT:\n${result.stdout}\nSTDERR:\n${result.stderr}`
+  );
+}
+
+function assertInstallerPasswordResetForExistingAdmin() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'onlybackup-admin-reset-'));
+  const configPath = path.join(tempRoot, 'config.json');
+  const dataRoot = path.join(tempRoot, 'data');
+  const usersPath = path.join(dataRoot, 'users', 'users.json');
+
+  try {
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({
+        server: { host: '127.0.0.1', port: 0, environment: 'test' },
+        dataRoot
+      }, null, 2),
+      'utf8'
+    );
+
+    runDataInitialization(configPath, 'OldInstallerPass123!');
+    let users = JSON.parse(fs.readFileSync(usersPath, 'utf8'));
+    let admin = users.find((user) => user.username === 'admin');
+    assert.ok(admin, 'Admin bootstrap non creato');
+    assert.strictEqual(bcrypt.compareSync('OldInstallerPass123!', admin.passwordHash), true);
+
+    runDataInitialization(configPath, 'IgnoredInstallerPass123!');
+    users = JSON.parse(fs.readFileSync(usersPath, 'utf8'));
+    admin = users.find((user) => user.username === 'admin');
+    assert.strictEqual(bcrypt.compareSync('OldInstallerPass123!', admin.passwordHash), true);
+    assert.strictEqual(bcrypt.compareSync('IgnoredInstallerPass123!', admin.passwordHash), false);
+
+    runDataInitialization(configPath, 'NewInstallerPass123!', true);
+    users = JSON.parse(fs.readFileSync(usersPath, 'utf8'));
+    admin = users.find((user) => user.username === 'admin');
+    assert.strictEqual(bcrypt.compareSync('OldInstallerPass123!', admin.passwordHash), false);
+    assert.strictEqual(bcrypt.compareSync('NewInstallerPass123!', admin.passwordHash), true);
+    assert.strictEqual(admin.mustChangePassword, true);
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
@@ -286,6 +349,7 @@ async function main() {
   assertMinimalConfigDefaults();
   assertStorageFileNamesAreConfined();
   assertLoggerRedactsSensitiveMetadata();
+  assertInstallerPasswordResetForExistingAdmin();
 
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'onlybackup-smoke-'));
   const configPath = path.join(tempRoot, 'config.json');
@@ -322,6 +386,18 @@ async function main() {
     scheduler: {
       checkInterval: 60000,
       enableFileWatcher: false
+    },
+    oauth: {
+      providers: {
+        google: {
+          clientId: 'google-config-client-id',
+          clientSecret: 'google-config-client-secret'
+        },
+        microsoft: {
+          clientId: 'microsoft-config-client-id',
+          clientSecret: 'microsoft-config-client-secret'
+        }
+      }
     }
   };
 
@@ -440,9 +516,53 @@ async function main() {
 
     const emailOauth = await request(baseUrl, '/api/email/oauth/start', {
       method: 'POST',
-      json: { provider: 'google', authUser: 'admin@example.com' }
+      json: { provider: 'google' }
     });
     assert.strictEqual(emailOauth.status, 400);
+
+    const googleOauth = await request(baseUrl, '/api/email/oauth/start', {
+      method: 'POST',
+      json: {
+        provider: 'google',
+        authUser: 'admin@example.com'
+      }
+    });
+    assert.strictEqual(googleOauth.status, 200);
+    const googleOauthPayload = await googleOauth.json();
+    const googleOauthUrl = new URL(googleOauthPayload.url);
+    assert.strictEqual(googleOauthUrl.origin, 'https://accounts.google.com');
+    assert.strictEqual(googleOauthUrl.pathname, '/o/oauth2/v2/auth');
+    assert.strictEqual(googleOauthUrl.searchParams.get('client_id'), 'google-config-client-id');
+    assert.strictEqual(googleOauthUrl.searchParams.get('redirect_uri'), `${baseUrl}/api/email/oauth/callback`);
+    assert.strictEqual(googleOauthUrl.searchParams.get('response_type'), 'code');
+    assert.strictEqual(googleOauthUrl.searchParams.get('code_challenge_method'), 'S256');
+    assert.ok(googleOauthUrl.searchParams.get('state'));
+    assert.ok(googleOauthUrl.searchParams.get('code_challenge'));
+    assert.strictEqual(googleOauthUrl.searchParams.get('access_type'), 'offline');
+    assert.strictEqual(googleOauthUrl.searchParams.get('prompt'), 'consent');
+    assert.strictEqual(googleOauthUrl.searchParams.get('login_hint'), 'admin@example.com');
+
+    const microsoftOauth = await request(baseUrl, '/api/email/oauth/start', {
+      method: 'POST',
+      json: {
+        provider: 'microsoft',
+        authUser: 'admin@example.com'
+      }
+    });
+    assert.strictEqual(microsoftOauth.status, 200);
+    const microsoftOauthPayload = await microsoftOauth.json();
+    const microsoftOauthUrl = new URL(microsoftOauthPayload.url);
+    assert.strictEqual(microsoftOauthUrl.origin, 'https://login.microsoftonline.com');
+    assert.strictEqual(microsoftOauthUrl.pathname, '/common/oauth2/v2.0/authorize');
+    assert.strictEqual(microsoftOauthUrl.searchParams.get('client_id'), 'microsoft-config-client-id');
+    assert.strictEqual(microsoftOauthUrl.searchParams.get('redirect_uri'), `${baseUrl}/api/email/oauth/callback`);
+    assert.strictEqual(microsoftOauthUrl.searchParams.get('response_type'), 'code');
+    assert.strictEqual(microsoftOauthUrl.searchParams.get('code_challenge_method'), 'S256');
+    assert.ok(microsoftOauthUrl.searchParams.get('state'));
+    assert.ok(microsoftOauthUrl.searchParams.get('code_challenge'));
+    assert.strictEqual(microsoftOauthUrl.searchParams.get('response_mode'), 'query');
+    assert.strictEqual(microsoftOauthUrl.searchParams.get('login_hint'), 'admin@example.com');
+    assert.ok(microsoftOauthUrl.searchParams.get('scope').includes('offline_access'));
 
     const emailTest = await request(baseUrl, '/api/email/test', {
       method: 'POST',

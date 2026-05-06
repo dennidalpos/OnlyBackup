@@ -100,6 +100,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
     logger,
     cleanupOauthStates: support.cleanupOauthStates,
     getOAuthConfig: support.getOAuthConfig,
+    buildOAuthAuthorizationUrl: support.buildOAuthAuthorizationUrl,
     buildOAuthRedirect: support.buildOAuthRedirect,
     createCodeVerifier: support.createCodeVerifier,
     createCodeChallenge: support.createCodeChallenge,

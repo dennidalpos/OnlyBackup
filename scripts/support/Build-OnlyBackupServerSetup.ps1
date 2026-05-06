@@ -362,10 +362,12 @@ elseif ($PSBoundParameters.ContainsKey("InitialAdminPassword")) {
 
 if (-not $SkipDataInitialization) {
     $previousPassword = $env:ONLYBACKUP_INITIAL_ADMIN_PASSWORD
+    $previousResetAdminPassword = $env:ONLYBACKUP_RESET_ADMIN_PASSWORD
     $previousConfigPath = $env:CONFIG_PATH
     try {
         if ($null -ne $effectiveInitialAdminPassword) {
             $env:ONLYBACKUP_INITIAL_ADMIN_PASSWORD = $effectiveInitialAdminPassword
+            $env:ONLYBACKUP_RESET_ADMIN_PASSWORD = "1"
         }
 
         $env:CONFIG_PATH = $configPath
@@ -387,6 +389,15 @@ if (-not $SkipDataInitialization) {
             }
             else {
                 Remove-Item Env:ONLYBACKUP_INITIAL_ADMIN_PASSWORD -ErrorAction SilentlyContinue
+            }
+        }
+
+        if ($null -ne $effectiveInitialAdminPassword) {
+            if ($null -ne $previousResetAdminPassword) {
+                $env:ONLYBACKUP_RESET_ADMIN_PASSWORD = $previousResetAdminPassword
+            }
+            else {
+                Remove-Item Env:ONLYBACKUP_RESET_ADMIN_PASSWORD -ErrorAction SilentlyContinue
             }
         }
 

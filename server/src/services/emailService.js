@@ -1,11 +1,13 @@
 const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
+const msal = require('@azure/msal-node');
 
 class EmailService {
-  constructor(storage, logger) {
+  constructor(storage, logger, config = {}) {
     this.storage = storage;
     this.logger = logger;
+    this.config = config;
     this.transporter = null;
     this.settings = null;
     this.templates = null;
@@ -66,10 +68,14 @@ class EmailService {
           pass: ''
         },
         oauth2: {
+          provider: '',
           clientId: '',
           clientSecret: '',
           refreshToken: '',
-          accessToken: ''
+          accessToken: '',
+          expiresAt: null,
+          tokenCache: '',
+          account: null
         }
       },
       from: '',
@@ -236,11 +242,12 @@ Questo è un messaggio automatico generato da OnlyBackup.`
       const authType = authConfig.type || (authConfig.user || authConfig.pass ? 'basic' : 'none');
 
       if (authType === 'oauth2') {
+        const providerCredentials = this.getOAuthProviderCredentials(this.settings.smtp.oauth2.provider);
         transportOptions.auth = {
           type: 'OAuth2',
           user: authConfig.user,
-          clientId: this.settings.smtp.oauth2.clientId,
-          clientSecret: this.settings.smtp.oauth2.clientSecret,
+          clientId: this.settings.smtp.oauth2.clientId || providerCredentials.clientId,
+          clientSecret: this.settings.smtp.oauth2.clientSecret || providerCredentials.clientSecret,
           refreshToken: this.settings.smtp.oauth2.refreshToken,
           accessToken: this.settings.smtp.oauth2.accessToken
         };
@@ -261,9 +268,121 @@ Questo è un messaggio automatico generato da OnlyBackup.`
     }
   }
 
+  getOAuthProviderCredentials(provider) {
+    const providerConfig = this.config?.oauth?.providers?.[provider] || {};
+    const envName = String(provider || '').toUpperCase();
+
+    return {
+      clientId: providerConfig.clientId || process.env[`ONLYBACKUP_OAUTH_${envName}_CLIENT_ID`] || '',
+      clientSecret: providerConfig.clientSecret || process.env[`ONLYBACKUP_OAUTH_${envName}_CLIENT_SECRET`] || ''
+    };
+  }
+
+  async refreshMicrosoftOAuthAccessToken() {
+    const oauth2 = this.settings?.smtp?.oauth2 || {};
+    const authConfig = this.settings?.smtp?.auth || {};
+    if (authConfig.type !== 'oauth2' || oauth2.provider !== 'microsoft') {
+      return true;
+    }
+
+    const expiresAt = Number(oauth2.expiresAt || 0);
+    if (oauth2.accessToken && expiresAt && expiresAt - Date.now() > 5 * 60 * 1000) {
+      return true;
+    }
+
+    if (!oauth2.tokenCache || !oauth2.account) {
+      this.logger.error('Token Microsoft OAuth non aggiornabile: cache MSAL mancante');
+      return false;
+    }
+
+    const credentials = this.getOAuthProviderCredentials('microsoft');
+    if (!credentials.clientId || !credentials.clientSecret) {
+      this.logger.error('Token Microsoft OAuth non aggiornabile: provider non configurato sul server');
+      return false;
+    }
+
+    try {
+      const client = new msal.ConfidentialClientApplication({
+        auth: {
+          clientId: credentials.clientId,
+          clientSecret: credentials.clientSecret,
+          authority: 'https://login.microsoftonline.com/common'
+        }
+      });
+      const tokenCache = client.getTokenCache();
+      tokenCache.deserialize(oauth2.tokenCache);
+      const accounts = await tokenCache.getAllAccounts();
+      const account = accounts.find((entry) => entry.homeAccountId === oauth2.account.homeAccountId)
+        || accounts.find((entry) => entry.username === authConfig.user)
+        || accounts[0];
+
+      if (!account) {
+        this.logger.error('Token Microsoft OAuth non aggiornabile: account MSAL mancante');
+        return false;
+      }
+
+      const token = await client.acquireTokenSilent({
+        account,
+        scopes: ['offline_access', 'https://outlook.office.com/SMTP.Send']
+      });
+
+      this.settings.smtp.oauth2.accessToken = token?.accessToken || '';
+      this.settings.smtp.oauth2.expiresAt = token?.expiresOn ? token.expiresOn.getTime() : null;
+      this.settings.smtp.oauth2.tokenCache = tokenCache.serialize();
+      this.settings.smtp.oauth2.account = token?.account || account;
+      this.saveSettings();
+      this.transporter = null;
+      return Boolean(this.settings.smtp.oauth2.accessToken);
+    } catch (error) {
+      this.logger.error('Errore aggiornamento token Microsoft OAuth', { error: error.message });
+      return false;
+    }
+  }
+
+  async prepareOAuthTransporter() {
+    const authConfig = this.settings?.smtp?.auth || {};
+    const oauth2 = this.settings?.smtp?.oauth2 || {};
+    if (authConfig.type === 'oauth2' && oauth2.provider === 'microsoft') {
+      const refreshed = await this.refreshMicrosoftOAuthAccessToken();
+      if (!refreshed) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   updateSettings(newSettings) {
     try {
-      this.settings = { ...this.settings, ...newSettings };
+      const existingSmtp = this.settings?.smtp || {};
+      const incomingSmtp = newSettings?.smtp || null;
+      const mergedSettings = { ...this.settings, ...newSettings };
+
+      if (incomingSmtp) {
+        const incomingOAuth2 = incomingSmtp.oauth2 || {};
+        const mergedOAuth2 = {
+          ...(existingSmtp.oauth2 || {}),
+          ...incomingOAuth2
+        };
+
+        ['clientId', 'clientSecret', 'refreshToken', 'accessToken', 'tokenCache', 'account', 'provider', 'expiresAt'].forEach((key) => {
+          if (incomingOAuth2[key] === '' || incomingOAuth2[key] === '********' || incomingOAuth2[key] === undefined) {
+            mergedOAuth2[key] = existingSmtp.oauth2?.[key] || (key === 'expiresAt' ? null : '');
+          }
+        });
+
+        mergedSettings.smtp = {
+          ...existingSmtp,
+          ...incomingSmtp,
+          auth: {
+            ...(existingSmtp.auth || {}),
+            ...(incomingSmtp.auth || {})
+          },
+          oauth2: mergedOAuth2
+        };
+      }
+
+      this.settings = mergedSettings;
       const saved = this.saveSettings();
 
       if (saved && this.settings.enabled) {
@@ -306,6 +425,9 @@ Questo è un messaggio automatico generato da OnlyBackup.`
         }
         if (settings.smtp.oauth2.accessToken) {
           settings.smtp.oauth2.accessToken = '********';
+        }
+        if (settings.smtp.oauth2.tokenCache) {
+          settings.smtp.oauth2.tokenCache = '********';
         }
       }
     }
@@ -393,6 +515,11 @@ Questo è un messaggio automatico generato da OnlyBackup.`
         return { success: false, reason: 'No recipients configured' };
       }
 
+      const oauthReady = await this.prepareOAuthTransporter();
+      if (!oauthReady) {
+        return { success: false, reason: 'OAuth token unavailable' };
+      }
+
       if (!this.transporter) {
         this.createTransporter();
         if (!this.transporter) {
@@ -440,6 +567,11 @@ Questo è un messaggio automatico generato da OnlyBackup.`
     try {
       if (!this.settings || !this.settings.enabled) {
         return { success: false, error: 'Servizio email disabilitato' };
+      }
+
+      const oauthReady = await this.prepareOAuthTransporter();
+      if (!oauthReady) {
+        return { success: false, error: 'Token OAuth non disponibile' };
       }
 
       if (!this.transporter) {

@@ -65,7 +65,7 @@ Al primo avvio usa:
 - utente: `admin`
 - password: quella passata a `-InitialAdminPassword`
 
-Se `admin` esiste gia, lo script di setup non modifica l'utente e non cambia la password.
+Se `admin` esiste gia, lo script di setup non modifica l'utente e non cambia la password. Quando invece reinstalli con l'installer `.exe`, la password inserita nel setup aggiorna l'utente `admin` esistente e al login successivo la UI richiede il cambio password.
 
 ## Configurazione Base
 
@@ -101,6 +101,23 @@ Esempio dei campi piu importanti:
 - Cartella dove OnlyBackup salva utenti, stato, log applicativi e configurazioni runtime.
 - Di default punta a `.\data`.
 
+### OAuth Email
+
+L'utente finale non deve inserire Client ID, Client Secret o token manuali. Nella UI seleziona il provider OAuth e completa l'accesso nella finestra web del provider.
+
+Il server usa gli SDK ufficiali `google-auth-library` e `@azure/msal-node`, ma deve avere gia configurata l'app OAuth OnlyBackup del provider in `config.json`:
+
+```json
+"oauth": {
+  "providers": {
+    "google": { "clientId": "...", "clientSecret": "..." },
+    "microsoft": { "clientId": "...", "clientSecret": "..." }
+  }
+}
+```
+
+In alternativa usa le variabili ambiente `ONLYBACKUP_OAUTH_GOOGLE_CLIENT_ID`, `ONLYBACKUP_OAUTH_GOOGLE_CLIENT_SECRET`, `ONLYBACKUP_OAUTH_MICROSOFT_CLIENT_ID` e `ONLYBACKUP_OAUTH_MICROSOFT_CLIENT_SECRET`.
+
 ## Configurazione Consigliata Per Un Primo Test
 
 Per una prova semplice puoi lasciare `config.json` cosi come si trova nel repository e:
@@ -134,7 +151,7 @@ Per creare anche l'installer `.exe` con Inno Setup:
 powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1 -InitialAdminPassword "ChangeMe123!" -BuildInstaller -InnoCompilerPath "C:\Program Files (x86)\Inno Setup 6"
 ```
 
-Serve Inno Setup 6.x (`ISCC.exe`), anche passando la cartella `C:\Program Files (x86)\Inno Setup 6` con `-InnoCompilerPath`. Durante l'installazione l'installer verifica Node.js `>= 20.19.0`, mostra la licenza, richiede l'accettazione delle condizioni, chiede la password iniziale dell'utente `admin`, installa .NET Framework 4.6.2 runtime se serve, installa e avvia il servizio server automaticamente, e chiede se creare sul desktop il collegamento alla UI admin.
+Serve Inno Setup 6.x (`ISCC.exe`), anche passando la cartella `C:\Program Files (x86)\Inno Setup 6` con `-InnoCompilerPath`. Durante l'installazione l'installer verifica Node.js `>= 20.19.0`, mostra la licenza, richiede l'accettazione delle condizioni, chiede la password iniziale dell'utente `admin`, installa .NET Framework 4.6.2 runtime se serve, installa e avvia il servizio server automaticamente, e chiede se creare sul desktop il collegamento alla UI admin. Questa richiesta riguarda solo il setup server.
 
 Output principale: `output\server-setup\inno\OnlyBackupServerSetup.exe`.
 
@@ -257,11 +274,7 @@ Installazione silenziosa:
 msiexec /i .\output\agent-msi\artifacts\OnlyBackupAgent.msi /qn
 ```
 
-L'installazione interattiva chiede se creare il collegamento desktop dell'agent. In modalita silenziosa il collegamento viene creato di default; per disattivarlo:
-
-```powershell
-msiexec /i .\output\agent-msi\artifacts\OnlyBackupAgent.msi /qn CREATE_DESKTOP_SHORTCUT=0
-```
+L'MSI dell'agent installa solo il servizio Windows `OnlyBackupAgent`: non mostra richieste per collegamenti desktop e non crea collegamenti desktop, anche nelle installazioni silenziose.
 
 Dopo l'installazione:
 - il servizio Windows `OnlyBackupAgent` viene installato;

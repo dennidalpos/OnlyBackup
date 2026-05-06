@@ -106,9 +106,6 @@
             document.getElementById('smtpUser').value = settings.smtp?.auth?.user || '';
             document.getElementById('smtpPass').value = settings.smtp?.auth?.pass === '********' ? '' : settings.smtp?.auth?.pass || '';
             document.getElementById('oauth2User').value = settings.smtp?.auth?.user || '';
-            document.getElementById('oauth2ClientId').value = settings.smtp?.oauth2?.clientId || '';
-            document.getElementById('oauth2ClientSecret').value = settings.smtp?.oauth2?.clientSecret === '********' ? '' : settings.smtp?.oauth2?.clientSecret || '';
-            document.getElementById('oauth2RefreshToken').value = settings.smtp?.oauth2?.refreshToken === '********' ? '' : settings.smtp?.oauth2?.refreshToken || '';
             document.getElementById('emailFrom').value = settings.from || '';
             document.getElementById('emailRecipients').value = (settings.recipients || []).join('\n');
 
@@ -205,23 +202,19 @@
         }
 
         async function startOAuthLogin(provider) {
+            let popup = null;
             try {
                 document.getElementById('authType').value = 'oauth2';
                 toggleAuthType();
 
-                const clientId = document.getElementById('oauth2ClientId').value.trim();
-                const clientSecret = document.getElementById('oauth2ClientSecret').value.trim();
                 const authUser = document.getElementById('oauth2User').value.trim();
-
-                if (!clientId || !clientSecret) {
-                    showMessage('warning', 'Inserisci Client ID e Client Secret per avviare OAuth.');
-                    return;
-                }
 
                 if (!authUser) {
                     showMessage('warning', 'Inserisci l\'email dell\'account da collegare.');
                     return;
                 }
+
+                popup = window.open('', oauthPopupName, 'width=720,height=760,menubar=no,toolbar=no,location=yes,status=yes,scrollbars=yes,resizable=yes');
 
                 const response = await fetch('/api/email/oauth/start', {
                     method: 'POST',
@@ -229,8 +222,6 @@
                     credentials: 'include',
                     body: JSON.stringify({
                         provider,
-                        clientId,
-                        clientSecret,
                         authUser,
                         returnTo: window.location.pathname,
                         popup: true
@@ -242,15 +233,18 @@
                     throw new Error(data.error || 'Errore avvio OAuth');
                 }
 
-                const popup = window.open(data.url, oauthPopupName, 'width=720,height=760,menubar=no,toolbar=no,location=yes,status=yes,scrollbars=yes,resizable=yes');
                 if (!popup) {
                     showMessage('warning', 'Popup bloccato dal browser. Apro il provider in questa finestra.');
                     window.location.href = data.url;
                     return;
                 }
 
+                popup.location.href = data.url;
                 showMessage('warning', 'Completa l\'accesso nella finestra del provider.');
             } catch (error) {
+                if (popup && !popup.closed) {
+                    popup.close();
+                }
                 console.error('Errore OAuth start:', error);
                 showMessage('error', error.message || 'Impossibile avviare OAuth');
             }
@@ -332,11 +326,7 @@
                                     : '',
                             pass: authType === 'basic' ? document.getElementById('smtpPass').value : ''
                         },
-                        oauth2: authType === 'oauth2' ? {
-                            clientId: document.getElementById('oauth2ClientId').value,
-                            clientSecret: document.getElementById('oauth2ClientSecret').value,
-                            refreshToken: document.getElementById('oauth2RefreshToken').value
-                        } : {}
+                        oauth2: {}
                     },
                     from: document.getElementById('emailFrom').value,
                     recipients,
@@ -404,7 +394,7 @@
 
             if (!eventType) {
                 editor.classList.add('hidden');
-                actions.style.display = 'none';
+                actions.classList.add('hidden');
                 return;
             }
 
@@ -429,7 +419,7 @@
                 document.getElementById('templateSubject').value = template.subject || '';
                 document.getElementById('templateBody').value = template.body || '';
                 editor.classList.remove('hidden');
-                actions.style.display = 'flex';
+                actions.classList.remove('hidden');
             }
         }
 

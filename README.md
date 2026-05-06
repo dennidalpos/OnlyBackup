@@ -64,7 +64,20 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1 -I
 
 Il server legge la configurazione da `..\config.json` oppure da `CONFIG_PATH`. Di default l'interfaccia risponde su `http://localhost:8080/`.
 
-Se non passi `-InitialAdminPassword`, lo script di inizializzazione genera una password casuale e la stampa a console. Se l'utente `admin` esiste gia, il bootstrap non lo sovrascrive.
+Per OAuth email l'utente finale non deve inserire Client ID, Client Secret o token manuali: dalla UI seleziona il provider e completa l'accesso nella finestra web del provider. Il server usa gli SDK ufficiali `google-auth-library` e `@azure/msal-node`; deve pero avere gia configurata l'app OAuth OnlyBackup del provider in `config.json` o tramite variabili ambiente:
+
+```json
+"oauth": {
+  "providers": {
+    "google": { "clientId": "...", "clientSecret": "..." },
+    "microsoft": { "clientId": "...", "clientSecret": "..." }
+  }
+}
+```
+
+In alternativa usa `ONLYBACKUP_OAUTH_GOOGLE_CLIENT_ID`, `ONLYBACKUP_OAUTH_GOOGLE_CLIENT_SECRET`, `ONLYBACKUP_OAUTH_MICROSOFT_CLIENT_ID` e `ONLYBACKUP_OAUTH_MICROSOFT_CLIENT_SECRET`. Se il provider non e configurato, il collegamento account OAuth si blocca prima di aprire il consenso.
+
+Se non passi `-InitialAdminPassword`, lo script di inizializzazione genera una password casuale e la stampa a console. Se l'utente `admin` esiste gia, il bootstrap non lo sovrascrive. L'installer `.exe`, invece, quando viene rieseguito con una password admin iniziale, aggiorna la password dell'utente `admin` esistente e richiede il cambio password al login successivo.
 
 ## Setup
 
@@ -104,7 +117,7 @@ Per generare anche l'installer Inno Setup:
 powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1 -InitialAdminPassword "ChangeMe123!" -BuildInstaller -InnoCompilerPath "C:\Program Files (x86)\Inno Setup 6"
 ```
 
-Prerequisito aggiuntivo: Inno Setup 6.x (`ISCC.exe`) installato nel `PATH` o passato con `-InnoCompilerPath`, anche come cartella, per esempio `C:\Program Files (x86)\Inno Setup 6`. L'installer Inno mostra la licenza, richiede l'accettazione delle condizioni, chiede la password iniziale dell'utente `admin`, installa e avvia il servizio server automaticamente, e include un task opzionale che chiede se creare sul desktop il collegamento alla UI admin `http://localhost:8080/server-settings.html`.
+Prerequisito aggiuntivo: Inno Setup 6.x (`ISCC.exe`) installato nel `PATH` o passato con `-InnoCompilerPath`, anche come cartella, per esempio `C:\Program Files (x86)\Inno Setup 6`. L'installer Inno mostra la licenza, richiede l'accettazione delle condizioni, chiede la password iniziale dell'utente `admin`, installa e avvia il servizio server automaticamente, e include un task opzionale che chiede se creare sul desktop il collegamento alla UI admin `http://localhost:8080/server-settings.html`. Questa richiesta riguarda solo il setup server.
 
 Output principale: `output\server-setup\inno\OnlyBackupServerSetup.exe`.
 
@@ -138,11 +151,7 @@ Output principali:
 - staging e log in `output\agent-msi\`;
 - MSI finale in `output\agent-msi\artifacts\OnlyBackupAgent.msi`.
 
-L'MSI mostra un'opzione per creare il collegamento desktop dell'agent. Nelle installazioni silenziose il collegamento viene creato di default; per disattivarlo passa `CREATE_DESKTOP_SHORTCUT=0`:
-
-```powershell
-msiexec /i .\output\agent-msi\artifacts\OnlyBackupAgent.msi /qn CREATE_DESKTOP_SHORTCUT=0
-```
+L'MSI dell'agent installa solo il servizio Windows `OnlyBackupAgent`: non mostra richieste per collegamenti desktop e non crea collegamenti desktop, anche nelle installazioni silenziose.
 
 ## Run
 
@@ -155,7 +164,7 @@ npm start
 
 La dashboard principale e disponibile su `/` e le pagine operative dedicate sono:
 - `/alerts.html` per alert attivi e storico;
-- `/server-settings.html` per impostazioni server e utenti;
+- `/server-settings.html` per configurazione server, agent, manutenzione dati e servizio Windows;
 - `/email-settings.html` per SMTP, template e OAuth email.
 
 ### Agent
@@ -229,7 +238,7 @@ Il server Node.js non richiede build applicativa; per l'esecuzione come servizio
 
 Per distribuire il server fuori dal repository usa `scripts\Setup-OnlyBackupServer.ps1 -BuildPackage`: il pacchetto risultante include `server\`, dipendenze npm, `agent\`, `tools\wix314-binaries\`, `service\`, `config.json`, script install/uninstall, prerequisiti, loghi/immagini in `assets\brand\` e asset agent in `assets\agent\`.
 
-Per produrre un `.exe` installabile usa `scripts\Setup-OnlyBackupServer.ps1 -BuildInstaller`: compila `scripts\support\inno\OnlyBackupServerSetup.iss` e aggiunge licenza, password admin iniziale, installazione/avvio servizio e richiesta per il collegamento desktop alla UI admin.
+Per produrre un `.exe` installabile usa `scripts\Setup-OnlyBackupServer.ps1 -BuildInstaller`: compila `scripts\support\inno\OnlyBackupServerSetup.iss` e aggiunge licenza, password admin iniziale, installazione/avvio servizio e richiesta opzionale per il collegamento desktop alla UI admin del server.
 
 ## Clean
 

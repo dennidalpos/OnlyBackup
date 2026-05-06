@@ -654,15 +654,15 @@ async function exportConfig() {
 function showExportDialog() {
     return new Promise((resolve) => {
         const html = `
-            <div style="padding: 20px;">
-                <h3 style="margin: 0 0 20px 0;">Seleziona cosa esportare</h3>
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="jobs" checked style="width: 18px; height: 18px;"> Job</label>
-                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="users" checked style="width: 18px; height: 18px;"> Utenti</label>
-                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="clients" checked style="width: 18px; height: 18px;"> Client</label>
-                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="email" checked style="width: 18px; height: 18px;"> Email</label>
+            <div class="dialog-panel">
+                <h3 id="exportDialogTitle">Seleziona cosa esportare</h3>
+                <div class="dialog-check-list">
+                    <label class="dialog-check"><input type="checkbox" value="jobs" checked> Job</label>
+                    <label class="dialog-check"><input type="checkbox" value="users" checked> Utenti</label>
+                    <label class="dialog-check"><input type="checkbox" value="clients" checked> Client</label>
+                    <label class="dialog-check"><input type="checkbox" value="email" checked> Email</label>
                 </div>
-                <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
+                <div class="modal-actions">
                     <button class="btn-cancel btn btn-outline btn-small">Annulla</button>
                     <button class="btn-confirm btn btn-primary btn-small">Esporta</button>
                 </div>
@@ -671,8 +671,7 @@ function showExportDialog() {
 
         const modal = document.createElement('div');
         modal.className = 'modal';
-        modal.style.display = 'flex';
-        modal.innerHTML = `<div class="modal-backdrop"></div><div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="exportDialogTitle" tabindex="-1">${html.replace('<h3 style="margin: 0 0 20px 0;">', '<h3 id="exportDialogTitle" style="margin: 0 0 20px 0;">')}</div>`;
+        modal.innerHTML = `<div class="modal-backdrop"></div><div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="exportDialogTitle" tabindex="-1">${html}</div>`;
         openDialog(modal);
 
         const cancel = () => {
@@ -737,28 +736,28 @@ function showImportDialog(config, availableSections) {
         const checkboxes = [];
 
         if (availableSections.includes('jobs')) {
-            checkboxes.push(`<label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="jobs" checked style="width: 18px; height: 18px;"> Job (${config.jobs?.length || 0})</label>`);
+            checkboxes.push(`<label class="dialog-check"><input type="checkbox" value="jobs" checked> Job (${config.jobs?.length || 0})</label>`);
         }
         if (availableSections.includes('users')) {
-            checkboxes.push(`<label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="users" checked style="width: 18px; height: 18px;"> Utenti (${config.users?.length || 0})</label>`);
+            checkboxes.push(`<label class="dialog-check"><input type="checkbox" value="users" checked> Utenti (${config.users?.length || 0})</label>`);
         }
         if (availableSections.includes('clients')) {
-            checkboxes.push(`<label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="clients" checked style="width: 18px; height: 18px;"> Client (${config.clients?.length || 0})</label>`);
+            checkboxes.push(`<label class="dialog-check"><input type="checkbox" value="clients" checked> Client (${config.clients?.length || 0})</label>`);
         }
         if (availableSections.includes('email')) {
-            checkboxes.push(`<label style="display: flex; align-items: center; gap: 10px; cursor: pointer;"><input type="checkbox" value="email" checked style="width: 18px; height: 18px;"> Email (${config.email ? '1' : '0'})</label>`);
+            checkboxes.push(`<label class="dialog-check"><input type="checkbox" value="email" checked> Email (${config.email ? '1' : '0'})</label>`);
         }
 
         const html = `
-            <div style="padding: 20px;">
-                <h3 style="margin: 0 0 20px 0;">Seleziona cosa importare</h3>
-                <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div class="dialog-panel">
+                <h3 id="importDialogTitle">Seleziona cosa importare</h3>
+                <div class="dialog-check-list">
                     ${checkboxes.join('')}
                 </div>
-                <p style="margin-top: 16px; color: var(--text-muted); font-size: 0.875rem;">
+                <p class="dialog-note">
                     Gli elementi esistenti con lo stesso ID verranno sovrascritti
                 </p>
-                <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
+                <div class="modal-actions">
                     <button class="btn-cancel btn btn-outline btn-small">Annulla</button>
                     <button class="btn-confirm btn btn-primary btn-small">Importa</button>
                 </div>
@@ -767,8 +766,7 @@ function showImportDialog(config, availableSections) {
 
         const modal = document.createElement('div');
         modal.className = 'modal';
-        modal.style.display = 'flex';
-        modal.innerHTML = `<div class="modal-backdrop"></div><div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="importDialogTitle" tabindex="-1">${html.replace('<h3 style="margin: 0 0 20px 0;">', '<h3 id="importDialogTitle" style="margin: 0 0 20px 0;">')}</div>`;
+        modal.innerHTML = `<div class="modal-backdrop"></div><div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="importDialogTitle" tabindex="-1">${html}</div>`;
         openDialog(modal);
 
         const cancel = () => {
@@ -784,143 +782,6 @@ function showImportDialog(config, availableSections) {
     });
 }
 
-function injectPageStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        .btn-danger {
-            background: var(--error-color);
-            color: white;
-            padding: 0.6rem 1.2rem;
-            font-weight: 600;
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
-        }
-
-        .btn-danger:disabled {
-            background: #999;
-            cursor: not-allowed;
-        }
-
-        .form-section {
-            margin-bottom: 32px;
-            padding: 24px;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            background: var(--panel-bg);
-        }
-
-        .form-section h4 {
-            margin: 0 0 16px 0;
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .form-section p {
-            margin: 0 0 16px 0;
-            line-height: 1.6;
-        }
-
-        .info-box {
-            background: var(--warning-bg);
-            border-left: 4px solid var(--warning-color);
-            padding: 16px;
-            margin-bottom: 20px;
-            border-radius: var(--radius-sm);
-        }
-
-        .info-box p {
-            margin: 0;
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-        }
-
-        .tab-content {
-            padding: 30px;
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .settings-content {
-            background: var(--panel-bg);
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-sm);
-            border: 1px solid var(--border-color);
-            overflow: hidden;
-        }
-
-        .tabs {
-            display: flex;
-            border-bottom: 1px solid var(--border-color);
-            background: var(--panel-header-bg);
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 16px 24px;
-            border: none;
-            background: transparent;
-            cursor: pointer;
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: var(--text-muted);
-            transition: all 0.2s;
-            border-bottom: 2px solid transparent;
-        }
-
-        .tab-btn:hover {
-            background: var(--surface-hover);
-            color: var(--text-secondary);
-        }
-
-        .tab-btn.active {
-            color: var(--primary-color);
-            border-bottom-color: var(--primary-color);
-            background: var(--panel-bg);
-        }
-
-        .status-message {
-            padding: 12px 16px;
-            border-radius: var(--radius-sm);
-            margin-bottom: 20px;
-            font-size: 0.875rem;
-        }
-
-        .status-message.success {
-            background: var(--success-bg);
-            color: var(--success-color);
-            border: 1px solid var(--success-color);
-        }
-
-        .status-message.error {
-            background: var(--error-bg);
-            color: var(--error-color);
-            border: 1px solid var(--error-color);
-        }
-
-        .status-message.warning {
-            background: var(--warning-bg);
-            color: var(--warning-color);
-            border: 1px solid var(--warning-color);
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-const emailSettingsController = createEmailSettingsController({
-    escapeHtml,
-    onReady: async () => {
-        await loadLogRetention();
-    },
-    showMessage,
-    switchTab
-});
-
 window.deleteAllLogs = deleteAllLogs;
 window.deleteAlertHistory = deleteAlertHistory;
 window.saveLogRetention = saveLogRetention;
@@ -932,18 +793,8 @@ window.controlServerService = controlServerService;
 window.rebootServer = rebootServer;
 window.exportConfig = exportConfig;
 window.importConfig = importConfig;
-window.toggleAuthType = () => emailSettingsController.toggleAuthType();
-window.openOAuthDialog = () => emailSettingsController.openOAuthDialog();
-window.startOAuthLogin = (provider) => emailSettingsController.startOAuthLogin(provider);
-window.saveEmailSettings = () => emailSettingsController.saveEmailSettings();
-window.testEmail = () => emailSettingsController.testEmail();
-window.loadTemplate = () => emailSettingsController.loadTemplate();
-window.saveTemplate = () => emailSettingsController.saveTemplate();
-window.resetTemplate = () => emailSettingsController.resetTemplate();
 
 document.addEventListener('DOMContentLoaded', async () => {
-    injectPageStyles();
-
     document.querySelectorAll('.tab-btn').forEach((button) => {
         button.addEventListener('click', () => {
             switchTab(button.dataset.tab);
@@ -966,7 +817,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    await emailSettingsController.initialize();
+    await loadLogRetention();
     await loadAgentPackageOptions();
     await loadServerServiceStatus();
 });

@@ -145,42 +145,11 @@ OnlyBackupApp.prototype.showLogin = function() {
     this.showScreen('loginScreen');
 };
 
-OnlyBackupApp.prototype.showPublicStats = async function() {
-    this.showScreen('publicStatsScreen');
-    await this.loadPublicStats();
-    this.startPublicStatsPolling();
-};
-
-OnlyBackupApp.prototype.loadPublicStats = async function() {
-    try {
-        const response = await fetch('/api/public/stats');
-        if (response.status === 304) {
-            return true;
-        }
-        if (response.ok) {
-            const data = await response.json();
-            document.getElementById('backupsOk').textContent = data.backups_ok_24h;
-            document.getElementById('backupsFailed').textContent = data.backups_failed_24h;
-            document.getElementById('clientsOnline').textContent = data.clients_online;
-            document.getElementById('clientsOffline').textContent = data.clients_offline;
-            return true;
-        }
-    } catch (error) {
-        console.error('Errore caricamento stats pubbliche:', error);
-    }
-    return false;
-};
-
 OnlyBackupApp.prototype.showDashboard = async function() {
     this.showScreen('mainDashboard');
     document.getElementById('currentUser').textContent = this.currentUser;
     await Promise.all([this.loadClients(), this.loadHeaderStats()]);
     this.startDashboardPolling();
-};
-
-OnlyBackupApp.prototype.startPublicStatsPolling = function() {
-    if (document.hidden) return;
-    this.scheduleStatsPolling(() => this.loadPublicStats());
 };
 
 OnlyBackupApp.prototype.startDashboardPolling = function() {
@@ -250,8 +219,6 @@ OnlyBackupApp.prototype.handleVisibilityChange = function() {
 
     if (this.activeScreen === 'mainDashboard' && this.authenticated) {
         this.startDashboardPolling();
-    } else if (this.activeScreen === 'publicStatsScreen') {
-        this.startPublicStatsPolling();
     }
 };
 

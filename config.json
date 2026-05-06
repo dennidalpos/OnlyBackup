@@ -22,5 +22,17 @@
   "scheduler": {
     "checkInterval": 60000,
     "enableFileWatcher": false
+  },
+  "oauth": {
+    "providers": {
+      "google": {
+        "clientId": "",
+        "clientSecret": ""
+      },
+      "microsoft": {
+        "clientId": "",
+        "clientSecret": ""
+      }
+    }
   }
 }

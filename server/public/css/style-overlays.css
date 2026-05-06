@@ -194,9 +194,6 @@
     .client-summary {
         grid-template-columns: repeat(3, 1fr);
     }
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
 }
 @media (max-width: 768px) {
     .topbar,
@@ -246,9 +243,6 @@
     .header-stats {
         display: none;
     }
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
 }
 @media (max-width: 480px) {
     .client-header-actions {
@@ -256,9 +250,6 @@
         gap: 0.25rem;
     }
     .client-summary {
-        grid-template-columns: 1fr;
-    }
-    .stats-grid {
         grid-template-columns: 1fr;
     }
     .toast-container {

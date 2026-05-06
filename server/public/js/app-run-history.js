@@ -91,7 +91,7 @@ OnlyBackupApp.prototype.runAllJobsForClient = async function() {
             return;
         }
 
-        const runAllBtn = this.getButtonByText('Esegui Tutti');
+        const runAllBtn = document.getElementById('runAllJobsButton');
         this.setButtonLoading(runAllBtn, true);
 
         let started = 0;

@@ -79,31 +79,6 @@
         </div>
     </div>
 
-    <div id="publicStatsScreen" class="screen hidden">
-        <div class="public-stats-container">
-            <h1>OnlyBackup - Stato Sistema</h1>
-            <div class="stats-grid">
-                <div class="stat-card success">
-                    <h3>Backup OK (24h)</h3>
-                    <div class="stat-value" id="backupsOk">-</div>
-                </div>
-                <div class="stat-card error">
-                    <h3>Backup Falliti (24h)</h3>
-                    <div class="stat-value" id="backupsFailed">-</div>
-                </div>
-                <div class="stat-card online">
-                    <h3>Client Online</h3>
-                    <div class="stat-value" id="clientsOnline">-</div>
-                </div>
-                <div class="stat-card offline">
-                    <h3>Client Offline</h3>
-                    <div class="stat-value" id="clientsOffline">-</div>
-                </div>
-            </div>
-            <button onclick="app.showLogin()" class="btn btn-primary">Accedi come Admin</button>
-        </div>
-    </div>
-
     <div id="mainDashboard" class="screen hidden">
         <div class="dashboard-shell">
             <header class="topbar">
@@ -112,6 +87,24 @@
                     <div>
                         <div class="brand-title">OnlyBackup</div>
                         <div class="brand-subtitle">Centro controllo</div>
+                    </div>
+                </div>
+                <div class="topbar-stats" aria-label="Stato sistema">
+                    <div class="stat-pill">
+                        <span class="pill-label">Client</span>
+                        <span class="pill-value online" id="headerClientsOnline">-</span>
+                        <span class="pill-sep">/</span>
+                        <span class="pill-value offline" id="headerClientsOffline">-</span>
+                    </div>
+                    <div class="stat-pill">
+                        <span class="pill-label">Backup 24h</span>
+                        <span class="pill-value success" id="headerBackupsOk">-</span>
+                        <span class="pill-sep">/</span>
+                        <span class="pill-value failure" id="headerBackupsFailed">-</span>
+                    </div>
+                    <div class="stat-pill stat-pill-wide">
+                        <span class="pill-label">Stato client</span>
+                        <span class="pill-statuses" id="headerBackupStatusList">Caricamento...</span>
                     </div>
                 </div>
                 <div class="user-info">
@@ -181,7 +174,7 @@
                                         <h3>Job & Storico</h3>
                                     </div>
                                     <div class="client-header-actions">
-                                        <button onclick="app.runAllJobsForClient()" class="btn btn-success btn-small action-group">Esegui Tutti</button>
+                                        <button id="runAllJobsButton" onclick="app.runAllJobsForClient()" class="btn btn-success btn-small action-group">Esegui Tutti</button>
                                         <button onclick="app.showCreateJobForm()" class="btn btn-primary btn-small action-group">+ Nuovo Job</button>
                                         <button onclick="app.clearClientLogs()" class="btn btn-warning btn-small action-group" title="Elimina solo lo storico backup">Elimina Log</button>
                                         <button onclick="app.deregisterClient()" class="btn btn-danger btn-small action-group" title="Deregistra client e tutti i dati">Deregistra</button>
@@ -222,9 +215,9 @@
                                         <h3>Job</h3>
                                     </div>
                                     <div class="header-actions">
-                                        <button class="btn btn-outline btn-small action-group" id="cancelJobBtn" onclick="app.cancelEditJob()" style="display: none;">Annulla</button>
+                                        <button class="btn btn-outline btn-small action-group hidden" id="cancelJobBtn" onclick="app.cancelEditJob()">Annulla</button>
                                         <button class="btn btn-outline btn-small action-group" onclick="app.openBackupsList()">Backup presenti</button>
-                                        <button class="btn btn-primary btn-small action-group" onclick="app.handleSaveJob()">Salva</button>
+                                        <button id="saveJobButton" class="btn btn-primary btn-small action-group" onclick="app.handleSaveJob()">Salva</button>
                                         <button class="btn btn-success btn-small action-group" onclick="app.runEditingJob()">Esegui</button>
                                         <button class="btn btn-danger btn-small action-group" onclick="app.deleteEditingJob()">Elimina</button>
                                     </div>
@@ -288,6 +281,15 @@
                 </main>
 
             </div>
+            <footer class="footer-status">
+                <div class="status-item">
+                    <span class="status-dot" id="connectionStatus"></span>
+                    <div class="status-copy">
+                        <span class="status-label">Connessione</span>
+                        <span class="status-caption" id="connectionStatusText">Verifica backend...</span>
+                    </div>
+                </div>
+            </footer>
         </div>
     </div>
 
@@ -362,45 +364,6 @@
             </div>
         </div>
     </div>
-
-    <template id="dashboardMockExample">
-        <div class="dashboard-shell">
-            <header class="topbar">
-                <div class="brand"><div class="brand-mark"><img src="/assets/brand/onlybackup-mark.svg" alt="" width="36" height="36"></div><div><div class="brand-title">OnlyBackup</div><div class="brand-subtitle">Centro controllo</div></div></div>
-                <div class="topbar-stats">
-                    <div class="stat-pill"><span class="pill-label">Client</span><span class="pill-value online">12</span><span class="pill-sep">/</span><span class="pill-value offline">3</span></div>
-                    <div class="stat-pill"><span class="pill-label">Backup 24h</span><span class="pill-value success">42</span><span class="pill-sep">/</span><span class="pill-value failure">1</span></div>
-                </div>
-                <div class="user-info"><span class="user-chip">admin</span></div>
-            </header>
-            <div class="dashboard-layout">
-                <aside class="layout-panel sidebar-panel">
-                    <div class="panel-header"><h2>Client</h2></div>
-                    <div class="card-list">
-                        <div class="card-row"><div class="title truncate" title="PC-001">PC-001</div><div class="badge status-success">Online</div></div>
-                        <div class="card-row"><div class="title truncate" title="PC-002">PC-002</div><div class="badge status-warning">Offline</div></div>
-                    </div>
-                </aside>
-                <main class="layout-panel main-panel">
-                    <div class="summary-grid">
-                        <div class="summary-card"><div class="summary-label">Job Attivi</div><div class="summary-value">4</div></div>
-                        <div class="summary-card"><div class="summary-label">Ultimo Backup</div><div class="summary-value">12:30</div></div>
-                        <div class="summary-card"><div class="summary-label">Totale Esecuzioni</div><div class="summary-value">128</div></div>
-                    </div>
-                    <div class="workspace-grid">
-                        <div class="workspace-left">
-                            <div class="tabs"><button class="tab-btn active">Job</button><button class="tab-btn">Storico</button></div>
-                            <div class="card-list"><div class="card-row"><div><div class="title truncate">Backup Documents</div><div class="subtitle">02:00 ogni giorno</div></div><div class="badge status-success">OK</div></div></div>
-                        </div>
-                        <div class="workspace-right">
-                            <div class="job-editor-panel"><div class="panel-header"><h3>Editor Job</h3></div><div class="info-message">Seleziona un job</div></div>
-                        </div>
-                    </div>
-                </main>
-            </div>
-            <footer class="footer-status"><div class="status-item"><span class="status-dot success"></span><span>Online</span></div></footer>
-        </div>
-    </template>
 
     <script src="/js/app.js"></script>
     <script src="/js/app-auth.js"></script>

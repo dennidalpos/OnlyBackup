@@ -5,13 +5,13 @@ OnlyBackupApp.prototype.renderJobEditor = function() {
         const cancelBtn = document.getElementById('cancelJobBtn');
 
         if (cancelBtn) {
-            cancelBtn.style.display = this.isNewJob ? 'inline-flex' : 'none';
+            cancelBtn.classList.toggle('hidden', !this.isNewJob);
         }
 
         if (!this.editingJob) {
             form.classList.add('hidden');
             emptyState.classList.remove('hidden');
-            if (cancelBtn) cancelBtn.style.display = 'none';
+            if (cancelBtn) cancelBtn.classList.add('hidden');
             return;
         }
 
@@ -185,7 +185,7 @@ OnlyBackupApp.prototype.handleMappingModeChange = function(index, mode) {
 OnlyBackupApp.prototype.handleSaveJob = async function() {
         if (!this.editingJob) return;
 
-        const saveBtn = this.getButtonByText('Salva');
+        const saveBtn = document.getElementById('saveJobButton');
         const errorDiv = document.getElementById('jobFormError');
         const jobId = document.getElementById('jobIdField').value.trim();
 

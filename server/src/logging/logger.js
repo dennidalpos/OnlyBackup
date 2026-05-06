@@ -212,6 +212,7 @@ class Logger {
       || normalized === 'clientsecret'
       || normalized === 'refreshtoken'
       || normalized === 'accesstoken'
+      || normalized === 'tokencache'
       || normalized === 'sessionid'
       || normalized === 'authorization'
       || normalized === 'cookie'

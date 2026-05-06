@@ -4,6 +4,7 @@ function registerNotificationRoutes(router, deps) {
     logger,
     cleanupOauthStates,
     getOAuthConfig,
+    buildOAuthAuthorizationUrl,
     buildOAuthRedirect,
     createCodeVerifier,
     createCodeChallenge,
@@ -13,6 +14,16 @@ function registerNotificationRoutes(router, deps) {
     getPublicBaseUrl,
     oauthStateStore
   } = deps;
+
+  const getOAuthProviderCredentials = (req, provider) => {
+    const providerConfig = req.app.get('config')?.oauth?.providers?.[provider] || {};
+    const envName = String(provider || '').toUpperCase();
+
+    return {
+      clientId: providerConfig.clientId || process.env[`ONLYBACKUP_OAUTH_${envName}_CLIENT_ID`] || '',
+      clientSecret: providerConfig.clientSecret || process.env[`ONLYBACKUP_OAUTH_${envName}_CLIENT_SECRET`] || ''
+    };
+  };
 
   router.get('/api/email/settings', requireAuth, (req, res) => {
     try {
@@ -88,7 +99,7 @@ function registerNotificationRoutes(router, deps) {
     }
   });
 
-  router.post('/api/email/oauth/start', requireAuth, (req, res) => {
+  router.post('/api/email/oauth/start', requireAuth, async (req, res) => {
     try {
       cleanupOauthStates();
       const { provider, clientId, clientSecret, authUser, returnTo, popup } = req.body || {};
@@ -104,12 +115,15 @@ function registerNotificationRoutes(router, deps) {
       }
 
       const currentSettings = emailService.getRawSettings();
-      const resolvedClientId = clientId || currentSettings?.smtp?.oauth2?.clientId;
-      const resolvedClientSecret = clientSecret || currentSettings?.smtp?.oauth2?.clientSecret;
+      const providerCredentials = getOAuthProviderCredentials(req, provider);
+      const resolvedClientId = providerCredentials.clientId || clientId || currentSettings?.smtp?.oauth2?.clientId;
+      const resolvedClientSecret = providerCredentials.clientSecret || clientSecret || currentSettings?.smtp?.oauth2?.clientSecret;
       const resolvedAuthUser = authUser || currentSettings?.smtp?.auth?.user;
 
       if (!resolvedClientId || !resolvedClientSecret) {
-        return res.status(400).json({ error: 'Client ID e Client Secret sono obbligatori' });
+        return res.status(400).json({
+          error: `Provider OAuth ${provider} non configurato sul server. Configura l'app OAuth OnlyBackup per il provider selezionato.`
+        });
       }
 
       if (!resolvedAuthUser) {
@@ -133,28 +147,16 @@ function registerNotificationRoutes(router, deps) {
         createdAt: Date.now()
       });
 
-      const params = new URLSearchParams({
-        client_id: resolvedClientId,
-        redirect_uri: redirectUri,
-        response_type: 'code',
-        scope: config.scope,
+      const url = await buildOAuthAuthorizationUrl(provider, {
+        clientId: resolvedClientId,
+        clientSecret: resolvedClientSecret
+      }, {
+        redirectUri,
         state,
-        code_challenge: codeChallenge,
-        code_challenge_method: 'S256'
+        authUser: resolvedAuthUser,
+        codeChallenge
       });
 
-      if (provider === 'google') {
-        params.set('access_type', 'offline');
-        params.set('prompt', 'consent');
-        params.set('login_hint', resolvedAuthUser);
-      }
-
-      if (provider === 'microsoft') {
-        params.set('response_mode', 'query');
-        params.set('login_hint', resolvedAuthUser);
-      }
-
-      const url = `${config.authorizeUrl}?${params.toString()}`;
       res.json({ url });
     } catch (error) {
       logger.error('Errore avvio OAuth email', { error: error.message });
@@ -204,13 +206,13 @@ function registerNotificationRoutes(router, deps) {
         }));
       }
 
-      const tokenData = await exchangeOAuthCode(config.tokenUrl, {
-        client_id: stateData.clientId,
-        client_secret: stateData.clientSecret,
-        grant_type: 'authorization_code',
+      const tokenData = await exchangeOAuthCode(stateData.provider, {
+        clientId: stateData.clientId,
+        clientSecret: stateData.clientSecret
+      }, {
         code,
-        redirect_uri: stateData.redirectUri,
-        code_verifier: stateData.codeVerifier
+        redirectUri: stateData.redirectUri,
+        codeVerifier: stateData.codeVerifier
       });
 
       const emailService = req.app.get('emailService');
@@ -224,9 +226,9 @@ function registerNotificationRoutes(router, deps) {
 
       const currentSettings = emailService.getRawSettings();
       const fallbackRefreshToken = currentSettings?.smtp?.oauth2?.refreshToken;
-      const refreshToken = tokenData.refresh_token || fallbackRefreshToken;
+      const refreshToken = tokenData.refreshToken || fallbackRefreshToken || '';
 
-      if (!refreshToken) {
+      if (stateData.provider === 'google' && !refreshToken) {
         return res.redirect(buildOAuthRedirect(stateData.returnTo, {
           oauth: 'error',
           message: 'Refresh token non ricevuto. Ripetere il consenso.',
@@ -245,10 +247,14 @@ function registerNotificationRoutes(router, deps) {
           },
           oauth2: {
             ...currentSettings.smtp?.oauth2,
-            clientId: stateData.clientId,
-            clientSecret: stateData.clientSecret,
+            provider: stateData.provider,
+            clientId: null,
+            clientSecret: null,
             refreshToken,
-            accessToken: tokenData.access_token || currentSettings.smtp?.oauth2?.accessToken || ''
+            accessToken: tokenData.accessToken || currentSettings.smtp?.oauth2?.accessToken || '',
+            expiresAt: tokenData.expiresAt || currentSettings.smtp?.oauth2?.expiresAt || null,
+            tokenCache: tokenData.tokenCache || currentSettings.smtp?.oauth2?.tokenCache || '',
+            account: tokenData.account || currentSettings.smtp?.oauth2?.account || null
           }
         }
       };

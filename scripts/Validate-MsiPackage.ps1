@@ -66,14 +66,19 @@ function Test-MsiTableContains {
     )
 
     $query = "SELECT ``$ColumnName`` FROM ``$TableName``"
-    $view = $Database.GetType().InvokeMember(
-        "OpenView",
-        [System.Reflection.BindingFlags]::InvokeMethod,
-        $null,
-        $Database,
-        @($query)
-    )
-    $view.GetType().InvokeMember("Execute", [System.Reflection.BindingFlags]::InvokeMethod, $null, $view, $null) | Out-Null
+    try {
+        $view = $Database.GetType().InvokeMember(
+            "OpenView",
+            [System.Reflection.BindingFlags]::InvokeMethod,
+            $null,
+            $Database,
+            @($query)
+        )
+        $view.GetType().InvokeMember("Execute", [System.Reflection.BindingFlags]::InvokeMethod, $null, $view, $null) | Out-Null
+    }
+    catch {
+        return $false
+    }
 
     while ($true) {
         $record = $view.GetType().InvokeMember("Fetch", [System.Reflection.BindingFlags]::InvokeMethod, $null, $view, $null)
@@ -106,24 +111,24 @@ if ($productName -eq "OnlyBackup Agent") {
         throw "Launch condition MSI incompleta: manca blocco esplicito su robocopy.exe."
     }
 
-    if (-not (Test-MsiTableContains -Database $database -TableName "Feature" -ColumnName "Feature" -ExpectedValue "DesktopShortcutFeature")) {
-        throw "Feature MSI incompleta: manca DesktopShortcutFeature."
+    if (Test-MsiTableContains -Database $database -TableName "Feature" -ColumnName "Feature" -ExpectedValue "DesktopShortcutFeature") {
+        throw "Feature MSI non valida: DesktopShortcutFeature non deve essere presente."
     }
 
-    if (-not (Test-MsiTableContains -Database $database -TableName "Condition" -ColumnName "Condition" -ExpectedValue 'CREATE_DESKTOP_SHORTCUT <> "1"')) {
-        throw "Feature MSI incompleta: manca condizione di opt-out CREATE_DESKTOP_SHORTCUT."
+    if (Test-MsiTableContains -Database $database -TableName "Property" -ColumnName "Property" -ExpectedValue "CREATE_DESKTOP_SHORTCUT") {
+        throw "Feature MSI non valida: CREATE_DESKTOP_SHORTCUT non deve essere supportata."
     }
 
-    if (-not (Test-MsiTableContains -Database $database -TableName "Shortcut" -ColumnName "Shortcut" -ExpectedValue "OnlyBackupAgentDesktopShortcut")) {
-        throw "Feature MSI incompleta: manca shortcut desktop opzionale."
+    if (Test-MsiTableContains -Database $database -TableName "Shortcut" -ColumnName "Shortcut" -ExpectedValue "OnlyBackupAgentDesktopShortcut") {
+        throw "Feature MSI non valida: lo shortcut desktop agent non deve essere presente."
     }
 
-    if (-not (Test-MsiTableContains -Database $database -TableName "Dialog" -ColumnName "Dialog" -ExpectedValue "DesktopShortcutDlg")) {
-        throw "UI MSI incompleta: manca dialog per opzione collegamento desktop."
+    if (Test-MsiTableContains -Database $database -TableName "Dialog" -ColumnName "Dialog" -ExpectedValue "DesktopShortcutDlg") {
+        throw "UI MSI non valida: DesktopShortcutDlg non deve essere presente."
     }
 
-    if (-not (Test-MsiTableContains -Database $database -TableName "ControlEvent" -ColumnName "Argument" -ExpectedValue "DesktopShortcutDlg")) {
-        throw "UI MSI incompleta: il dialog collegamento desktop non e raggiungibile dal flusso installazione."
+    if (Test-MsiTableContains -Database $database -TableName "ControlEvent" -ColumnName "Argument" -ExpectedValue "DesktopShortcutDlg") {
+        throw "UI MSI non valida: il flusso installazione non deve puntare a DesktopShortcutDlg."
     }
 }
 

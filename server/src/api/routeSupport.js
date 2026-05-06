@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const { OAuth2Client } = require('google-auth-library');
+const msal = require('@azure/msal-node');
 const createAgentClient = require('../services/agentClient');
 const createRunLogReader = require('../storage/runLogReader');
 
@@ -37,21 +39,73 @@ function createRouteSupport({ authManager, storage, logger }) {
   const getOAuthConfig = (provider) => {
     if (provider === 'google') {
       return {
-        authorizeUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-        tokenUrl: 'https://oauth2.googleapis.com/token',
-        scope: 'https://mail.google.com/ https://www.googleapis.com/auth/userinfo.email'
+        scopes: ['https://mail.google.com/', 'https://www.googleapis.com/auth/userinfo.email']
       };
     }
 
     if (provider === 'microsoft') {
       return {
-        authorizeUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-        tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-        scope: 'offline_access https://outlook.office.com/SMTP.Send'
+        authority: 'https://login.microsoftonline.com/common',
+        scopes: ['offline_access', 'https://outlook.office.com/SMTP.Send']
       };
     }
 
     return null;
+  };
+
+  const createGoogleOAuthClient = ({ clientId, clientSecret, redirectUri }) =>
+    new OAuth2Client(clientId, clientSecret, redirectUri);
+
+  const createMicrosoftOAuthClient = ({ clientId, clientSecret, tokenCache }) => {
+    const client = new msal.ConfidentialClientApplication({
+      auth: {
+        clientId,
+        clientSecret,
+        authority: getOAuthConfig('microsoft').authority
+      }
+    });
+
+    if (tokenCache) {
+      client.getTokenCache().deserialize(tokenCache);
+    }
+
+    return client;
+  };
+
+  const buildOAuthAuthorizationUrl = async (provider, credentials, options) => {
+    const config = getOAuthConfig(provider);
+    if (!config) {
+      throw new Error('Provider OAuth non supportato');
+    }
+
+    if (provider === 'google') {
+      const client = createGoogleOAuthClient({
+        clientId: credentials.clientId,
+        clientSecret: credentials.clientSecret,
+        redirectUri: options.redirectUri
+      });
+
+      return client.generateAuthUrl({
+        access_type: 'offline',
+        prompt: 'consent',
+        scope: config.scopes,
+        state: options.state,
+        login_hint: options.authUser,
+        code_challenge: options.codeChallenge,
+        code_challenge_method: 'S256'
+      });
+    }
+
+    const client = createMicrosoftOAuthClient(credentials);
+    return client.getAuthCodeUrl({
+      redirectUri: options.redirectUri,
+      scopes: config.scopes,
+      state: options.state,
+      loginHint: options.authUser,
+      responseMode: 'query',
+      codeChallenge: options.codeChallenge,
+      codeChallengeMethod: 'S256'
+    });
   };
 
   const buildOAuthRedirect = (returnTo, params) => {
@@ -70,20 +124,48 @@ function createRouteSupport({ authManager, storage, logger }) {
     return `${safeReturnTo}?${search.toString()}`;
   };
 
-  const exchangeOAuthCode = async (tokenUrl, payload) => {
-    const response = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(payload)
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      const errorMessage = data.error_description || data.error || 'Errore scambio token';
-      throw new Error(errorMessage);
+  const exchangeOAuthCode = async (provider, credentials, options) => {
+    const config = getOAuthConfig(provider);
+    if (!config) {
+      throw new Error('Provider OAuth non supportato');
     }
 
-    return data;
+    if (provider === 'google') {
+      const client = createGoogleOAuthClient({
+        clientId: credentials.clientId,
+        clientSecret: credentials.clientSecret,
+        redirectUri: options.redirectUri
+      });
+      const { tokens } = await client.getToken({
+        code: options.code,
+        redirect_uri: options.redirectUri,
+        codeVerifier: options.codeVerifier
+      });
+
+      return {
+        provider,
+        accessToken: tokens.access_token || '',
+        refreshToken: tokens.refresh_token || '',
+        expiresAt: tokens.expiry_date || null
+      };
+    }
+
+    const client = createMicrosoftOAuthClient(credentials);
+    const result = await client.acquireTokenByCode({
+      code: options.code,
+      redirectUri: options.redirectUri,
+      scopes: config.scopes,
+      codeVerifier: options.codeVerifier
+    });
+
+    return {
+      provider,
+      accessToken: result?.accessToken || '',
+      refreshToken: '',
+      expiresAt: result?.expiresOn ? result.expiresOn.getTime() : null,
+      account: result?.account || null,
+      tokenCache: client.getTokenCache().serialize()
+    };
   };
 
   const getPublicBaseUrl = (req) => {
@@ -483,6 +565,7 @@ function createRouteSupport({ authManager, storage, logger }) {
     oauthStateStore,
     base64UrlEncode,
     buildAgentStatusMap,
+    buildOAuthAuthorizationUrl,
     buildOAuthRedirect,
     buildSessionCookieOptions,
     callAgentDelete: agentClient.callAgentDelete,

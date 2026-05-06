@@ -84,7 +84,7 @@ class OnlyBackupServer {
 
       this.authManager = new AuthManager(this.storage, this.logger, this.config);
 
-      this.emailService = new EmailService(this.storage, this.logger);
+      this.emailService = new EmailService(this.storage, this.logger, this.config);
 
       this.alertService = new AlertService(this.storage, this.logger);
 
@@ -181,6 +181,11 @@ class OnlyBackupServer {
       checkInterval: 60000,
       enableFileWatcher: false,
       ...(this.config.scheduler || {})
+    };
+
+    this.config.oauth = {
+      providers: {},
+      ...(this.config.oauth || {})
     };
 
     if (!this.config.dataRoot) {

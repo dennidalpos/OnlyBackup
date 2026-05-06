@@ -221,12 +221,18 @@ class OnlyBackupApp {
     handleClientStatusChanged(data) {
         console.log('Client status changed:', data);
 
-        const clientRow = document.querySelector(`tr[data-hostname="${data.hostname}"]`);
-        if (clientRow) {
-            const statusCell = clientRow.querySelector('.client-status');
-            if (statusCell) {
-                statusCell.textContent = data.status === 'online' ? 'Online' : 'Offline';
-                statusCell.className = `client-status status-${data.status}`;
+        const hostname = data.hostname;
+        const status = (data.status || '').toLowerCase();
+        const client = this.clients.find((entry) => entry.hostname === hostname);
+
+        if (client) {
+            client.online = status === 'online';
+            client.status = status || client.status;
+            client.lastSeen = data.lastSeen || data.last_seen || client.lastSeen;
+            this.renderClientsList();
+
+            if (this.selectedClient === hostname) {
+                this.updateClientHeader();
             }
         }
 
@@ -269,8 +275,12 @@ class OnlyBackupApp {
 
         if (onlineEl && data.clients_online !== undefined) onlineEl.textContent = data.clients_online;
         if (offlineEl && data.clients_offline !== undefined) offlineEl.textContent = data.clients_offline;
-        if (okEl && data.success !== undefined) okEl.textContent = data.success;
-        if (koEl && data.failed !== undefined) koEl.textContent = data.failed;
+        if (okEl) okEl.textContent = data.backups_ok_24h ?? data.success ?? okEl.textContent;
+        if (koEl) koEl.textContent = data.backups_failed_24h ?? data.failed ?? koEl.textContent;
+        if (Array.isArray(data.client_statuses)) {
+            this.renderHeaderBackupStatus(data.client_statuses);
+        }
+        this.updateFooterStatus({ healthy: true, message: 'Backend online' });
     }
 
     showToast(type, title, message, duration = 5000) {
@@ -398,15 +408,6 @@ class OnlyBackupApp {
         return normalized;
     }
 
-    getButtonByText(text) {
-        const buttons = document.querySelectorAll('.btn');
-        for (const button of buttons) {
-            if (button.textContent.trim().includes(text)) {
-                return button;
-            }
-        }
-        return null;
-    }
 }
 
 window.OnlyBackupApp = OnlyBackupApp;

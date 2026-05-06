@@ -17,11 +17,13 @@
   "author": "Danny Perondi",
   "license": "UNLICENSED",
   "dependencies": {
+    "@azure/msal-node": "^5.1.5",
     "bcryptjs": "^3.0.3",
     "chokidar": "^5.0.0",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
+    "google-auth-library": "^10.6.2",
     "nodemailer": "^8.0.7",
     "uuid": "^13.0.0",
     "winston": "^3.19.0",
