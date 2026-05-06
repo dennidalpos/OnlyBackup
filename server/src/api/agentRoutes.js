@@ -2,11 +2,85 @@ const eventBus = require('../events/eventBus');
 
 function registerAgentRoutes(router, deps) {
   const {
+    requireAuth,
     logger,
     storage,
     HEARTBEAT_TTL_MS,
     extractClientIp
   } = deps;
+
+  router.get('/api/agent/package/options', requireAuth, (req, res) => {
+    try {
+      const agentPackageService = req.app.get('agentPackageService');
+      if (!agentPackageService) {
+        return res.status(500).json({ error: 'Servizio packaging agent non disponibile' });
+      }
+
+      const options = agentPackageService.getPackageOptions(req);
+      logger.logApiCall('GET', '/api/agent/package/options', req.username, 200);
+      res.json(options);
+    } catch (error) {
+      logger.error('Errore opzioni packaging agent', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  router.post('/api/agent/package/build', requireAuth, (req, res) => {
+    try {
+      const agentPackageService = req.app.get('agentPackageService');
+      if (!agentPackageService) {
+        return res.status(500).json({ error: 'Servizio packaging agent non disponibile' });
+      }
+
+      const build = agentPackageService.startBuild(req.body || {}, req.username);
+      logger.logApiCall('POST', '/api/agent/package/build', req.username, 202);
+      res.status(202).json(build);
+    } catch (error) {
+      const statusCode = error.statusCode || 500;
+      logger.error('Errore avvio packaging agent', { error: error.message, statusCode });
+      res.status(statusCode).json({ error: statusCode === 500 ? 'Errore interno' : error.message });
+    }
+  });
+
+  router.get('/api/agent/package/build/:buildId', requireAuth, (req, res) => {
+    try {
+      const agentPackageService = req.app.get('agentPackageService');
+      if (!agentPackageService) {
+        return res.status(500).json({ error: 'Servizio packaging agent non disponibile' });
+      }
+
+      const build = agentPackageService.getBuildStatus(req.params.buildId);
+      if (!build) {
+        return res.status(404).json({ error: 'Build non trovata' });
+      }
+
+      logger.logApiCall('GET', '/api/agent/package/build/:buildId', req.username, 200);
+      res.json(build);
+    } catch (error) {
+      logger.error('Errore stato packaging agent', { error: error.message });
+      res.status(500).json({ error: 'Errore interno' });
+    }
+  });
+
+  router.get('/api/agent/package/download', requireAuth, (req, res) => {
+    try {
+      const agentPackageService = req.app.get('agentPackageService');
+      if (!agentPackageService) {
+        return res.status(500).json({ error: 'Servizio packaging agent non disponibile' });
+      }
+
+      const msiPath = agentPackageService.getArtifactPath();
+      if (!msiPath) {
+        return res.status(404).json({ error: 'Pacchetto agent non disponibile' });
+      }
+
+      logger.logApiCall('GET', '/api/agent/package/download', req.username, 200);
+      res.download(msiPath, 'OnlyBackupAgent.msi');
+    } catch (error) {
+      logger.error('Errore download packaging agent', { error: error.message });
+      res.status(500).json({ error: 'Errore download agent' });
+    }
+  });
 
   router.post('/api/agent/heartbeat', (req, res) => {
     const { hostname, timestamp, status, agent_ip, agent_port, backup_status, backup_job_id } = req.body || {};

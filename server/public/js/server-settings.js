@@ -1,13 +1,19 @@
 const serverSettingsState = {
     statusTimeoutId: null,
     activeModal: null,
-    lastFocusedElement: null
+    lastFocusedElement: null,
+    agentPackagePollId: null,
+    agentPackageArtifactExists: false
 };
 
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text ?? '';
     return div.innerHTML;
+}
+
+function escapeAttribute(text) {
+    return escapeHtml(text).replace(/"/g, '&quot;');
 }
 
 function showMessage(type, message, { persist = false } = {}) {
@@ -240,6 +246,298 @@ async function checkServerAvailability() {
     };
 
     await check();
+}
+
+function formatBytes(bytes) {
+    const value = Number(bytes || 0);
+    if (!Number.isFinite(value) || value <= 0) {
+        return '0 B';
+    }
+    if (value < 1024 * 1024) {
+        return `${(value / 1024).toFixed(1)} KB`;
+    }
+    return `${(value / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function renderAgentPackageStatus(data) {
+    const statusBox = document.getElementById('agentPackageStatus');
+    const downloadButton = document.getElementById('agentPackageDownloadButton');
+    if (!statusBox) {
+        return;
+    }
+
+    const artifact = data?.artifact || data;
+    serverSettingsState.agentPackageArtifactExists = Boolean(artifact?.exists);
+
+    if (downloadButton) {
+        downloadButton.disabled = !serverSettingsState.agentPackageArtifactExists;
+    }
+
+    if (!artifact?.exists) {
+        statusBox.innerHTML = '<p>Nessun MSI agent generato.</p>';
+        return;
+    }
+
+    statusBox.innerHTML = `
+        <p>
+            Pacchetto disponibile: <strong>${escapeHtml(artifact.filename || 'OnlyBackupAgent.msi')}</strong><br>
+            Dimensione: ${escapeHtml(formatBytes(artifact.sizeBytes))}<br>
+            Aggiornato: ${escapeHtml(artifact.updatedAt ? new Date(artifact.updatedAt).toLocaleString() : 'N/D')}
+        </p>
+    `;
+}
+
+function renderAgentPackageOptions(data) {
+    const hostInput = document.getElementById('agentServerHost');
+    const portInput = document.getElementById('agentServerPort');
+    const hint = document.getElementById('agentServerHostHint');
+    const datalist = document.getElementById('agentServerHostCandidates');
+
+    if (hostInput && !hostInput.value && data.suggestedServerHost) {
+        hostInput.value = data.suggestedServerHost;
+    }
+
+    if (portInput && data.serverPort) {
+        portInput.value = data.serverPort;
+    }
+
+    if (datalist) {
+        datalist.innerHTML = (data.candidates || []).map((candidate) => (
+            `<option value="${escapeAttribute(candidate.host)}">${escapeHtml(candidate.source || '')}</option>`
+        )).join('');
+    }
+
+    if (hint) {
+        const candidates = data.candidates || [];
+        hint.textContent = candidates.length > 0
+            ? `Suggerito: ${data.suggestedServerHost}. Puoi sostituirlo se i client usano un altro IP.`
+            : 'Nessun IP LAN rilevato automaticamente: inserisci l’indirizzo raggiungibile dai client.';
+    }
+
+    renderAgentPackageStatus(data);
+}
+
+async function loadAgentPackageOptions() {
+    try {
+        const response = await fetch('/api/agent/package/options', {
+            method: 'GET',
+            cache: 'no-cache',
+            credentials: 'include'
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                window.location.href = '/';
+                return;
+            }
+            showMessage('error', data.error || 'Impossibile caricare opzioni agent');
+            return;
+        }
+
+        renderAgentPackageOptions(data);
+    } catch (error) {
+        console.error('Errore opzioni agent:', error);
+        showMessage('error', 'Errore caricamento opzioni agent');
+    }
+}
+
+function setAgentPackageBuildLoading(loading) {
+    const button = document.getElementById('agentPackageBuildButton');
+    if (!button) {
+        return;
+    }
+    button.disabled = loading;
+    button.textContent = loading ? 'Generazione in corso...' : 'Genera Agent';
+}
+
+function renderAgentBuildStatus(data) {
+    const statusBox = document.getElementById('agentPackageStatus');
+    if (!statusBox) {
+        return;
+    }
+
+    const logTail = Array.isArray(data.logTail) && data.logTail.length > 0
+        ? `<br><small>${escapeHtml(data.logTail.slice(-3).join(' | '))}</small>`
+        : '';
+
+    if (data.status === 'running') {
+        statusBox.innerHTML = `<p>Generazione MSI in corso per ${escapeHtml(data.serverHost)}:${escapeHtml(String(data.serverPort))}.${logTail}</p>`;
+        return;
+    }
+
+    if (data.status === 'completed') {
+        renderAgentPackageStatus(data);
+        showMessage('success', 'Pacchetto agent generato');
+        return;
+    }
+
+    if (data.status === 'failed') {
+        statusBox.innerHTML = `<p>Generazione MSI fallita: ${escapeHtml(data.error || 'errore sconosciuto')}.${logTail}</p>`;
+        showMessage('error', data.error || 'Generazione agent fallita', { persist: true });
+    }
+}
+
+async function pollAgentPackageBuild(buildId) {
+    try {
+        const response = await fetch(`/api/agent/package/build/${encodeURIComponent(buildId)}`, {
+            cache: 'no-cache',
+            credentials: 'include'
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Impossibile leggere stato build');
+        }
+
+        renderAgentBuildStatus(data);
+
+        if (data.status !== 'running') {
+            clearInterval(serverSettingsState.agentPackagePollId);
+            serverSettingsState.agentPackagePollId = null;
+            setAgentPackageBuildLoading(false);
+            await loadAgentPackageOptions();
+        }
+    } catch (error) {
+        console.error('Errore polling build agent:', error);
+        clearInterval(serverSettingsState.agentPackagePollId);
+        serverSettingsState.agentPackagePollId = null;
+        setAgentPackageBuildLoading(false);
+        showMessage('error', error.message || 'Errore stato build agent');
+    }
+}
+
+async function buildAgentPackage() {
+    const hostInput = document.getElementById('agentServerHost');
+    const portInput = document.getElementById('agentServerPort');
+    const serverHost = hostInput?.value.trim() || '';
+    const serverPort = Number(portInput?.value || 8080);
+
+    if (!serverHost) {
+        showMessage('error', 'Inserisci l’indirizzo server per l’agent');
+        return;
+    }
+
+    setAgentPackageBuildLoading(true);
+
+    try {
+        const response = await fetch('/api/agent/package/build', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ serverHost, serverPort })
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            showMessage('error', data.error || 'Impossibile avviare generazione agent');
+            setAgentPackageBuildLoading(false);
+            return;
+        }
+
+        renderAgentBuildStatus(data);
+        if (serverSettingsState.agentPackagePollId) {
+            clearInterval(serverSettingsState.agentPackagePollId);
+        }
+        serverSettingsState.agentPackagePollId = setInterval(() => {
+            pollAgentPackageBuild(data.buildId);
+        }, 3000);
+        showMessage('warning', 'Generazione agent avviata', { persist: true });
+    } catch (error) {
+        console.error('Errore generazione agent:', error);
+        showMessage('error', 'Errore avvio generazione agent');
+        setAgentPackageBuildLoading(false);
+    }
+}
+
+function downloadAgentPackage() {
+    if (!serverSettingsState.agentPackageArtifactExists) {
+        showMessage('warning', 'Genera prima il pacchetto agent');
+        return;
+    }
+    window.location.href = '/api/agent/package/download';
+}
+
+function renderServerServiceStatus(data) {
+    const statusBox = document.getElementById('serverServiceStatus');
+    if (!statusBox) {
+        return;
+    }
+
+    if (!data || !data.installed) {
+        statusBox.innerHTML = '<p>Servizio Windows OnlyBackupServer non installato.</p>';
+        return;
+    }
+
+    statusBox.innerHTML = `
+        <p>
+            <strong>${escapeHtml(data.displayName || data.name || 'OnlyBackupServer')}</strong><br>
+            Stato: ${escapeHtml(data.status || 'N/D')}<br>
+            Avvio: ${escapeHtml(data.startMode || 'N/D')}<br>
+            PID: ${escapeHtml(String(data.pid || 'N/D'))}
+        </p>
+    `;
+}
+
+async function loadServerServiceStatus() {
+    try {
+        const response = await fetch('/api/server/service', {
+            method: 'GET',
+            cache: 'no-cache'
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            showMessage('error', data.error || 'Impossibile leggere lo stato del servizio');
+            return;
+        }
+
+        renderServerServiceStatus(data);
+    } catch (error) {
+        console.error('Errore stato servizio:', error);
+        showMessage('error', 'Errore lettura stato servizio');
+    }
+}
+
+async function controlServerService(action) {
+    const labels = {
+        start: 'avviare',
+        stop: 'arrestare',
+        restart: 'riavviare'
+    };
+
+    if (!confirm(`Confermi di voler ${labels[action] || 'modificare'} il servizio Windows OnlyBackupServer?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/server/service/${action}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+            showMessage('success', data.message || `Azione servizio avviata: ${action}`);
+            if (action === 'restart' || action === 'stop') {
+                setTimeout(() => {
+                    checkServerAvailability();
+                }, 8000);
+            } else {
+                await loadServerServiceStatus();
+            }
+        } else {
+            showMessage('error', data.error || 'Errore controllo servizio');
+        }
+    } catch (error) {
+        console.error('Errore controllo servizio:', error);
+        showMessage('warning', 'Richiesta inviata; verifica lo stato tra qualche secondo.');
+        setTimeout(() => {
+            checkServerAvailability();
+        }, 8000);
+    }
 }
 
 async function rebootServer() {
@@ -626,6 +924,11 @@ const emailSettingsController = createEmailSettingsController({
 window.deleteAllLogs = deleteAllLogs;
 window.deleteAlertHistory = deleteAlertHistory;
 window.saveLogRetention = saveLogRetention;
+window.loadAgentPackageOptions = loadAgentPackageOptions;
+window.buildAgentPackage = buildAgentPackage;
+window.downloadAgentPackage = downloadAgentPackage;
+window.loadServerServiceStatus = loadServerServiceStatus;
+window.controlServerService = controlServerService;
 window.rebootServer = rebootServer;
 window.exportConfig = exportConfig;
 window.importConfig = importConfig;
@@ -663,4 +966,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     await emailSettingsController.initialize();
+    await loadAgentPackageOptions();
+    await loadServerServiceStatus();
 });

@@ -24,8 +24,7 @@ Set-Location D:\GITHUB\OnlyBackup
 Esegui questi comandi nell'ordine indicato:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Initialize-OnlyBackup.ps1 -InitialAdminPassword "ChangeMe123!"
-powershell -ExecutionPolicy Bypass -File .\scripts\Test-OnlyBackupPrerequisites.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1 -InitialAdminPassword "ChangeMe123!"
 Set-Location .\server
 npm start
 ```
@@ -38,7 +37,7 @@ http://localhost:8080/
 
 ## Cosa Fanno I Comandi
 
-### `Initialize-OnlyBackup.ps1`
+### `Setup-OnlyBackupServer.ps1`
 
 Prepara il minimo indispensabile per il server:
 - installa le dipendenze Node.js con `npm ci`;
@@ -105,35 +104,75 @@ Esempio dei campi piu importanti:
 ## Configurazione Consigliata Per Un Primo Test
 
 Per una prova semplice puoi lasciare `config.json` cosi come si trova nel repository e:
-1. eseguire `Initialize-OnlyBackup.ps1`;
+1. eseguire `Setup-OnlyBackupServer.ps1`;
 2. avviare il server;
 3. aprire `http://localhost:8080/`;
 4. accedere con `admin`;
 5. cambiare subito la password iniziale quando richiesto.
 
+Setup server completo, inclusa verifica prerequisiti e build del wrapper servizio:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1 -InitialAdminPassword "ChangeMe123!" -BuildService
+```
+
+Per creare un pacchetto setup server distribuibile senza dipendere dalla cartella del repository usa lo stesso script di setup:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1 -InitialAdminPassword "ChangeMe123!" -BuildPackage
+```
+
+Il pacchetto viene generato in `output\server-setup\OnlyBackupServerSetup\` e lo zip in `output\server-setup\OnlyBackupServerSetup.zip`. Include server, dipendenze npm, wrapper servizio, sorgenti/asset agent, WiX 3.14, payload offline .NET Framework 4.6.2, config, script install/uninstall, prerequisiti e loghi/immagini.
+
+La UI admin puo generare l'MSI agent usando i file inclusi nel setup: `agent\`, `scripts\Build-AgentMsi.ps1`, `scripts\support\wix\`, `tools\wix314-binaries\` e `assets\agent\`. Sul server restano da installare manualmente MSBuild e .NET Framework 4.6.2 Developer Pack/Targeting Pack se vuoi generare MSI agent dalla UI.
+
+Per creare anche l'installer `.exe` con Inno Setup:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1 -InitialAdminPassword "ChangeMe123!" -BuildInstaller -InnoCompilerPath "C:\Program Files (x86)\Inno Setup 6"
+```
+
+Serve Inno Setup 6.x (`ISCC.exe`), anche passando la cartella `C:\Program Files (x86)\Inno Setup 6` con `-InnoCompilerPath`. Durante l'installazione l'installer mostra la licenza, richiede l'accettazione delle condizioni, chiede la password iniziale dell'utente `admin`, installa e avvia il servizio server automaticamente, e chiede se creare sul desktop il collegamento alla UI admin.
+
+Output principale: `output\server-setup\inno\OnlyBackupServerSetup.exe`.
+
 ## Installazione Come Servizio Windows
 
 Questa parte e opzionale. Serve solo se vuoi lasciare il server attivo automaticamente su Windows.
 
-Prima copia `nssm.exe` in uno di questi percorsi:
+Il repository include un wrapper Windows Service per il server Node.js. Non serve NSSM.
 
-```text
-tools\nssm\nssm.exe
-tools\nssm\win64\nssm.exe
-tools\nssm\win32\nssm.exe
-```
+Prerequisiti aggiuntivi per compilare il wrapper:
+- MSBuild compatibile con Visual Studio o Build Tools;
+- .NET Framework 4.6.2 Developer Pack/Targeting Pack.
 
-Poi avvia PowerShell come amministratore ed esegui:
+Per verificare anche la toolchain servizio server:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Install-OnlyBackupServerService.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\Test-OnlyBackupPrerequisites.ps1 -RequireServerServiceTooling
 ```
 
-Lo script non registra il servizio se Node.js e troppo vecchio, se `server\node_modules` manca o se i dati iniziali non sono stati creati. In quel caso esegui prima:
+Avvia PowerShell come amministratore ed esegui:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Initialize-OnlyBackup.ps1 -InitialAdminPassword "ChangeMe123!"
+powershell -ExecutionPolicy Bypass -File .\scripts\Install-OnlyBackupServerService.ps1 -StartService
 ```
+
+In alternativa puoi fare setup server, installazione e avvio servizio con un solo comando da PowerShell amministratore:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1 -InitialAdminPassword "ChangeMe123!" -InstallService -StartService
+```
+
+Lo script compila `server\service-wrapper\OnlyBackupServerService.csproj`, configura `output\server-service\OnlyBackupServerService.exe.config` e registra il servizio `OnlyBackupServer` con l'installer .NET/Service Control Manager integrato in Windows.
+
+Lo script non registra il servizio se Node.js e troppo vecchio, se `server\node_modules` manca, se la toolchain .NET/MSBuild manca o se i dati iniziali non sono stati creati. In quel caso esegui prima:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1 -InitialAdminPassword "ChangeMe123!"
+```
+
+Una volta raggiungibile la dashboard, gli amministratori possono aprire `http://localhost:8080/server-settings.html` per leggere stato, avviare, arrestare e riavviare il servizio Windows.
 
 ## Generare L'Agent Windows
 
@@ -146,7 +185,7 @@ Per generare l'MSI ti servono anche:
 - .NET Framework 4.6.2 Developer Pack/Targeting Pack per le reference assembly di build;
 - WiX Toolset 3.14 installato nel sistema oppure la copia gia presente in `tools\wix314-binaries\`.
 
-Lo script di build scarica e verifica automaticamente l'installer offline .NET Framework 4.6.2 usato dal pacchetto MSI, salvandolo in `scripts\wix\payload\`.
+Lo script di build scarica e verifica automaticamente l'installer offline .NET Framework 4.6.2 usato dal pacchetto MSI, salvandolo in `scripts\support\wix\payload\`.
 
 Puoi verificare i prerequisiti con:
 
@@ -306,7 +345,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Clean-Repository.ps1 -Include
 Reinstallare solo le dipendenze senza toccare i dati:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Initialize-OnlyBackup.ps1 -SkipDataInitialization
+powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1 -SkipDataInitialization
 ```
 
 ## Problemi Comuni
@@ -325,7 +364,7 @@ npm --version
 Riesegui:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\Initialize-OnlyBackup.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1
 ```
 
 ### La porta 8080 e occupata
@@ -340,7 +379,7 @@ Poi riavvia il server.
 
 ### Vuoi cambiare il percorso dei dati
 
-Modifica `dataRoot` in `config.json` prima di eseguire `Initialize-OnlyBackup.ps1`.
+Modifica `dataRoot` in `config.json` prima di eseguire `Setup-OnlyBackupServer.ps1`.
 
 Esempio:
 

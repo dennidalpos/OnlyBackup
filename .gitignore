@@ -50,13 +50,13 @@ nul
 # .NET / C# build outputs
 agent/**/bin/
 agent/**/obj/
+server/service-wrapper/**/bin/
+server/service-wrapper/**/obj/
 packages/
 *.nupkg
 
-# Installer build payloads and local service wrappers
-scripts/wix/payload/
-tools/nssm/*
-!tools/nssm/README.md
+# Installer build payloads
+scripts/agent/wix/payload/
 
 # Toolchains intentionally versioned in the repository
 !tools/wix314-binaries/**/*.exe

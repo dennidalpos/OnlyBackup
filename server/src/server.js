@@ -50,6 +50,7 @@ const Scheduler = require('./scheduler/scheduler');
 const EmailService = require('./services/emailService');
 const AlertService = require('./services/alertService');
 const ServerService = require('./services/serverService');
+const AgentPackageService = require('./services/agentPackageService');
 const setupRoutes = require('./api/routes');
 
 class OnlyBackupServer {
@@ -61,6 +62,7 @@ class OnlyBackupServer {
     this.emailService = null;
     this.alertService = null;
     this.serverService = null;
+    this.agentPackageService = null;
     this.jobExecutor = null;
     this.scheduler = null;
     this.app = null;
@@ -87,6 +89,8 @@ class OnlyBackupServer {
       this.alertService = new AlertService(this.storage, this.logger);
 
       this.serverService = new ServerService(this.logger);
+
+      this.agentPackageService = new AgentPackageService(this.logger, this.config);
 
       this.jobExecutor = new JobExecutor(this.storage, this.logger, this.config, this.emailService, this.alertService);
 
@@ -219,6 +223,7 @@ class OnlyBackupServer {
     this.app.set('emailService', this.emailService);
     this.app.set('alertService', this.alertService);
     this.app.set('serverService', this.serverService);
+    this.app.set('agentPackageService', this.agentPackageService);
     this.app.set('configPath', this.configPath);
 
     setupRoutes(this.app, this.authManager, this.storage, this.scheduler, this.logger);

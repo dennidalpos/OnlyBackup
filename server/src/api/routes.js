@@ -17,6 +17,7 @@ function setupRoutes(app, authManager, storage, scheduler, logger) {
   const support = createRouteSupport({ authManager, storage, logger });
 
   registerAgentRoutes(router, {
+    requireAuth: support.requireAuth,
     logger,
     storage,
     HEARTBEAT_TTL_MS: support.HEARTBEAT_TTL_MS,

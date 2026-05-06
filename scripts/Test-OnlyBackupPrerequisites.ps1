@@ -215,7 +215,7 @@ else {
 }
 
 if (-not (Test-Path $nodeModulesPath)) {
-    Add-Error "Dipendenze server mancanti: esegui scripts\\Initialize-OnlyBackup.ps1."
+    Add-Error "Dipendenze server mancanti: esegui scripts\\Setup-OnlyBackupServer.ps1."
 }
 else {
     Add-Ok "Dipendenze server installate."
@@ -321,26 +321,41 @@ else {
         -Verification "Get-Command robocopy.exe"
 }
 
-$nssmPath = Get-FirstExistingPath -Candidates @(
-    (Join-Path $repoRoot "tools\nssm\nssm.exe"),
-    (Join-Path $repoRoot "tools\nssm\win64\nssm.exe"),
-    (Join-Path $repoRoot "tools\nssm\win32\nssm.exe"),
-    (Get-CommandPathOrNull -Name "nssm")
-)
-
-if ($nssmPath) {
-    Add-Ok "nssm disponibile per installazione del server come servizio."
-}
-elseif ($RequireServerServiceTooling) {
-    Add-PrerequisiteError `
-        -Name "nssm" `
-        -MinimumVersion "versione stabile corrente di nssm 2.x per Windows" `
-        -Reason "serve per registrare OnlyBackup Server come servizio Windows" `
-        -Action "copia nssm.exe in tools\nssm\, tools\nssm\win64\ o tools\nssm\win32\, oppure rendilo disponibile nel PATH" `
-        -Verification ".\tools\nssm\win64\nssm.exe version"
+$serverServiceProjectPath = Join-Path $repoRoot "server\service-wrapper\OnlyBackupServerService.csproj"
+if (Test-Path $serverServiceProjectPath) {
+    Add-Ok "Progetto wrapper Windows Service server disponibile."
 }
 else {
-    Add-Warning "nssm non disponibile: installazione del server come servizio non verificabile in questo ambiente."
+    Add-Error "Progetto wrapper Windows Service server mancante: server\\service-wrapper\\OnlyBackupServerService.csproj"
+}
+
+if ($RequireServerServiceTooling) {
+    if ($msBuildPath) {
+        Add-Ok "MSBuild disponibile per compilare il servizio server."
+    }
+    else {
+        Add-PrerequisiteError `
+            -Name "MSBuild" `
+            -MinimumVersion "Visual Studio Build Tools 2019/2022 con supporto .NET Framework" `
+            -Reason "serve per compilare il wrapper Windows Service del server" `
+            -Action "installa Visual Studio Build Tools dal sito ufficiale Microsoft selezionando i componenti .NET Framework build tools" `
+            -Verification "Get-Command MSBuild.exe"
+    }
+
+    if (Test-Path $dotNet462TargetingPackPath) {
+        Add-Ok ".NET Framework 4.6.2 Targeting Pack disponibile per il servizio server."
+    }
+    else {
+        Add-PrerequisiteError `
+            -Name ".NET Framework 4.6.2 Developer Pack/Targeting Pack" `
+            -MinimumVersion ".NET Framework 4.6.2 Targeting Pack" `
+            -Reason "serve a MSBuild per compilare il wrapper Windows Service del server" `
+            -Action "installa .NET Framework 4.6.2 Developer Pack dal sito ufficiale Microsoft oppure aggiungi il componente targeting pack tramite Visual Studio Build Tools" `
+            -Verification "Test-Path '$dotNet462TargetingPackPath'"
+    }
+}
+else {
+    Add-Warning "Toolchain servizio server non richiesta: usa -RequireServerServiceTooling per verificare build e installazione servizio."
 }
 
 Write-Host ""

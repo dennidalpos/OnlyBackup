@@ -1,12 +1,14 @@
+[CmdletBinding()]
 param(
     [string]$ServiceName = "OnlyBackupServer",
-    [string]$NssmPath = "",
+    [string]$ServiceBinaryDirectory = "",
     [switch]$Force
 )
 
+Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
 function Assert-Administrator {
     $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).
@@ -17,81 +19,38 @@ function Assert-Administrator {
     }
 }
 
-function Resolve-NssmExecutablePath {
-    param([string]$Executable)
-
-    $candidates = @()
-    if ($Executable) {
-        $candidates += $Executable
-    }
-
-    $candidates += @(
-        (Join-Path $repoRoot "tools\nssm\nssm.exe"),
-        (Join-Path $repoRoot "tools\nssm\win64\nssm.exe"),
-        (Join-Path $repoRoot "tools\nssm\win32\nssm.exe"),
-        "nssm"
-    )
-
-    foreach ($candidate in $candidates | Select-Object -Unique) {
-        if (Test-Path $candidate) {
-            return (Resolve-Path $candidate).Path
-        }
-
-        $resolved = Get-Command $candidate -ErrorAction SilentlyContinue
-        if ($resolved) {
-            return $resolved.Path
-        }
-    }
-
-    throw "Impossibile trovare nssm. Copia nssm.exe in tools\nssm\ oppure passa -NssmPath esplicito."
-}
-
-function Invoke-Nssm {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Executable,
-
-        [Parameter(Mandatory = $true)]
-        [string[]]$Arguments
-    )
-
-    & $Executable @Arguments
-    if ($LASTEXITCODE -ne 0) {
-        throw ("nssm ha restituito exit code {0}: {1}" -f $LASTEXITCODE, ($Arguments -join " "))
-    }
-}
-
 Assert-Administrator
 
-function Resolve-ExecutablePath {
-    param(
-        [string]$Executable,
-        [string]$FallbackLabel
-    )
-
-    if (-not $Executable) {
-        throw "Percorso $FallbackLabel non specificato."
-    }
-
-    if (Test-Path $Executable) {
-        return (Resolve-Path $Executable).Path
-    }
-
-    $resolved = Get-Command $Executable -ErrorAction SilentlyContinue
-    if ($resolved) {
-        return $resolved.Path
-    }
-
-    throw ("Impossibile trovare {0}: {1}" -f $FallbackLabel, $Executable)
+if ($ServiceName -ne "OnlyBackupServer") {
+    throw "Il wrapper integrato supporta il nome servizio fisso OnlyBackupServer."
 }
 
-$nssmExecutable = Resolve-NssmExecutablePath -Executable $NssmPath
-
-$confirm = "confirm"
-if ($Force) {
-    $confirm = ""
+if (-not $ServiceBinaryDirectory) {
+    $ServiceBinaryDirectory = Join-Path $repoRoot "output\server-service"
 }
 
-Invoke-Nssm -Executable $nssmExecutable -Arguments @("remove", $ServiceName, $confirm)
+$service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+if ($service -and $service.Status -ne "Stopped") {
+    Stop-Service -Name $ServiceName -Force:$Force
+    $service.WaitForStatus("Stopped", [TimeSpan]::FromSeconds(30))
+}
+
+$serviceExecutable = Join-Path $ServiceBinaryDirectory "OnlyBackupServerService.exe"
+if (Test-Path $serviceExecutable) {
+    & $serviceExecutable /uninstall
+    if ($LASTEXITCODE -ne 0) {
+        throw "Disinstallazione servizio fallita con exit code $LASTEXITCODE"
+    }
+}
+elseif ($service) {
+    & sc.exe delete $ServiceName | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "sc.exe delete ha restituito exit code $LASTEXITCODE"
+    }
+}
+else {
+    Write-Host "Servizio $ServiceName non presente." -ForegroundColor Yellow
+    exit 0
+}
 
 Write-Host "Servizio $ServiceName rimosso." -ForegroundColor Green

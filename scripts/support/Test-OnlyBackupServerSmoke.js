@@ -287,7 +287,9 @@ async function main() {
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
 
   const previousConfigPath = process.env.CONFIG_PATH;
+  const previousAgentMsiPath = process.env.ONLYBACKUP_AGENT_MSI_PATH;
   process.env.CONFIG_PATH = configPath;
+  process.env.ONLYBACKUP_AGENT_MSI_PATH = path.join(tempRoot, 'missing-agent-package', 'OnlyBackupAgent.msi');
 
   const server = new OnlyBackupServer();
   let sessionCookie = '';
@@ -346,6 +348,7 @@ async function main() {
 
     const unauthStatus = await request(baseUrl, '/api/auth/status');
     assert.strictEqual(unauthStatus.status, 401);
+    assert.strictEqual((await request(baseUrl, '/api/agent/package/options')).status, 401);
 
     const loginResponse = await request(baseUrl, '/api/auth/login', {
       method: 'POST',
@@ -366,10 +369,33 @@ async function main() {
     const authStatus = await request(baseUrl, '/api/auth/status');
     assert.strictEqual(authStatus.status, 200);
 
+    const agentPackageOptions = await request(baseUrl, '/api/agent/package/options');
+    assert.strictEqual(agentPackageOptions.status, 200);
+    const agentPackageOptionsPayload = await agentPackageOptions.json();
+    assert.strictEqual(typeof agentPackageOptionsPayload.serverPort, 'number');
+    assert.ok(Array.isArray(agentPackageOptionsPayload.candidates));
+    assert.strictEqual(agentPackageOptionsPayload.artifact.exists, false);
+
+    const invalidAgentBuild = await request(baseUrl, '/api/agent/package/build', {
+      method: 'POST',
+      json: { serverHost: 'localhost', serverPort: 8080 }
+    });
+    assert.strictEqual(invalidAgentBuild.status, 400);
+
+    const missingAgentDownload = await request(baseUrl, '/api/agent/package/download');
+    assert.strictEqual(missingAgentDownload.status, 404);
+
     assert.strictEqual((await request(baseUrl, '/api/email/settings')).status, 200);
     assert.strictEqual((await request(baseUrl, '/api/email/templates')).status, 200);
     assert.strictEqual((await request(baseUrl, '/api/alerts')).status, 200);
     assert.strictEqual((await request(baseUrl, '/api/alerts/history')).status, 200);
+
+    if (process.platform === 'win32') {
+      const serviceStatus = await request(baseUrl, '/api/server/service');
+      assert.strictEqual(serviceStatus.status, 200);
+      const serviceStatusPayload = await serviceStatus.json();
+      assert.strictEqual(typeof serviceStatusPayload.installed, 'boolean');
+    }
 
     const emailOauth = await request(baseUrl, '/api/email/oauth/start', {
       method: 'POST',
@@ -496,6 +522,12 @@ async function main() {
       process.env.CONFIG_PATH = previousConfigPath;
     } else {
       delete process.env.CONFIG_PATH;
+    }
+
+    if (previousAgentMsiPath) {
+      process.env.ONLYBACKUP_AGENT_MSI_PATH = previousAgentMsiPath;
+    } else {
+      delete process.env.ONLYBACKUP_AGENT_MSI_PATH;
     }
 
     fs.rmSync(tempRoot, { recursive: true, force: true });

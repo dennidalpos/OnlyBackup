@@ -350,6 +350,63 @@
                     </div>
 
                     <div class="form-section">
+                        <h4>Agent</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                            Genera il pacchetto MSI dell'agent con l'indirizzo del server raggiungibile dai client.
+                        </p>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="agentServerHost">Indirizzo server</label>
+                                <input type="text" id="agentServerHost" list="agentServerHostCandidates" placeholder="192.168.1.10">
+                                <datalist id="agentServerHostCandidates"></datalist>
+                                <small id="agentServerHostHint">Caricamento indirizzo suggerito...</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="agentServerPort">Porta</label>
+                                <input type="number" id="agentServerPort" min="1" max="65535" step="1" value="8080">
+                            </div>
+                        </div>
+                        <div id="agentPackageStatus" class="info-box">
+                            <p>Stato pacchetto non caricato.</p>
+                        </div>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <button type="button" id="agentPackageBuildButton" class="btn btn-primary" onclick="buildAgentPackage()">
+                                Genera Agent
+                            </button>
+                            <button type="button" id="agentPackageDownloadButton" class="btn btn-outline" onclick="downloadAgentPackage()" disabled>
+                                Scarica MSI
+                            </button>
+                            <button type="button" class="btn btn-outline" onclick="loadAgentPackageOptions()">
+                                Aggiorna Stato
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h4>Servizio Windows</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                            Controlla lo stato del servizio Windows OnlyBackup Server installato sul sistema.
+                        </p>
+                        <div id="serverServiceStatus" class="info-box">
+                            <p>Stato servizio non caricato.</p>
+                        </div>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-outline" onclick="loadServerServiceStatus()">
+                                Aggiorna Stato
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="controlServerService('start')">
+                                Avvia Servizio
+                            </button>
+                            <button type="button" class="btn btn-outline" onclick="controlServerService('restart')">
+                                Riavvia Servizio
+                            </button>
+                            <button type="button" class="btn btn-danger" onclick="controlServerService('stop')">
+                                Arresta Servizio
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
                         <h4>Riavvio Server</h4>
                         <div class="info-box">
                             <p>

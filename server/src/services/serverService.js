@@ -1,9 +1,10 @@
-const { spawn } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const path = require('path');
 
 class ServerService {
   constructor(logger) {
     this.logger = logger;
+    this.serviceName = process.env.ONLYBACKUP_SERVER_SERVICE_NAME || 'OnlyBackupServer';
   }
 
   /**
@@ -128,6 +129,10 @@ class ServerService {
    * (pm2, systemd, docker, etc.)
    */
   detectProcessManager() {
+    if (process.platform === 'win32') {
+      return { type: 'windows-service', canAutoRestart: true };
+    }
+
     // PM2
     if (process.env.PM2_HOME) {
       return { type: 'pm2', canAutoRestart: true };
@@ -155,7 +160,14 @@ class ServerService {
 
     this.logger.info('Process Manager rilevato', pm);
 
-    if (pm.type === 'pm2') {
+    if (pm.type === 'windows-service') {
+      const serviceStatus = await this.getWindowsServiceStatus();
+      if (serviceStatus.installed && serviceStatus.pid === process.pid) {
+        return this.restartWindowsServiceDetached();
+      }
+
+      return this.restartServer();
+    } else if (pm.type === 'pm2') {
       return this.restartPM2();
     } else if (pm.type === 'systemd') {
       return this.restartSystemd();
@@ -196,6 +208,119 @@ class ServerService {
       message: 'Riavvio systemd in corso...',
       method: 'systemd'
     };
+  }
+
+  getWindowsServiceStatus() {
+    if (process.platform !== 'win32') {
+      return Promise.resolve({
+        installed: false,
+        platform: process.platform,
+        message: 'Gestione servizio disponibile solo su Windows'
+      });
+    }
+
+    const script = [
+      '$ErrorActionPreference = "Stop"',
+      `$service = Get-CimInstance -ClassName Win32_Service -Filter "Name='${this.escapePowerShellSingleQuoted(this.serviceName)}'"`,
+      'if (-not $service) {',
+      '  @{ installed = $false } | ConvertTo-Json -Compress',
+      '  exit 0',
+      '}',
+      '@{',
+      '  installed = $true',
+      '  name = $service.Name',
+      '  displayName = $service.DisplayName',
+      '  status = $service.State',
+      '  startMode = $service.StartMode',
+      '  pid = [int]$service.ProcessId',
+      '  pathName = $service.PathName',
+      '} | ConvertTo-Json -Compress'
+    ].join('\n');
+
+    return this.runPowerShellJson(script);
+  }
+
+  async controlWindowsService(action) {
+    if (!['start', 'stop', 'restart'].includes(action)) {
+      throw new Error(`Azione servizio non supportata: ${action}`);
+    }
+
+    if (process.platform !== 'win32') {
+      throw new Error('Gestione servizio disponibile solo su Windows');
+    }
+
+    if (action === 'restart') {
+      return this.restartWindowsServiceDetached();
+    }
+
+    const verb = action === 'start' ? 'Start-Service' : 'Stop-Service';
+    const script = [
+      '$ErrorActionPreference = "Stop"',
+      `${verb} -Name '${this.escapePowerShellSingleQuoted(this.serviceName)}'`,
+      `$service = Get-CimInstance -ClassName Win32_Service -Filter "Name='${this.escapePowerShellSingleQuoted(this.serviceName)}'"`,
+      '@{',
+      '  success = $true',
+      `  action = '${action}'`,
+      '  installed = $true',
+      '  name = $service.Name',
+      '  status = $service.State',
+      '  pid = [int]$service.ProcessId',
+      '} | ConvertTo-Json -Compress'
+    ].join('\n');
+
+    return this.runPowerShellJson(script);
+  }
+
+  restartWindowsServiceDetached() {
+    const serviceName = this.serviceName;
+    const script = [
+      'Start-Sleep -Seconds 2',
+      `Restart-Service -Name '${this.escapePowerShellSingleQuoted(serviceName)}' -Force`
+    ].join('; ');
+
+    const child = spawn('powershell.exe', [
+      '-NoProfile',
+      '-ExecutionPolicy', 'Bypass',
+      '-Command', script
+    ], {
+      detached: true,
+      stdio: 'ignore'
+    });
+
+    child.unref();
+
+    return {
+      success: true,
+      action: 'restart',
+      method: 'windows-service',
+      serviceName,
+      message: 'Riavvio servizio Windows avviato...',
+      estimatedDowntime: '5-10 secondi'
+    };
+  }
+
+  runPowerShellJson(script) {
+    return new Promise((resolve, reject) => {
+      execFile('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], {
+        windowsHide: true,
+        timeout: 15000
+      }, (error, stdout, stderr) => {
+        if (error) {
+          reject(new Error((stderr || error.message).trim()));
+          return;
+        }
+
+        try {
+          resolve(JSON.parse(stdout.trim()));
+        } catch (parseError) {
+          reject(new Error(`Output PowerShell non valido: ${parseError.message}`));
+        }
+      });
+    });
+  }
+
+  escapePowerShellSingleQuoted(value) {
+    return String(value).replace(/'/g, "''");
   }
 }
 

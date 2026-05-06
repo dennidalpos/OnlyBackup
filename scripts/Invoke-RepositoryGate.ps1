@@ -8,6 +8,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$scriptsRoot = Join-Path $repoRoot "scripts"
 $serverDir = Join-Path $repoRoot "server"
 
 function Invoke-GateStep {
@@ -40,7 +41,7 @@ function Invoke-GateStep {
 
 function Test-PowerShellScriptsParse {
     $parseErrors = @()
-    Get-ChildItem -Path $PSScriptRoot -Recurse -Filter "*.ps1" -File | ForEach-Object {
+    Get-ChildItem -Path $scriptsRoot -Recurse -Filter "*.ps1" -File | ForEach-Object {
         $errors = $null
         [System.Management.Automation.PSParser]::Tokenize((Get-Content -Raw $_.FullName), [ref]$errors) | Out-Null
         if ($errors) {
@@ -96,13 +97,13 @@ function Invoke-NpmTest {
 Invoke-GateStep -Name "Parsing PowerShell scripts" -Action { Test-PowerShellScriptsParse }
 Invoke-GateStep -Name "Parsing JSON manifest/config" -Action { Test-JsonFilesParse }
 Invoke-GateStep -Name "Preflight repository" -Action {
-    & (Join-Path $PSScriptRoot "Test-OnlyBackupPrerequisites.ps1") -RequirePackagingToolchain
+    & (Join-Path $scriptsRoot "Test-OnlyBackupPrerequisites.ps1") -RequirePackagingToolchain:$(-not $SkipPackage)
 }
 Invoke-GateStep -Name "Server smoke test" -Action { Invoke-NpmTest }
 
 if (-not $SkipPackage) {
     Invoke-GateStep -Name "Agent MSI package" -Action {
-        & (Join-Path $PSScriptRoot "Build-AgentMsi.ps1") -UseLocalhost
+        & (Join-Path $scriptsRoot "Build-AgentMsi.ps1") -UseLocalhost
     }
 }
 else {

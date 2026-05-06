@@ -6,6 +6,9 @@ param(
     [string]$ServerHost,
 
     [Parameter()]
+    [int]$ServerPort = 8080,
+
+    [Parameter()]
     [switch]$UseLocalhost,
 
     [Parameter()]
@@ -176,7 +179,7 @@ $AgentDir = Join-Path $RootDir "agent"
 $SolutionFile = Join-Path $AgentDir "OnlyBackupAgent.sln"
 $ProjectDir = Join-Path $AgentDir "OnlyBackupAgent"
 $BuildBinDir = Join-Path $ProjectDir "bin\$Configuration"
-$WixDir = Join-Path $ScriptDir "wix"
+$WixDir = Join-Path $ScriptDir "support\wix"
 $PayloadDir = Join-Path $WixDir "payload"
 $SourceNetFxInstaller = Join-Path $PayloadDir "NDP462-KB3151800-x86-x64-AllOS-ENU.exe"
 
@@ -403,7 +406,13 @@ if (-not $ServerHost) {
     exit 1
 }
 
+if ($ServerPort -lt 1 -or $ServerPort -gt 65535) {
+    Write-ErrorMessage "ServerPort non valido: $ServerPort"
+    exit 1
+}
+
 Write-Success "Server configurato: $ServerHost"
+Write-Success "Porta server configurata: $ServerPort"
 
 Write-Header "Compilazione OnlyBackup Agent"
 
@@ -454,6 +463,7 @@ $candleArgs = @(
     "-dPayloadDir=$PayloadDir",
     "-dNetFxInstaller=$NetFxInstaller",
     "-dServerHost=$ServerHost",
+    "-dServerPort=$ServerPort",
     "-ext", "WixUtilExtension",
     "-ext", "WixFirewallExtension",
     "-v"  # Verbose output
@@ -538,6 +548,7 @@ Write-Header "Build Completato con Successo!"
 Write-Success "MSI creato: $MsiFile"
 Write-Success "Dimensione: $($MsiSize.ToString('F2')) MB"
 Write-Success "Server configurato: $ServerHost"
+Write-Success "Porta server configurata: $ServerPort"
 
 if ($script:LogFile) {
     Write-Success "Log build salvato: $script:LogFile"

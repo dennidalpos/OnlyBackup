@@ -70,7 +70,7 @@ Radius, spacing e ombre restano quelli definiti nei token CSS esistenti (`--spac
 | Open Graph e Twitter/X card | meta tag head HTML |
 | Mark dashboard | `.brand-mark` e `.loading-mark` |
 | Icona eseguibile agent | `agent\OnlyBackupAgent\OnlyBackupAgent.csproj` con `ApplicationIcon` |
-| Icona MSI in Programmi e funzionalita | `scripts\wix\AgentInstaller.wxs` con `ARPPRODUCTICON` |
+| Icona MSI in Programmi e funzionalita | `scripts\support\wix\AgentInstaller.wxs` con `ARPPRODUCTICON` |
 | README GitHub-facing | `README.md` con logo relativo |
 
 ## Rigenerazione Export Raster

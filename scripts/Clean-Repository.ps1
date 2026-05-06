@@ -17,12 +17,19 @@ $targets = @(
     (Join-Path $repoRoot "tmp"),
     (Join-Path $repoRoot "server\coverage"),
     (Join-Path $repoRoot "server\.nyc_output"),
-    (Join-Path $repoRoot "scripts\wix\payload\NDP462-KB3151800-x86-x64-AllOS-ENU.exe")
+    (Join-Path $repoRoot "scripts\support\wix\payload\NDP462-KB3151800-x86-x64-AllOS-ENU.exe")
 )
 
 $agentRoot = Join-Path $repoRoot "agent"
 if (Test-Path $agentRoot) {
     $targets += Get-ChildItem -Path $agentRoot -Directory -Recurse -Force |
+        Where-Object { $_.Name -in @("bin", "obj") } |
+        Select-Object -ExpandProperty FullName
+}
+
+$serverServiceRoot = Join-Path $repoRoot "server\service-wrapper"
+if (Test-Path $serverServiceRoot) {
+    $targets += Get-ChildItem -Path $serverServiceRoot -Directory -Recurse -Force |
         Where-Object { $_.Name -in @("bin", "obj") } |
         Select-Object -ExpandProperty FullName
 }
