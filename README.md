@@ -138,6 +138,12 @@ Output principali:
 - staging e log in `output\agent-msi\`;
 - MSI finale in `output\agent-msi\artifacts\OnlyBackupAgent.msi`.
 
+L'MSI mostra un'opzione per creare il collegamento desktop dell'agent. Nelle installazioni silenziose il collegamento viene creato di default; per disattivarlo passa `CREATE_DESKTOP_SHORTCUT=0`:
+
+```powershell
+msiexec /i .\output\agent-msi\artifacts\OnlyBackupAgent.msi /qn CREATE_DESKTOP_SHORTCUT=0
+```
+
 ## Run
 
 ### Server
@@ -209,7 +215,7 @@ Asset applicativi, brand kit e riferimenti tecnici: `docs\ASSETS.md`.
 | Installa servizio server | `powershell -ExecutionPolicy Bypass -File .\scripts\Install-OnlyBackupServerService.ps1 -StartService` | Supportato, richiede admin |
 | Rimuovi servizio server | `powershell -ExecutionPolicy Bypass -File .\scripts\Uninstall-OnlyBackupServerService.ps1 -Force` | Supportato, richiede admin |
 | Gate repository | `powershell -ExecutionPolicy Bypass -File .\scripts\Invoke-RepositoryGate.ps1` | Supportato |
-| Audit dipendenze | `Set-Location .\server; npm audit --audit-level=low` | Supportato; oggi segnala vulnerabilita residue tracciate in `PROJECT_STATUS.json` |
+| Audit dipendenze | `Set-Location .\server; npm audit --audit-level=low` | Supportato |
 | Build server | nessun comando | Non previsto: server eseguito direttamente da Node.js |
 | Lint/typecheck | nessun comando | Non presente nel manifest |
 | Package agent | `powershell -ExecutionPolicy Bypass -File .\scripts\Build-AgentMsi.ps1 -UseLocalhost` | Supportato |

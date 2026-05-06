@@ -105,6 +105,26 @@ if ($productName -eq "OnlyBackup Agent") {
     if (-not (Test-MsiTableContains -Database $database -TableName "LaunchCondition" -ColumnName "Condition" -ExpectedValue "Installed OR ROBOCOPYEXE")) {
         throw "Launch condition MSI incompleta: manca blocco esplicito su robocopy.exe."
     }
+
+    if (-not (Test-MsiTableContains -Database $database -TableName "Feature" -ColumnName "Feature" -ExpectedValue "DesktopShortcutFeature")) {
+        throw "Feature MSI incompleta: manca DesktopShortcutFeature."
+    }
+
+    if (-not (Test-MsiTableContains -Database $database -TableName "Condition" -ColumnName "Condition" -ExpectedValue 'CREATE_DESKTOP_SHORTCUT <> "1"')) {
+        throw "Feature MSI incompleta: manca condizione di opt-out CREATE_DESKTOP_SHORTCUT."
+    }
+
+    if (-not (Test-MsiTableContains -Database $database -TableName "Shortcut" -ColumnName "Shortcut" -ExpectedValue "OnlyBackupAgentDesktopShortcut")) {
+        throw "Feature MSI incompleta: manca shortcut desktop opzionale."
+    }
+
+    if (-not (Test-MsiTableContains -Database $database -TableName "Dialog" -ColumnName "Dialog" -ExpectedValue "DesktopShortcutDlg")) {
+        throw "UI MSI incompleta: manca dialog per opzione collegamento desktop."
+    }
+
+    if (-not (Test-MsiTableContains -Database $database -TableName "ControlEvent" -ColumnName "Argument" -ExpectedValue "DesktopShortcutDlg")) {
+        throw "UI MSI incompleta: il dialog collegamento desktop non e raggiungibile dal flusso installazione."
+    }
 }
 
 Write-Host "MSI valido: $resolvedPath" -ForegroundColor Green

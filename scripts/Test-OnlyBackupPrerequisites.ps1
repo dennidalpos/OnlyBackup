@@ -23,7 +23,6 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $serverDir = Join-Path $repoRoot "server"
 $configPath = Join-Path $repoRoot "config.json"
 $nodeModulesPath = Join-Path $serverDir "node_modules"
-$usersFilePath = Join-Path $repoRoot "data\users\users.json"
 $requiredNodeVersion = [version]"20.19.0"
 $dotNet462TargetingPackPath = "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.6.2\mscorlib.dll"
 
@@ -158,6 +157,35 @@ function Test-DotNet462OrNewerInstalled {
     return $false
 }
 
+function Resolve-ConfiguredDataRoot {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ConfigFilePath
+    )
+
+    try {
+        $rawConfig = Get-Content -LiteralPath $ConfigFilePath -Raw
+        $config = $rawConfig | ConvertFrom-Json
+        $configDir = Split-Path -Parent $ConfigFilePath
+        $dataRootProperty = $config.PSObject.Properties["dataRoot"]
+        $configuredDataRoot = if ($dataRootProperty) { $dataRootProperty.Value } else { $null }
+
+        if (-not $configuredDataRoot) {
+            return [System.IO.Path]::GetFullPath((Join-Path $configDir "data"))
+        }
+
+        if ([System.IO.Path]::IsPathRooted($configuredDataRoot)) {
+            return [System.IO.Path]::GetFullPath($configuredDataRoot)
+        }
+
+        return [System.IO.Path]::GetFullPath((Join-Path $configDir $configuredDataRoot))
+    }
+    catch {
+        Add-Error "config.json non valido o non leggibile: $($_.Exception.Message)"
+        return [System.IO.Path]::GetFullPath((Join-Path $repoRoot "data"))
+    }
+}
+
 Write-Host "OnlyBackup prerequisites check" -ForegroundColor Cyan
 Write-Host "Repository root: $repoRoot" -ForegroundColor Cyan
 
@@ -174,6 +202,9 @@ if (-not (Test-Path $configPath)) {
 else {
     Add-Ok "config.json disponibile."
 }
+
+$dataRootPath = Resolve-ConfiguredDataRoot -ConfigFilePath $configPath
+$usersFilePath = Join-Path $dataRootPath "users\users.json"
 
 $nodeCommand = Get-CommandPathOrNull -Name $NodePath
 if (-not $nodeCommand) {
@@ -240,11 +271,11 @@ else {
 }
 
 $requiredDataPaths = @(
-    (Join-Path $repoRoot "data"),
-    (Join-Path $repoRoot "data\config"),
-    (Join-Path $repoRoot "data\state"),
-    (Join-Path $repoRoot "data\state\alerts"),
-    (Join-Path $repoRoot "data\users")
+    $dataRootPath,
+    (Join-Path $dataRootPath "config"),
+    (Join-Path $dataRootPath "state"),
+    (Join-Path $dataRootPath "state\alerts"),
+    (Join-Path $dataRootPath "users")
 )
 
 foreach ($path in $requiredDataPaths) {

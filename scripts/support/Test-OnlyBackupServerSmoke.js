@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 
 const OnlyBackupServer = require('../../server/src/server');
+const Logger = require('../../server/src/logging/logger');
 const Storage = require('../../server/src/storage/storage');
 
 const testLogger = {
@@ -86,6 +87,45 @@ function assertMinimalConfigDefaults() {
       delete process.env.CONFIG_PATH;
     }
 
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function assertLoggerRedactsSensitiveMetadata() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'onlybackup-logger-redaction-'));
+
+  try {
+    const logger = new Logger({
+      dataRoot: tempRoot,
+      server: { environment: 'test' },
+      logging: { console: false, file: false, retentionDays: 0 }
+    });
+
+    const sanitized = logger.sanitizeMeta({
+      username: 'admin',
+      password: 'secret',
+      passwordHash: 'hash',
+      credentials: { username: 'nas-user', password: 'nas-secret' },
+      smtp: {
+        oauth2: {
+          clientSecret: 'client-secret',
+          refreshToken: 'refresh-token',
+          accessToken: 'access-token'
+        }
+      },
+      nested: [{ token: 'token-value' }]
+    });
+
+    assert.strictEqual(sanitized.username, 'admin');
+    assert.strictEqual(sanitized.password, '[REDACTED]');
+    assert.strictEqual(sanitized.passwordHash, '[REDACTED]');
+    assert.strictEqual(sanitized.credentials, '[REDACTED]');
+    assert.strictEqual(sanitized.smtp.oauth2.clientSecret, '[REDACTED]');
+    assert.strictEqual(sanitized.smtp.oauth2.refreshToken, '[REDACTED]');
+    assert.strictEqual(sanitized.smtp.oauth2.accessToken, '[REDACTED]');
+    assert.strictEqual(sanitized.nested[0].token, '[REDACTED]');
+    logger.close();
+  } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
 }
@@ -245,6 +285,7 @@ async function createFakeAgent(agentRoot) {
 async function main() {
   assertMinimalConfigDefaults();
   assertStorageFileNamesAreConfined();
+  assertLoggerRedactsSensitiveMetadata();
 
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'onlybackup-smoke-'));
   const configPath = path.join(tempRoot, 'config.json');

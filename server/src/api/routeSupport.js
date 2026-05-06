@@ -1,7 +1,6 @@
 const crypto = require('crypto');
-const fs = require('fs');
-const http = require('http');
-const path = require('path');
+const createAgentClient = require('../services/agentClient');
+const createRunLogReader = require('../storage/runLogReader');
 
 function createRouteSupport({ authManager, storage, logger }) {
   const HEARTBEAT_TTL_MS = 2 * 60 * 1000;
@@ -13,6 +12,8 @@ function createRouteSupport({ authManager, storage, logger }) {
   const backupAnalyzeCache = new Map();
   const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
   const oauthStateStore = new Map();
+  const agentClient = createAgentClient();
+  const runLogReader = createRunLogReader({ storage, logger });
 
   const base64UrlEncode = (buffer) => buffer
     .toString('base64')
@@ -188,157 +189,6 @@ function createRouteSupport({ authManager, storage, logger }) {
     return { valid: true, warnings };
   };
 
-  const callAgentJobBackups = (agentIp, agentPort, jobLabel, mappings = []) => {
-    return new Promise((resolve, reject) => {
-      const payload = {
-        job_label: jobLabel || null,
-        mappings: mappings || []
-      };
-      const postData = JSON.stringify(payload);
-      const options = {
-        hostname: agentIp,
-        port: agentPort,
-        path: '/backups/job',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postData)
-        },
-        timeout: 15000
-      };
-
-      const req = http.request(options, (res) => {
-        let data = '';
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data || '{}');
-            if (res.statusCode >= 200 && res.statusCode < 300) {
-              resolve(parsed.mappings || []);
-            } else {
-              reject(new Error(parsed.error || `Agent ha risposto con status ${res.statusCode}`));
-            }
-          } catch {
-            reject(new Error('Risposta agent non valida'));
-          }
-        });
-      });
-
-      req.on('error', (err) => {
-        reject(new Error(`Agent non raggiungibile: ${err.message}`));
-      });
-
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('Timeout chiamata agent'));
-      });
-
-      req.write(postData);
-      req.end();
-    });
-  };
-
-  const callAgentFilesystem = (agentIp, agentPort, requestedPath) => {
-    return new Promise((resolve, reject) => {
-      const postData = JSON.stringify({ path: requestedPath || '' });
-      const options = {
-        hostname: agentIp,
-        port: agentPort,
-        path: '/filesystem/list',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postData)
-        },
-        timeout: 10000
-      };
-
-      const req = http.request(options, (res) => {
-        let data = '';
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            const entries = (parsed.items || []).map((item) => ({
-              name: item.name,
-              path: item.path || item.name,
-              type: item.type,
-              modified: item.modified || null,
-              size: item.size ?? null
-            }));
-            resolve({ path: parsed.path || requestedPath || '', entries });
-          } catch {
-            reject(new Error('Risposta agent non valida'));
-          }
-        });
-      });
-
-      req.on('error', (error) => {
-        reject(new Error(`Impossibile contattare agent: ${error.message}`));
-      });
-
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('Timeout connessione agent'));
-      });
-
-      req.write(postData);
-      req.end();
-    });
-  };
-
-  const callAgentDelete = (agentIp, agentPort, items = []) => {
-    return new Promise((resolve, reject) => {
-      const postData = JSON.stringify({ paths: items });
-      const options = {
-        hostname: agentIp,
-        port: agentPort,
-        path: '/filesystem/delete',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postData)
-        },
-        timeout: 10000
-      };
-
-      const req = http.request(options, (res) => {
-        let data = '';
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data || '{}');
-            if (res.statusCode >= 200 && res.statusCode < 300) {
-              resolve(parsed);
-            } else {
-              reject(new Error(parsed.error || `Agent ha risposto con status ${res.statusCode}`));
-            }
-          } catch {
-            reject(new Error('Risposta agent non valida'));
-          }
-        });
-      });
-
-      req.on('error', (error) => {
-        reject(new Error(`Errore comunicazione con agent: ${error.message}`));
-      });
-
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('Timeout connessione agent'));
-      });
-
-      req.write(postData);
-      req.end();
-    });
-  };
-
   const getOnlineAgentInfo = (hostname) => {
     const heartbeat = storage.loadAgentHeartbeat(hostname);
     if (!heartbeat || !heartbeat.agent_ip || !heartbeat.agent_port) {
@@ -353,101 +203,6 @@ function createRouteSupport({ authManager, storage, logger }) {
     }
 
     return { agent: heartbeat };
-  };
-
-  const readLogFile = (filePath, runId = null, { tailLines = null, maxBytes = 262144 } = {}) => {
-    if (!filePath) {
-      return null;
-    }
-
-    try {
-      if (!fs.existsSync(filePath)) {
-        return null;
-      }
-
-      const stat = fs.statSync(filePath);
-      const size = stat.size;
-      const bytesToRead = Math.min(maxBytes, size);
-      let content = '';
-
-      if (bytesToRead > 0) {
-        const buffer = Buffer.alloc(bytesToRead);
-        const fd = fs.openSync(filePath, 'r');
-        fs.readSync(fd, buffer, 0, bytesToRead, size - bytesToRead);
-        fs.closeSync(fd);
-        content = buffer.toString('utf8');
-      } else {
-        content = fs.readFileSync(filePath, 'utf8');
-      }
-
-      if (tailLines && Number.isFinite(tailLines) && tailLines > 0) {
-        const lines = content.split(/\r?\n/).filter((line) => line !== '');
-        content = lines.slice(-tailLines).join('\n');
-      }
-
-      return {
-        content,
-        path: filePath,
-        run_id: runId || path.basename(filePath, path.extname(filePath)),
-        updated_at: stat.mtime
-      };
-    } catch (error) {
-      logger.warn('Impossibile leggere file di log', { filePath, error: error.message });
-      return null;
-    }
-  };
-
-  const readLogIndexPaths = (filePath) => {
-    if (!filePath) {
-      return [];
-    }
-
-    try {
-      if (!fs.existsSync(filePath)) {
-        return [];
-      }
-
-      const raw = fs.readFileSync(filePath, 'utf8');
-      const payload = JSON.parse(raw);
-      const candidates = [];
-      if (payload?.log_path) {
-        candidates.push(payload.log_path);
-      }
-      if (Array.isArray(payload?.operations)) {
-        payload.operations.forEach((operation) => {
-          if (operation?.log_path) {
-            candidates.push(operation.log_path);
-          }
-        });
-      }
-      return candidates.filter(Boolean);
-    } catch (error) {
-      logger.warn('Impossibile leggere indice log', { filePath, error: error.message });
-      return [];
-    }
-  };
-
-  const findLatestRunLog = (hostname, jobId) => {
-    try {
-      const runs = storage
-        .loadRunsForJob(jobId)
-        .filter((run) => run.client_hostname === hostname)
-        .sort((a, b) => new Date(b.end || b.start || 0) - new Date(a.end || a.start || 0));
-
-      for (const run of runs) {
-        const candidates = [run.log_path, run.run_log_index].filter(Boolean);
-        for (const candidate of candidates) {
-          const log = readLogFile(candidate, run.run_id);
-          if (log) {
-            return log;
-          }
-        }
-      }
-    } catch (error) {
-      logger.warn('Impossibile recuperare log da run esistenti', { jobId, hostname, error: error.message });
-    }
-
-    return null;
   };
 
   const extractClientIp = (req) => {
@@ -725,23 +480,23 @@ function createRouteSupport({ authManager, storage, logger }) {
     buildAgentStatusMap,
     buildOAuthRedirect,
     buildSessionCookieOptions,
-    callAgentDelete,
-    callAgentFilesystem,
-    callAgentJobBackups,
+    callAgentDelete: agentClient.callAgentDelete,
+    callAgentFilesystem: agentClient.callAgentFilesystem,
+    callAgentJobBackups: agentClient.callAgentJobBackups,
     cleanupOauthStates,
     createCodeChallenge,
     createCodeVerifier,
     createState,
     exchangeOAuthCode,
     extractClientIp,
-    findLatestRunLog,
+    findLatestRunLog: runLogReader.findLatestRunLog,
     getOAuthConfig,
     getOnlineAgentInfo,
     getPublicBaseUrl,
     normalizeJobPayload,
     pathsOverlap,
-    readLogFile,
-    readLogIndexPaths,
+    readLogFile: runLogReader.readLogFile,
+    readLogIndexPaths: runLogReader.readLogIndexPaths,
     requireAuth,
     respondFromCache,
     sendCachedResponse

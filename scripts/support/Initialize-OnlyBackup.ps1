@@ -7,7 +7,13 @@ param(
     [switch]$SkipDependencyInstall,
 
     [Parameter()]
-    [switch]$SkipDataInitialization
+    [switch]$SkipDataInitialization,
+
+    [Parameter()]
+    [string]$NodePath = "node",
+
+    [Parameter()]
+    [string]$NpmPath = "npm"
 )
 
 Set-StrictMode -Version Latest
@@ -122,7 +128,7 @@ if (-not (Test-Path $initDataScript)) {
 }
 
 $nodeExecutable = Resolve-RequiredCommand `
-    -Name "node" `
+    -Name $NodePath `
     -SoftwareName "Node.js" `
     -MinimumVersion ">= $requiredNodeVersion" `
     -Reason "serve per eseguire il server OnlyBackup e lo script di inizializzazione dati" `
@@ -132,7 +138,7 @@ $nodeExecutable = Resolve-RequiredCommand `
 Test-NodeVersion -NodeExecutable $nodeExecutable
 
 $npmExecutable = Resolve-RequiredCommand `
-    -Name "npm" `
+    -Name $NpmPath `
     -SoftwareName "npm" `
     -MinimumVersion "incluso con Node.js LTS 20.x o superiore" `
     -Reason "serve per installare le dipendenze server con npm ci da package-lock.json" `

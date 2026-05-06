@@ -170,20 +170,71 @@ class Logger {
     }
   }
 
+  sanitizeMeta(meta, seen = new WeakSet()) {
+    if (meta === null || meta === undefined) {
+      return meta;
+    }
+
+    if (meta instanceof Error) {
+      return {
+        name: meta.name,
+        message: meta.message
+      };
+    }
+
+    if (typeof meta !== 'object') {
+      return meta;
+    }
+
+    if (seen.has(meta)) {
+      return '[Circular]';
+    }
+    seen.add(meta);
+
+    if (Array.isArray(meta)) {
+      return meta.map(item => this.sanitizeMeta(item, seen));
+    }
+
+    const sanitized = {};
+    Object.entries(meta).forEach(([key, value]) => {
+      sanitized[key] = this.isSensitiveLogKey(key)
+        ? '[REDACTED]'
+        : this.sanitizeMeta(value, seen);
+    });
+    return sanitized;
+  }
+
+  isSensitiveLogKey(key) {
+    const normalized = String(key || '').toLowerCase();
+    return normalized === 'password'
+      || normalized === 'passwordhash'
+      || normalized === 'pass'
+      || normalized === 'clientsecret'
+      || normalized === 'refreshtoken'
+      || normalized === 'accesstoken'
+      || normalized === 'sessionid'
+      || normalized === 'authorization'
+      || normalized === 'cookie'
+      || normalized === 'set-cookie'
+      || normalized === 'credentials'
+      || normalized === 'token'
+      || normalized.endsWith('_token');
+  }
+
   info(message, meta = {}) {
-    this.logger.info(message, meta);
+    this.logger.info(message, this.sanitizeMeta(meta));
   }
 
   warn(message, meta = {}) {
-    this.logger.warn(message, meta);
+    this.logger.warn(message, this.sanitizeMeta(meta));
   }
 
   error(message, meta = {}) {
-    this.logger.error(message, meta);
+    this.logger.error(message, this.sanitizeMeta(meta));
   }
 
   debug(message, meta = {}) {
-    this.logger.debug(message, meta);
+    this.logger.debug(message, this.sanitizeMeta(meta));
   }
 
   logServerStart(config) {
@@ -230,7 +281,7 @@ class Logger {
       jobName,
       runId,
       message,
-      ...meta
+      ...this.sanitizeMeta(meta)
     };
 
     const jobLogPath = path.join(logsDir, `${jobId}.log`);
@@ -262,7 +313,7 @@ class Logger {
     }
 
     if (typeof this.logger[normalizedLevel] === 'function') {
-      this.logger[normalizedLevel](message, { jobId, runId, jobName, ...meta });
+      this.logger[normalizedLevel](message, this.sanitizeMeta({ jobId, runId, jobName, ...meta }));
     }
   }
 
@@ -272,7 +323,7 @@ class Logger {
 
   logAuthAttempt(username, success, reason = null) {
     const level = success ? 'info' : 'warn';
-    this.logger.log(level, 'Tentativo di autenticazione', { event: 'auth_attempt', username, success, reason });
+    this.logger.log(level, 'Tentativo di autenticazione', this.sanitizeMeta({ event: 'auth_attempt', username, success, reason }));
   }
 
   logApiCall(method, path, username, statusCode) {

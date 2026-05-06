@@ -257,6 +257,12 @@ Installazione silenziosa:
 msiexec /i .\output\agent-msi\artifacts\OnlyBackupAgent.msi /qn
 ```
 
+L'installazione interattiva chiede se creare il collegamento desktop dell'agent. In modalita silenziosa il collegamento viene creato di default; per disattivarlo:
+
+```powershell
+msiexec /i .\output\agent-msi\artifacts\OnlyBackupAgent.msi /qn CREATE_DESKTOP_SHORTCUT=0
+```
+
 Dopo l'installazione:
 - il servizio Windows `OnlyBackupAgent` viene installato;
 - il servizio prova ad avviarsi automaticamente;

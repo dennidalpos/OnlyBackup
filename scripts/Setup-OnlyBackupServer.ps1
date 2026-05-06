@@ -73,11 +73,13 @@ if ($SkipDependencyInstall) {
 if ($SkipDataInitialization) {
     $initializeArgs.SkipDataInitialization = $true
 }
+$initializeArgs.NodePath = $NodePath
+$initializeArgs.NpmPath = $NpmPath
 
 & (Join-Path $PSScriptRoot "support\Initialize-OnlyBackup.ps1") @initializeArgs
 Assert-LastNativeExitCode -StepName "Initialize-OnlyBackup.ps1"
 
-& (Join-Path $PSScriptRoot "Test-OnlyBackupPrerequisites.ps1") -RequireServerServiceTooling:$($BuildService -or $InstallService -or $BuildPackage -or $BuildInstaller)
+& (Join-Path $PSScriptRoot "Test-OnlyBackupPrerequisites.ps1") -NodePath $NodePath -NpmPath $NpmPath -RequireServerServiceTooling:$($BuildService -or $InstallService -or $BuildPackage -or $BuildInstaller)
 Assert-LastNativeExitCode -StepName "Test-OnlyBackupPrerequisites.ps1"
 
 if ($BuildService -and -not $InstallService) {

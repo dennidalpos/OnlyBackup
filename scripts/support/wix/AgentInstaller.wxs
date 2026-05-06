@@ -73,11 +73,76 @@
       <ComponentRef Id="ServiceComponent" />
     </Feature>
 
-    <UIRef Id="WixUI_Minimal" />
+    <Feature Id="DesktopShortcutFeature" Title="Collegamento desktop OnlyBackup Agent" Level="1">
+      <ComponentRef Id="DesktopShortcutComponent" />
+      <Condition Level="0"><![CDATA[CREATE_DESKTOP_SHORTCUT <> "1"]]></Condition>
+    </Feature>
+
     <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectDir)\License.rtf" Overridable="yes" />
 
     <Property Id="SERVERHOST" Value="$(var.ServerHost)" />
     <Property Id="SERVERPORT" Value="$(var.ServerPort)" />
+    <Property Id="CREATE_DESKTOP_SHORTCUT" Value="1" />
+
+    <UI>
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
+
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+      <Property Id="WixUI_Mode" Value="Minimal" />
+
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+
+      <Dialog Id="AgentWelcomeEulaDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Contratto di licenza" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="320" Height="15" Transparent="yes" NoPrefix="yes" Text="Leggi e accetta il contratto prima di installare [ProductName]." />
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="LicenseText" Type="ScrollableText" X="20" Y="60" Width="330" Height="125" Sunken="yes" TabSkip="no">
+          <Text SourceFile="$(var.ProjectDir)\License.rtf" />
+        </Control>
+        <Control Id="LicenseAcceptedCheckBox" Type="CheckBox" X="20" Y="195" Width="330" Height="18" CheckBoxValue="1" Property="LicenseAccepted" Text="Accetto i termini del contratto di licenza" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WixUINext)" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+      </Dialog>
+
+      <Dialog Id="DesktopShortcutDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Opzioni installazione" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="320" Height="15" Transparent="yes" NoPrefix="yes" Text="Scegli se creare un collegamento sul desktop." />
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="ShortcutCheckBox" Type="CheckBox" X="25" Y="80" Width="320" Height="17" Property="CREATE_DESKTOP_SHORTCUT" CheckBoxValue="1" Text="Crea collegamento sul desktop" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.WixUIBack)" />
+        <Control Id="Install" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="Installa" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+      </Dialog>
+
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
+      <Publish Dialog="AgentWelcomeEulaDlg" Control="Next" Event="NewDialog" Value="DesktopShortcutDlg">LicenseAccepted = "1"</Publish>
+      <Publish Dialog="DesktopShortcutDlg" Control="Back" Event="NewDialog" Value="AgentWelcomeEulaDlg">1</Publish>
+      <Publish Dialog="DesktopShortcutDlg" Control="Install" Event="SpawnWaitDialog" Value="WaitForCostingDlg" Order="1">1 OR CostingComplete = 1</Publish>
+      <Publish Dialog="DesktopShortcutDlg" Control="Install" Event="EndDialog" Value="Return" Order="2">OutOfDiskSpace &lt;&gt; 1</Publish>
+      <Publish Dialog="DesktopShortcutDlg" Control="Install" Event="SpawnDialog" Value="OutOfRbDiskDlg" Order="3">OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND (PROMPTROLLBACKCOST="P" OR NOT PROMPTROLLBACKCOST)</Publish>
+      <Publish Dialog="DesktopShortcutDlg" Control="Install" Event="EndDialog" Value="Return" Order="4">OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST="D"</Publish>
+      <Publish Dialog="DesktopShortcutDlg" Control="Install" Event="EnableRollback" Value="False" Order="5">OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST="D"</Publish>
+      <Publish Dialog="DesktopShortcutDlg" Control="Install" Event="SpawnDialog" Value="OutOfDiskDlg" Order="6">(OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 1) OR (OutOfDiskSpace = 1 AND PROMPTROLLBACKCOST="F")</Publish>
+
+      <UIRef Id="WixUI_Common" />
+    </UI>
 
     <Binary Id="NetFx462Installer" SourceFile="$(var.NetFxInstaller)" />
     <CustomAction Id="InstallNetFx462"
@@ -124,12 +189,15 @@
     </InstallExecuteSequence>
 
     <InstallUISequence>
+      <Show Dialog="AgentWelcomeEulaDlg" Before="CostFinalize">NOT Installed</Show>
+      <Show Dialog="ResumeDlg" Before="CostFinalize">Installed AND (RESUME OR Preselected)</Show>
     </InstallUISequence>
 
   </Product>
 
   <Fragment>
     <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="CommonDesktopFolder" Name="Desktop" />
       <Directory Id="ProgramFilesFolder">
         <Directory Id="ManufacturerFolder" Name="OnlyBackup">
           <Directory Id="INSTALLFOLDER" Name="Agent" />
@@ -209,6 +277,23 @@
         <!-- Rimozione cartelle install se vuote -->
         <RemoveFolder Id="RemoveINSTALLFOLDER" Directory="INSTALLFOLDER" On="uninstall" />
         <RemoveFolder Id="RemoveManufacturerFolder" Directory="ManufacturerFolder" On="uninstall" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="CommonDesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="5D979B4B-1E47-46DD-BAD1-49D6A7C8A13B">
+        <Shortcut Id="OnlyBackupAgentDesktopShortcut"
+                  Name="OnlyBackup Agent"
+                  Description="OnlyBackup Agent"
+                  Target="[#ServiceExecutable]"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="OnlyBackupAgentIcon" />
+        <RegistryValue Root="HKLM"
+                       Key="SOFTWARE\OnlyBackupInstaller"
+                       Name="DesktopShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
       </Component>
     </DirectoryRef>
   </Fragment>
