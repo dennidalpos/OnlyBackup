@@ -25,7 +25,7 @@
                 <div class="brand-mark"><img src="/assets/brand/onlybackup-mark.svg" alt="" width="36" height="36"></div>
                 <div>
                     <div class="brand-title">OnlyBackup</div>
-                    <div class="brand-subtitle">Control Center</div>
+                    <div class="brand-subtitle">Centro controllo</div>
                 </div>
             </div>
             <div class="user-info">
@@ -41,19 +41,19 @@
             <div class="settings-content">
                 <div class="tabs" role="tablist" aria-label="Alert">
                     <button class="tab-btn active" id="activeTabButton" data-tab="active" role="tab" aria-selected="true" aria-controls="activeTab">Alert Attivi</button>
-                    <button class="tab-btn" id="historyTabButton" data-tab="history" role="tab" aria-selected="false" aria-controls="historyTab">Storico</button>
+                    <button class="tab-btn" id="historyTabButton" data-tab="history" role="tab" aria-selected="false" aria-controls="historyTab" tabindex="-1">Storico</button>
                 </div>
 
                 <!-- Tab Alert Attivi -->
                 <div id="activeTab" class="tab-content active" role="tabpanel" aria-labelledby="activeTabButton">
-                    <div id="activeAlertsContainer" aria-live="polite">
+                    <div id="activeAlertsContainer" role="status" aria-live="polite">
                         <div class="loading-spinner">Caricamento...</div>
                     </div>
                 </div>
 
                 <!-- Tab Storico -->
                 <div id="historyTab" class="tab-content" role="tabpanel" aria-labelledby="historyTabButton" hidden>
-                    <div id="historyAlertsContainer" aria-live="polite">
+                    <div id="historyAlertsContainer" role="status" aria-live="polite">
                         <div class="loading-spinner">Caricamento...</div>
                     </div>
                 </div>

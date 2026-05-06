@@ -25,7 +25,7 @@
                 <div class="brand-mark"><img src="/assets/brand/onlybackup-mark.svg" alt="" width="36" height="36"></div>
                 <div>
                     <div class="brand-title">OnlyBackup</div>
-                    <div class="brand-subtitle">Control Center</div>
+                    <div class="brand-subtitle">Centro controllo</div>
                 </div>
             </div>
             <div class="user-info">
@@ -41,7 +41,7 @@
             <div class="settings-content">
                 <div class="tabs" role="tablist" aria-label="Impostazioni server">
                     <button class="tab-btn active" id="emailTabButton" data-tab="email" role="tab" aria-selected="true" aria-controls="emailTab">Notifiche Email</button>
-                    <button class="tab-btn" id="maintenanceTabButton" data-tab="maintenance" role="tab" aria-selected="false" aria-controls="maintenanceTab">Manutenzione</button>
+                    <button class="tab-btn" id="maintenanceTabButton" data-tab="maintenance" role="tab" aria-selected="false" aria-controls="maintenanceTab" tabindex="-1">Manutenzione</button>
                 </div>
 
                 <!-- Tab Email -->
@@ -66,14 +66,14 @@
                                     <input type="number" id="smtpPort" name="smtp.port" placeholder="587">
                                 </div>
                                 <div class="form-group">
-                                    <label for="smtpSecure" style="margin-bottom: 0;">&nbsp;</label>
+                                    <span class="sr-only" id="smtpSecureLabel">Sicurezza SMTP</span>
                                     <div class="checkbox-group" style="padding-top: 10px;">
                                         <input type="checkbox" id="smtpSecure" name="smtp.secure">
                                         <label for="smtpSecure">SSL/TLS</label>
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label for="smtpIgnoreTls" style="margin-bottom: 0;">&nbsp;</label>
+                                    <span class="sr-only" id="smtpIgnoreTlsLabel">STARTTLS SMTP</span>
                                     <div class="checkbox-group" style="padding-top: 10px;">
                                         <input type="checkbox" id="smtpIgnoreTls" name="smtp.ignore_tls">
                                         <label for="smtpIgnoreTls">Forza no STARTTLS</label>
@@ -146,31 +146,31 @@
                         </div>
 
                         <div class="form-section">
-                            <h4>Eventi da Notificare</h4>
-                            <div class="checkbox-label">
+                            <h4>Eventi da notificare</h4>
+                            <label class="checkbox-label" for="eventBackupFailed">
                                 <input type="checkbox" id="eventBackupFailed" name="events.backup_failed">
                                 <span>Backup falliti</span>
-                            </div>
-                            <div class="checkbox-label">
+                            </label>
+                            <label class="checkbox-label" for="eventBackupPartial">
                                 <input type="checkbox" id="eventBackupPartial" name="events.backup_partial">
                                 <span>Backup parziali</span>
-                            </div>
-                            <div class="checkbox-label">
+                            </label>
+                            <label class="checkbox-label" for="eventBackupCritical">
                                 <input type="checkbox" id="eventBackupCritical" name="events.backup_critical">
                                 <span>Errori critici</span>
-                            </div>
-                            <div class="checkbox-label">
+                            </label>
+                            <label class="checkbox-label" for="eventBackupWarning">
                                 <input type="checkbox" id="eventBackupWarning" name="events.backup_warning">
                                 <span>Avvisi backup</span>
-                            </div>
-                            <div class="checkbox-label">
+                            </label>
+                            <label class="checkbox-label" for="eventAgentOffline">
                                 <input type="checkbox" id="eventAgentOffline" name="events.agent_offline">
                                 <span>Agent offline</span>
-                            </div>
-                            <div class="checkbox-label">
+                            </label>
+                            <label class="checkbox-label" for="eventAgentOnline">
                                 <input type="checkbox" id="eventAgentOnline" name="events.agent_online">
                                 <span>Agent tornato online</span>
-                            </div>
+                            </label>
                         </div>
                     </form>
 
@@ -180,7 +180,7 @@
                     </div>
 
                     <div class="form-section" style="margin-top: 40px; border-top: 2px solid var(--border-color); padding-top: 30px;">
-                        <h4>Template Email</h4>
+                        <h4>Template email</h4>
                         <div class="info-box">
                             <div class="template-help">
                                 <div>
@@ -287,8 +287,8 @@
                         </div>
 
                         <div class="actions-bar" id="templateActions" style="display: none;">
-                            <button type="button" class="btn btn-outline" onclick="resetTemplate()">Ripristina Default</button>
-                            <button type="button" class="btn btn-primary" onclick="saveTemplate()">Salva Template</button>
+                            <button type="button" class="btn btn-outline" onclick="resetTemplate()">Ripristina predefinito</button>
+                            <button type="button" class="btn btn-primary" onclick="saveTemplate()">Salva template</button>
                         </div>
                     </div>
                 </div>
@@ -359,14 +359,14 @@
                                 <label for="agentServerHost">Indirizzo server</label>
                                 <input type="text" id="agentServerHost" list="agentServerHostCandidates" placeholder="192.168.1.10">
                                 <datalist id="agentServerHostCandidates"></datalist>
-                                <small id="agentServerHostHint">Caricamento indirizzo suggerito...</small>
+                                <small id="agentServerHostHint" aria-live="polite">Caricamento indirizzo suggerito...</small>
                             </div>
                             <div class="form-group">
                                 <label for="agentServerPort">Porta</label>
                                 <input type="number" id="agentServerPort" min="1" max="65535" step="1" value="8080">
                             </div>
                         </div>
-                        <div id="agentPackageStatus" class="info-box">
+                        <div id="agentPackageStatus" class="info-box" role="status" aria-live="polite">
                             <p>Stato pacchetto non caricato.</p>
                         </div>
                         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
@@ -387,7 +387,7 @@
                         <p style="color: var(--text-secondary); margin-bottom: 20px;">
                             Controlla lo stato del servizio Windows OnlyBackup Server installato sul sistema.
                         </p>
-                        <div id="serverServiceStatus" class="info-box">
+                        <div id="serverServiceStatus" class="info-box" role="status" aria-live="polite">
                             <p>Stato servizio non caricato.</p>
                         </div>
                         <div style="display: flex; gap: 12px; flex-wrap: wrap;">

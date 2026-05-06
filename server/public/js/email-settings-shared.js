@@ -376,7 +376,7 @@
                 return;
             }
 
-            if (!confirm('Vuoi davvero ripristinare il template di default? Le modifiche attuali andranno perse.')) {
+            if (!confirm('Vuoi davvero ripristinare il template predefinito? Le modifiche attuali andranno perse.')) {
                 return;
             }
 
@@ -388,7 +388,7 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error('Errore caricamento template default');
+                    throw new Error('Errore caricamento template predefinito');
                 }
 
                 state.emailTemplates = await response.json();

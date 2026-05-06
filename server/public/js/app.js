@@ -235,7 +235,7 @@ class OnlyBackupApp {
 
     handleBackupStarted(data) {
         console.log('Backup started:', data);
-        this.showToast('info', 'Backup Avviato', `Backup su ${data.hostname} avviato`);
+        this.showToast('info', 'Backup avviato', `Backup su ${data.hostname} avviato`);
     }
 
     handleBackupCompleted(data) {
@@ -255,7 +255,7 @@ class OnlyBackupApp {
                 ? 'error'
                 : 'warning';
 
-        this.showToast(type, 'Backup Completato', `Backup ${statusText}`);
+        this.showToast(type, 'Backup completato', `Backup ${statusText}`);
 
         this.loadHeaderStats();
         this.loadClients();
@@ -287,12 +287,12 @@ class OnlyBackupApp {
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
         toast.innerHTML = `
-            <span class="toast-icon">${icons[type] || icons.info}</span>
+            <span class="toast-icon" aria-hidden="true">${icons[type] || icons.info}</span>
             <div class="toast-content">
                 <div class="toast-title">${this.escapeHtml(title)}</div>
                 ${message ? `<div class="toast-message">${this.escapeHtml(message)}</div>` : ''}
             </div>
-            <button class="toast-close" onclick="this.parentElement.remove()">\u00D7</button>
+            <button type="button" class="toast-close" onclick="this.parentElement.remove()" aria-label="Chiudi notifica">\u00D7</button>
         `;
 
         container.appendChild(toast);
