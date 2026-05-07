@@ -76,6 +76,7 @@ OnlyBackupApp.prototype.startNewJob = function() {
         if (!this.selectedClient) return;
 
         this.isNewJob = true;
+        this.jobWizardStep = 'client';
         this.editingJob = this.createEmptyJob();
         this.renderJobEditor();
         this.renderJobsList();
@@ -140,6 +141,7 @@ OnlyBackupApp.prototype.editJob = function(jobId) {
         }));
 
         this.editingJob = cloned;
+        this.jobWizardStep = 'client';
         this.renderJobEditor();
         this.renderJobsList();
 };
@@ -422,7 +424,7 @@ OnlyBackupApp.prototype.renderBackupToolbar = function(mappingIndex) {
                     <input type="checkbox" onchange="app.toggleSelectAllBackups(${mappingIndex}, this.checked)">
                     <span>Seleziona tutti</span>
                 </label>
-                <button type="button" class="btn btn-outline btn-small" onclick="app.deleteSelectedBackups(${mappingIndex})">Elimina selezionati</button>
+                <button type="button" class="btn btn-outline btn-small danger-secondary" onclick="app.deleteSelectedBackups(${mappingIndex})">Elimina selezionati</button>
             </div>`;
 };
 
@@ -456,7 +458,7 @@ OnlyBackupApp.prototype.renderBackupRows = function(backups, mappingIndex, { inc
                     </div>
                     <div class="backup-actions">
                         <div class="backup-meta">${this.escapeHtml(modified)}</div>
-                        <button type="button" class="btn btn-outline btn-small" onclick="app.deleteBackup('${this.escapeForAttribute(targetPath)}'${deleteOptions})">Elimina</button>
+                        <button type="button" class="btn btn-outline btn-small danger-secondary" onclick="app.deleteBackup('${this.escapeForAttribute(targetPath)}'${deleteOptions})">Elimina</button>
                     </div>
                 </div>
             `;
@@ -485,8 +487,16 @@ OnlyBackupApp.prototype.closeBackupsModal = function() {
 OnlyBackupApp.prototype.deleteBackup = async function(path, { skipConfirm = false, skipReload = false, silent = false, mappingIndex = null } = {}) {
         if (!path || !this.selectedClient || !this.editingJob?.job_id) return false;
 
-        if (!skipConfirm && !confirm('Eliminare definitivamente questa cartella di backup?')) {
-            return false;
+        if (!skipConfirm) {
+            const confirmed = await this.showStrongConfirm({
+                title: 'Elimina backup',
+                message: `Rimuove definitivamente la cartella di backup ${path}.`,
+                expectedText: this.editingJob.job_id,
+                confirmLabel: 'Elimina backup'
+            });
+            if (!confirmed) {
+                return false;
+            }
         }
 
         try {
@@ -548,7 +558,13 @@ OnlyBackupApp.prototype.deleteSelectedBackups = async function(mappingIndex) {
             return;
         }
 
-        if (!confirm(`Eliminare definitivamente ${selected.length} backup selezionati?`)) {
+        const confirmed = await this.showStrongConfirm({
+            title: 'Elimina backup selezionati',
+            message: `Rimuove definitivamente ${selected.length} backup selezionati per il job ${this.editingJob.job_id}.`,
+            expectedText: this.editingJob.job_id,
+            confirmLabel: 'Elimina selezionati'
+        });
+        if (!confirmed) {
             return;
         }
 

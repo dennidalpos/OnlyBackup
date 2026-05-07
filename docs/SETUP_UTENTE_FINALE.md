@@ -67,6 +67,28 @@ Al primo avvio usa:
 
 Se `admin` esiste gia, lo script di setup non modifica l'utente e non cambia la password. Quando invece reinstalli con l'installer `.exe`, la password inserita nel setup aggiorna l'utente `admin` esistente e al login successivo la UI richiede il cambio password.
 
+## Uso Della Dashboard Admin
+
+Dopo il cambio password iniziale, la dashboard mostra la checklist di primo avvio. Gli elementi si completano quando:
+- la password `admin` e stata cambiata;
+- almeno un agent ha inviato heartbeat;
+- almeno un job e configurato;
+- la configurazione email e stata verificata;
+- il pacchetto agent e stato generato o scaricato.
+
+La lista client puo essere filtrata con i chip `Tutti`, `Critici`, `Offline`, `Backup falliti`, `In corso` e `Senza job`.
+
+Per creare un job:
+1. seleziona un client;
+2. premi `+ Nuovo Job`;
+3. compila il wizard `Client`, `Pianificazione`, `Mappature`, `Revisione`;
+4. premi `Salva`;
+5. controlla la preview e conferma solo se job, client, orari e percorsi sono corretti.
+
+Anche l'esecuzione manuale usa una preview prima di inviare la richiesta all'agent.
+
+Le azioni distruttive richiedono una conferma forte: devi digitare esattamente il testo mostrato dalla modale. Con testo diverso il pulsante resta disabilitato e non viene inviata alcuna richiesta. Questa protezione copre eliminazione job, log client, deregistrazione client, reset stato backup, eliminazione backup, cancellazione storico alert, eliminazione log globali, controllo servizio e riavvio server.
+
 ## Configurazione Base
 
 La configurazione principale e nel file:

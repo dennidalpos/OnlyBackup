@@ -31,6 +31,13 @@ class OnlyBackupApp {
         this.eventSource = null;
         this.activeModalId = null;
         this.lastFocusedElement = null;
+        this.dashboardFilter = 'all';
+        this.clientSearchTerm = '';
+        this.runFilters = { period: 'all', status: 'all', job: 'all' };
+        this.jobWizardStep = 'client';
+        this.pendingStrongConfirm = null;
+        this.pendingJobPreview = null;
+        this.mustChangePassword = false;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 10;
         this.sseEnabled = true;
@@ -115,13 +122,150 @@ class OnlyBackupApp {
                 clearLogsDialog: () => this.closeClearLogsDialog(),
                 filesystemModal: () => this.closeFilesystemModal(),
                 logViewerModal: () => this.closeLogViewer(),
-                backupsModal: () => this.closeBackupsModal()
+                backupsModal: () => this.closeBackupsModal(),
+                strongConfirmDialog: () => this.closeStrongConfirmDialog(false),
+                jobPreviewDialog: () => this.closeJobPreviewDialog(false)
             };
             const close = closeByModal[this.activeModalId];
             if (close) {
                 close();
             }
         }
+    }
+
+    showStrongConfirm({ title, message, expectedText, confirmLabel = 'Conferma', danger = true } = {}) {
+        return new Promise((resolve) => {
+            this.pendingStrongConfirm = {
+                expectedText: String(expectedText || ''),
+                resolve
+            };
+
+            const titleEl = document.getElementById('strongConfirmTitle');
+            const messageEl = document.getElementById('strongConfirmMessage');
+            const expectedEl = document.getElementById('strongConfirmExpected');
+            const inputEl = document.getElementById('strongConfirmInput');
+            const buttonEl = document.getElementById('strongConfirmButton');
+
+            if (!titleEl || !messageEl || !expectedEl || !inputEl || !buttonEl) {
+                resolve(false);
+                return;
+            }
+
+            titleEl.textContent = title || 'Conferma operazione';
+            messageEl.textContent = message || '';
+            expectedEl.textContent = this.pendingStrongConfirm.expectedText;
+            inputEl.value = '';
+            inputEl.setAttribute('aria-label', `Digita ${this.pendingStrongConfirm.expectedText} per confermare`);
+            buttonEl.textContent = confirmLabel;
+            buttonEl.classList.toggle('btn-danger', danger);
+            buttonEl.classList.toggle('btn-primary', !danger);
+            buttonEl.disabled = true;
+
+            this.openModal('strongConfirmDialog');
+            inputEl.focus();
+        });
+    }
+
+    updateStrongConfirmButton() {
+        const inputEl = document.getElementById('strongConfirmInput');
+        const buttonEl = document.getElementById('strongConfirmButton');
+        if (!inputEl || !buttonEl || !this.pendingStrongConfirm) return;
+        buttonEl.disabled = inputEl.value !== this.pendingStrongConfirm.expectedText;
+    }
+
+    closeStrongConfirmDialog(result = false) {
+        const pending = this.pendingStrongConfirm;
+        this.pendingStrongConfirm = null;
+        this.closeModal('strongConfirmDialog');
+        if (pending?.resolve) {
+            pending.resolve(Boolean(result));
+        }
+    }
+
+    confirmStrongAction() {
+        const inputEl = document.getElementById('strongConfirmInput');
+        if (!this.pendingStrongConfirm || !inputEl) return;
+        if (inputEl.value !== this.pendingStrongConfirm.expectedText) {
+            return;
+        }
+        this.closeStrongConfirmDialog(true);
+    }
+
+    showJobPreview({ title = 'Revisione job', actionLabel = 'Conferma', payload } = {}) {
+        return new Promise((resolve) => {
+            this.pendingJobPreview = { resolve };
+            const titleEl = document.getElementById('jobPreviewTitle');
+            const contentEl = document.getElementById('jobPreviewContent');
+            const buttonEl = document.getElementById('jobPreviewConfirmButton');
+
+            if (!titleEl || !contentEl || !buttonEl) {
+                resolve(false);
+                return;
+            }
+
+            titleEl.textContent = title;
+            contentEl.innerHTML = this.renderJobPreview(payload || this.editingJob);
+            buttonEl.textContent = actionLabel;
+            this.openModal('jobPreviewDialog');
+        });
+    }
+
+    closeJobPreviewDialog(result = false) {
+        const pending = this.pendingJobPreview;
+        this.pendingJobPreview = null;
+        this.closeModal('jobPreviewDialog');
+        if (pending?.resolve) {
+            pending.resolve(Boolean(result));
+        }
+    }
+
+    confirmJobPreview() {
+        this.closeJobPreviewDialog(true);
+    }
+
+    showInputDialog({ title, fields, confirmLabel = 'Conferma' }) {
+        return new Promise((resolve) => {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            const fieldHtml = fields.map((field, index) => `
+                <div class="form-group">
+                    <label for="appInputDialogField${index}">${this.escapeHtml(field.label)}</label>
+                    <input id="appInputDialogField${index}" type="${field.type || 'text'}" autocomplete="${field.autocomplete || 'off'}" ${field.minLength ? `minlength="${field.minLength}"` : ''}>
+                </div>
+            `).join('');
+
+            modal.innerHTML = `
+                <div class="modal-backdrop"></div>
+                <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="appInputDialogTitle" tabindex="-1">
+                    <h3 id="appInputDialogTitle">${this.escapeHtml(title)}</h3>
+                    ${fieldHtml}
+                    <div class="modal-actions">
+                        <button type="button" class="btn-cancel btn btn-outline btn-small">Annulla</button>
+                        <button type="button" class="btn-confirm btn btn-primary btn-small">${this.escapeHtml(confirmLabel)}</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+            const close = (value) => {
+                if (modal.parentElement) {
+                    document.body.removeChild(modal);
+                }
+                resolve(value);
+            };
+
+            modal.querySelector('.btn-cancel').onclick = () => close(null);
+            modal.querySelector('.modal-backdrop').onclick = () => close(null);
+            modal.querySelector('.btn-confirm').onclick = () => {
+                const values = {};
+                fields.forEach((field, index) => {
+                    values[field.name] = modal.querySelector(`#appInputDialogField${index}`).value;
+                });
+                close(values);
+            };
+            const firstInput = modal.querySelector('input');
+            if (firstInput) firstInput.focus();
+        });
     }
 
     handleKeyboardAction(event, action) {

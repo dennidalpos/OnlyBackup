@@ -65,6 +65,8 @@ OnlyBackupApp.prototype.loadClients = async function() {
 
 OnlyBackupApp.prototype.renderClientsList = function() {
     const container = document.getElementById('clientsList');
+    this.renderOnboardingChecklist();
+    this.updateDashboardFilterButtons();
 
     if (this.clients.length === 0) {
         container.innerHTML = '<div class="info-message">Nessun client registrato</div>';
@@ -76,7 +78,14 @@ OnlyBackupApp.prototype.renderClientsList = function() {
         return a.hostname.localeCompare(b.hostname);
     });
 
-    container.innerHTML = sortedClients.map((client) => {
+    const visibleClients = sortedClients.filter((client) => this.clientMatchesDashboardFilter(client));
+
+    if (visibleClients.length === 0) {
+        container.innerHTML = '<div class="info-message">Nessun client corrisponde ai filtri attivi</div>';
+        return;
+    }
+
+    container.innerHTML = visibleClients.map((client) => {
         let backupIcon = '';
 
         if (client.backup_status === 'in_progress') {
@@ -101,6 +110,15 @@ OnlyBackupApp.prototype.renderClientsList = function() {
         const statusDotClass = client.online ? 'online' : 'offline';
         const lastSeen = client.lastSeen ? new Date(client.lastSeen).toLocaleString() : 'Mai';
         const ipInfo = client.agent_ip ? `${client.agent_ip}:${client.agent_port || 8081}` : 'IP non disponibile';
+        const lastRunStatus = this.normalizeRunStatus(client.lastBackupRun?.status || client.backup_status || '');
+        const healthActions = [];
+
+        if (!client.online || lastRunStatus === 'failure' || lastRunStatus === 'failed' || lastRunStatus === 'partial') {
+            healthActions.push(`<a class="client-health-link" href="/alerts.html" onclick="event.stopPropagation()">Alert</a>`);
+        }
+        if (client.lastBackupRun || client.backup_status === 'in_progress') {
+            healthActions.push(`<button type="button" class="client-health-link" onclick="event.stopPropagation(); app.openClientRuns('${this.escapeForAttribute(client.hostname)}')">Storico</button>`);
+        }
 
         return `
             <div class="client-item ${this.selectedClient === client.hostname ? 'active' : ''}"
@@ -119,6 +137,7 @@ OnlyBackupApp.prototype.renderClientsList = function() {
                         <span class="client-ip" title="Indirizzo agent">${this.escapeHtml(ipInfo)}</span>
                         <span class="client-lastseen" title="Ultimo contatto">Ultimo contatto: ${this.escapeHtml(lastSeen)}</span>
                     </div>
+                    ${healthActions.length ? `<div class="client-health-actions">${healthActions.join('')}</div>` : ''}
                 </div>
                 <div class="client-item-actions">
                     ${showResetBackup ? `
@@ -135,6 +154,84 @@ OnlyBackupApp.prototype.renderClientsList = function() {
             </div>
         `;
     }).join('');
+};
+
+OnlyBackupApp.prototype.clientMatchesDashboardFilter = function(client) {
+    const term = (this.clientSearchTerm || '').toLowerCase().trim();
+    const hostname = (client.hostname || '').toLowerCase();
+    if (term && !hostname.includes(term)) {
+        return false;
+    }
+
+    const status = this.normalizeRunStatus(client.lastBackupRun?.status || client.backup_status || '');
+    const hasJobs = Array.isArray(client.jobs) && client.jobs.length > 0;
+
+    if (this.dashboardFilter === 'critical') {
+        return !client.online || ['failure', 'failed', 'partial'].includes(status);
+    }
+    if (this.dashboardFilter === 'offline') {
+        return !client.online;
+    }
+    if (this.dashboardFilter === 'failed') {
+        return ['failure', 'failed', 'partial'].includes(status);
+    }
+    if (this.dashboardFilter === 'running') {
+        return client.backup_status === 'in_progress' || status === 'running';
+    }
+    if (this.dashboardFilter === 'no-jobs') {
+        return !hasJobs;
+    }
+
+    return true;
+};
+
+OnlyBackupApp.prototype.setDashboardFilter = function(filterName) {
+    this.dashboardFilter = filterName || 'all';
+    this.renderClientsList();
+};
+
+OnlyBackupApp.prototype.updateDashboardFilterButtons = function() {
+    document.querySelectorAll('.dashboard-filter-bar .filter-chip').forEach((button) => {
+        const selected = button.dataset.filter === this.dashboardFilter;
+        button.classList.toggle('active', selected);
+        button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
+};
+
+OnlyBackupApp.prototype.openClientRuns = async function(hostname) {
+    await this.selectClient(hostname);
+    this.showTab('runs');
+};
+
+OnlyBackupApp.prototype.renderOnboardingChecklist = function() {
+    const container = document.getElementById('onboardingChecklist');
+    if (!container) return;
+
+    const hasClient = this.clients.length > 0;
+    const hasJob = this.clients.some((client) => Array.isArray(client.jobs) && client.jobs.length > 0) || this.jobs.length > 0;
+    const emailTested = localStorage.getItem('onlybackup.emailTested') === 'true';
+    const agentPackageReady = localStorage.getItem('onlybackup.agentPackageReady') === 'true';
+    const items = [
+        { label: 'Password admin cambiata', done: !this.mustChangePassword },
+        { label: 'Primo agent registrato', done: hasClient },
+        { label: 'Primo job creato', done: hasJob },
+        { label: 'Email testata', done: emailTested },
+        { label: 'Package agent generato/scaricato', done: agentPackageReady }
+    ];
+    const pending = items.filter((item) => !item.done).length;
+
+    container.innerHTML = `
+        <div class="onboarding-title">Primo avvio admin</div>
+        <div class="onboarding-items">
+            ${items.map((item) => `
+                <span class="onboarding-item ${item.done ? 'done' : 'todo'}">
+                    <span aria-hidden="true">${item.done ? '\u2713' : '\u25CB'}</span>
+                    ${this.escapeHtml(item.label)}
+                </span>
+            `).join('')}
+        </div>
+        <div class="onboarding-summary">${pending === 0 ? 'Checklist completata' : `${pending} passaggi aperti`}</div>
+    `;
 };
 
 OnlyBackupApp.prototype.updateClientHeader = function() {
@@ -161,11 +258,16 @@ OnlyBackupApp.prototype.selectClient = async function(hostname) {
     this.renderJobEditor();
 };
 
-OnlyBackupApp.prototype.showDeregisterDialog = function(hostname) {
-    this.pendingDeregisterHostname = hostname;
-    const message = `Sei sicuro di voler deregistrare il PC ${hostname}? Questa azione eliminera tutti i job, run, log e dati associati al client.`;
-    document.getElementById('deregisterMessage').textContent = message;
-    this.openModal('deregisterDialog');
+OnlyBackupApp.prototype.showDeregisterDialog = async function(hostname) {
+    const confirmed = await this.showStrongConfirm({
+        title: 'Deregistra client',
+        message: `Rimuove heartbeat, job, run e log associati al client ${hostname}.`,
+        expectedText: hostname,
+        confirmLabel: 'Deregistra'
+    });
+    if (confirmed) {
+        await this.deleteClientByHostname(hostname);
+    }
 };
 
 OnlyBackupApp.prototype.closeDeregisterDialog = function() {
@@ -178,6 +280,27 @@ OnlyBackupApp.prototype.confirmDeregisterClient = async function() {
     if (!hostname) return;
 
     this.closeDeregisterDialog();
+    await this.deleteClientByHostname(hostname);
+};
+
+OnlyBackupApp.prototype.deregisterClient = async function() {
+    if (!this.selectedClient) return;
+
+    const hostname = this.selectedClient;
+    const confirmed = await this.showStrongConfirm({
+        title: 'Deregistra client',
+        message: `Rimuove heartbeat, job, run e log associati al client ${hostname}.`,
+        expectedText: hostname,
+        confirmLabel: 'Deregistra'
+    });
+    if (!confirmed) {
+        return;
+    }
+
+    await this.deleteClientByHostname(hostname);
+};
+
+OnlyBackupApp.prototype.deleteClientByHostname = async function(hostname) {
     const wasSelected = this.selectedClient === hostname;
 
     try {
@@ -215,53 +338,10 @@ OnlyBackupApp.prototype.confirmDeregisterClient = async function() {
     }
 };
 
-OnlyBackupApp.prototype.deregisterClient = async function() {
+OnlyBackupApp.prototype.clearClientLogs = async function() {
     if (!this.selectedClient) return;
 
-    const hostname = this.selectedClient;
-    if (!confirm(`Deregistrare il client "${hostname}" e tutti i dati associati?`)) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`/api/clients/${encodeURIComponent(hostname)}`, {
-            method: 'DELETE'
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-            this.showToast('success', 'Client deregistrato', `${hostname} e stato deregistrato`);
-            this.selectedClient = null;
-            this.jobs = [];
-            this.runs = [];
-            this.editingJob = null;
-            await this.loadClients();
-            await this.loadHeaderStats();
-            if (this.clients.length > 0) {
-                this.selectClient(this.clients[0].hostname);
-            } else {
-                document.getElementById('selectedClientName').textContent = 'Seleziona un client';
-                document.getElementById('clientHeaderStatus').textContent = '';
-                document.getElementById('clientHeaderStatus').className = 'client-header-status';
-                this.renderJobsList();
-                this.renderRunsList();
-            }
-        } else {
-            this.showToast('error', 'Errore', data.error || 'Impossibile deregistrare il client');
-        }
-    } catch (error) {
-        console.error('Errore deregistrazione client:', error);
-        this.showToast('error', 'Errore di connessione al server');
-    }
-};
-
-OnlyBackupApp.prototype.clearClientLogs = function() {
-    if (!this.selectedClient) return;
-
-    const message = `Sei sicuro di voler eliminare tutto lo storico backup del PC ${this.selectedClient}? I job non verranno eliminati, solo le esecuzioni passate.`;
-    document.getElementById('clearLogsMessage').textContent = message;
-    this.openModal('clearLogsDialog');
+    await this.confirmClearClientLogs();
 };
 
 OnlyBackupApp.prototype.closeClearLogsDialog = function() {
@@ -270,18 +350,28 @@ OnlyBackupApp.prototype.closeClearLogsDialog = function() {
 
 OnlyBackupApp.prototype.confirmClearClientLogs = async function() {
     if (!this.selectedClient) return;
+    const hostname = this.selectedClient;
 
     this.closeClearLogsDialog();
+    const confirmed = await this.showStrongConfirm({
+        title: 'Elimina log client',
+        message: `Elimina lo storico backup di ${hostname}. I job rimangono configurati.`,
+        expectedText: hostname,
+        confirmLabel: 'Elimina log'
+    });
+    if (!confirmed) {
+        return;
+    }
 
     try {
-        const response = await fetch(`/api/clients/${encodeURIComponent(this.selectedClient)}/runs`, {
+        const response = await fetch(`/api/clients/${encodeURIComponent(hostname)}/runs`, {
             method: 'DELETE'
         });
 
         const data = await response.json();
 
         if (response.ok && data.success) {
-            this.showToast('success', 'Log eliminati', `Storico backup di ${this.selectedClient} eliminato (${data.runsDeleted} esecuzioni)`);
+            this.showToast('success', 'Log eliminati', `Storico backup di ${hostname} eliminato (${data.runsDeleted} esecuzioni)`);
             this.runs = [];
             this.renderRunsList();
             this.updateClientSummary();
@@ -303,6 +393,7 @@ OnlyBackupApp.prototype.loadClientJobs = async function() {
         if (response.ok) {
             this.jobs = await response.json();
             this.renderJobsList();
+            this.renderOnboardingChecklist();
             this.updateFooterStatus({ message: 'Job caricati' });
 
             if (!this.editingJob && this.jobs.length > 0) {
@@ -532,7 +623,13 @@ OnlyBackupApp.prototype.escapeForAttribute = function(str) {
 };
 
 OnlyBackupApp.prototype.resetBackupStatus = async function(hostname) {
-    if (!confirm(`Resettare lo stato backup di "${hostname}"?\n\nATTENZIONE: Questo pulisce solo lo stato UI, non ferma il backup reale sull'agent.`)) {
+    const confirmed = await this.showStrongConfirm({
+        title: 'Reset stato backup',
+        message: `Pulisce solo lo stato UI di ${hostname}; non ferma eventuali processi sull'agent.`,
+        expectedText: hostname,
+        confirmLabel: 'Reset stato'
+    });
+    if (!confirmed) {
         return;
     }
 
@@ -556,15 +653,24 @@ OnlyBackupApp.prototype.resetBackupStatus = async function(hostname) {
 };
 
 OnlyBackupApp.prototype.resetPassword = async function() {
-    const newPassword = prompt('Inserisci la nuova password (min 8 caratteri):');
-    if (!newPassword) return;
+    const values = await this.showInputDialog({
+        title: 'Cambia password',
+        confirmLabel: 'Aggiorna password',
+        fields: [
+            { name: 'newPassword', label: 'Nuova password', type: 'password', autocomplete: 'new-password', minLength: 8 },
+            { name: 'confirmPassword', label: 'Conferma password', type: 'password', autocomplete: 'new-password', minLength: 8 }
+        ]
+    });
+    if (!values) return;
+
+    const newPassword = values.newPassword;
+    const confirmPassword = values.confirmPassword;
 
     if (newPassword.length < 8) {
         this.showToast('error', 'Errore', 'La password deve essere di almeno 8 caratteri');
         return;
     }
 
-    const confirmPassword = prompt('Conferma la nuova password:');
     if (confirmPassword !== newPassword) {
         this.showToast('error', 'Errore', 'Le password non coincidono');
         return;
@@ -783,13 +889,8 @@ OnlyBackupApp.prototype.showImportDialog = function(config, availableSections) {
 };
 
 OnlyBackupApp.prototype.filterClients = function(searchTerm) {
-    const items = document.querySelectorAll('.client-item');
-    const term = searchTerm.toLowerCase().trim();
-
-    items.forEach((item) => {
-        const hostname = item.querySelector('.client-name')?.textContent.toLowerCase() || '';
-        item.style.display = hostname.includes(term) ? '' : 'none';
-    });
+    this.clientSearchTerm = searchTerm || '';
+    this.renderClientsList();
 };
 
 OnlyBackupApp.prototype.refreshClients = async function() {
@@ -803,12 +904,13 @@ OnlyBackupApp.prototype.refreshClients = async function() {
 };
 
 OnlyBackupApp.prototype.deleteAllLogs = async function() {
-    if (!confirm('Sei sicuro di voler eliminare TUTTI i log di TUTTI i PC?\n\nQuesta operazione e IRREVERSIBILE.\n\nI job non verranno eliminati, solo lo storico delle esecuzioni.')) {
-        return;
-    }
-
-    const secondConfirm = confirm('ULTIMA CONFERMA: Eliminare tutti i log di tutti i PC?\n\nVerranno eliminati tutti i record di backup eseguiti.\nLa configurazione dei job rimarra intatta.');
-    if (!secondConfirm) {
+    const confirmed = await this.showStrongConfirm({
+        title: 'Elimina tutti i log',
+        message: 'Elimina tutti i record di backup di tutti i client. Job e configurazioni restano invariati.',
+        expectedText: 'ELIMINA LOG',
+        confirmLabel: 'Elimina tutti'
+    });
+    if (!confirmed) {
         return;
     }
 

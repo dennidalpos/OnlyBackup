@@ -1,16 +1,16 @@
 {
   "name": "onlybackup-server",
   "version": "1.0.0",
-  "description": "OnlyBackup - Sistema di backup/restore centralizzato per client Windows",
+  "description": "OnlyBackup - Sistema di backup centralizzato per client Windows",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "set NODE_ENV=development&& node src/server.js",
-    "test": "set NODE_ENV=test&& set ONLYBACKUP_INITIAL_ADMIN_PASSWORD=TestOnlyBackup123!&& node ../scripts/support/Test-OnlyBackupServerSmoke.js"
+    "test": "set NODE_ENV=test&& set ONLYBACKUP_INITIAL_ADMIN_PASSWORD=TestOnlyBackup123!&& node ../scripts/support/Test-OnlyBackupServerSmoke.js",
+    "test:ui": "set NODE_ENV=test&& set ONLYBACKUP_INITIAL_ADMIN_PASSWORD=TestOnlyBackup123!&& node ../scripts/support/Test-OnlyBackupUiSmoke.js"
   },
   "keywords": [
     "backup",
-    "restore",
     "windows",
     "centralizzato"
   ],
@@ -32,5 +32,8 @@
   "engines": {
     "node": ">=20.19.0"
   },
-  "packageManager": "npm@11.7.0"
+  "packageManager": "npm@11.7.0",
+  "devDependencies": {
+    "playwright": "^1.59.1"
+  }
 }

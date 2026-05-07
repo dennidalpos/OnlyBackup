@@ -1,7 +1,7 @@
 # Asset E Brand Kit
 
 ## Prodotto
-Il prodotto si chiama `OnlyBackup`. Il posizionamento attuale nel repository e: sistema centralizzato di backup e restore per client Windows, con server Node.js, dashboard web statica e agent Windows.
+Il prodotto si chiama `OnlyBackup`. Il posizionamento attuale nel repository e: sistema centralizzato di backup per client Windows, con server Node.js, dashboard web statica e agent Windows.
 
 ## Posizione Asset
 Gli asset web versionati sono in:

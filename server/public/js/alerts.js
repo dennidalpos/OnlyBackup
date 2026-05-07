@@ -96,7 +96,7 @@ function renderActiveAlerts() {
     const container = document.getElementById('activeAlertsContainer');
 
     if (activeAlerts.length === 0) {
-        container.innerHTML = '<div class="empty-state">✅ Nessun alert attivo</div>';
+        container.innerHTML = '<div class="empty-state">Nessun alert attivo</div>';
         return;
     }
 
@@ -108,7 +108,7 @@ function renderHistoryAlerts() {
     const container = document.getElementById('historyAlertsContainer');
 
     if (historyAlerts.length === 0) {
-        container.innerHTML = '<div class="empty-state">📋 Nessun alert nello storico</div>';
+        container.innerHTML = '<div class="empty-state">Nessun alert nello storico</div>';
         return;
     }
 
@@ -118,14 +118,14 @@ function renderHistoryAlerts() {
 // Crea card alert
 function createAlertCard(alert, isActive) {
     const severityClass = alert.severity === 'error' ? 'alert-error' : 'alert-warning';
-    const severityIcon = alert.severity === 'error' ? '🔴' : '⚠️';
+    const severityIcon = alert.severity === 'error' ? '!' : 'i';
     const typeLabel = getAlertTypeLabel(alert.type);
     const timestamp = new Date(alert.timestamp).toLocaleString('it-IT');
 
     let resolvedInfo = '';
     if (alert.resolved) {
         const resolvedTime = new Date(alert.resolved_timestamp).toLocaleString('it-IT');
-        resolvedInfo = `<div class="alert-resolved">✅ Risolto: ${resolvedTime}</div>`;
+        resolvedInfo = `<div class="alert-resolved">Risolto: ${resolvedTime}</div>`;
     }
 
     const actions = isActive ? `
@@ -146,9 +146,9 @@ function createAlertCard(alert, isActive) {
             <div class="alert-body">
                 <p>${escapeHtml(alert.message)}</p>
                 <div class="alert-meta">
-                    <span>📅 ${timestamp}</span>
-                    ${alert.hostname ? `<span>💻 ${escapeHtml(alert.hostname)}</span>` : ''}
-                    ${alert.job_id ? `<span>📦 Job: ${escapeHtml(alert.job_id)}</span>` : ''}
+                    <span>${timestamp}</span>
+                    ${alert.hostname ? `<a href="/?client=${encodeURIComponent(alert.hostname)}" class="alert-link">${escapeHtml(alert.hostname)}</a>` : ''}
+                    ${alert.job_id ? `<span>Job: ${escapeHtml(alert.job_id)}</span>` : ''}
                 </div>
                 ${resolvedInfo}
             </div>
@@ -180,17 +180,17 @@ async function resolveAlert(alertId) {
         const data = await response.json();
 
         if (response.ok) {
-            showMessage('success', '✅ Alert risolto');
+            showMessage('success', 'Alert risolto');
             // Rimuovi dalla lista attivi
             activeAlerts = activeAlerts.filter(a => a.alert_id !== alertId);
             renderActiveAlerts();
             updateAlertCount();
         } else {
-            showMessage('error', '❌ Errore: ' + (data.error || 'Errore sconosciuto'));
+            showMessage('error', 'Errore: ' + (data.error || 'Errore sconosciuto'));
         }
     } catch (error) {
         console.error('Errore risoluzione alert:', error);
-        showMessage('error', '❌ Errore di rete');
+        showMessage('error', 'Errore di rete');
     }
 }
 
@@ -346,6 +346,15 @@ style.textContent = `
         gap: 16px;
         font-size: 0.8125rem;
         color: var(--text-muted);
+    }
+
+    .alert-link {
+        color: var(--primary-color);
+        text-decoration: none;
+    }
+
+    .alert-link:hover {
+        text-decoration: underline;
     }
 
     .alert-resolved {

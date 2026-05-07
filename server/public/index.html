@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OnlyBackup - Dashboard</title>
-    <meta name="description" content="OnlyBackup - sistema centralizzato di backup e restore per client Windows.">
+    <meta name="description" content="OnlyBackup - sistema centralizzato di backup per client Windows.">
     <meta name="theme-color" content="#0a0f1c">
     <meta property="og:title" content="OnlyBackup">
-    <meta property="og:description" content="Sistema centralizzato di backup e restore per client Windows.">
+    <meta property="og:description" content="Sistema centralizzato di backup per client Windows.">
     <meta property="og:type" content="website">
     <meta property="og:image" content="/assets/brand/onlybackup-social-og.png">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="OnlyBackup">
-    <meta name="twitter:description" content="Sistema centralizzato di backup e restore per client Windows.">
+    <meta name="twitter:description" content="Sistema centralizzato di backup per client Windows.">
     <meta name="twitter:image" content="/assets/brand/onlybackup-social-twitter.png">
     <link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" href="/assets/brand/favicon-32.png" sizes="32x32">
@@ -108,9 +108,11 @@
                     </div>
                 </div>
                 <div class="user-info">
-                    <a href="/alerts.html" class="btn btn-outline btn-small" title="Alert di sistema">🔔 Alert</a>
-                    <a href="/server-settings.html" class="btn btn-outline btn-small" title="Impostazioni server">⚙️ Impostazioni</a>
-                    <button onclick="app.resetPassword()" class="btn btn-outline btn-small" title="Cambia password" aria-label="Cambia password">🔑</button>
+                    <a href="/" class="btn btn-outline btn-small" aria-current="page">Dashboard</a>
+                    <a href="/alerts.html" class="btn btn-outline btn-small" title="Alert di sistema">Alert</a>
+                    <a href="/server-settings.html" class="btn btn-outline btn-small" title="Impostazioni server">Impostazioni</a>
+                    <a href="/email-settings.html" class="btn btn-outline btn-small" title="Impostazioni email">Email</a>
+                    <button onclick="app.resetPassword()" class="btn btn-outline btn-small" title="Cambia password" aria-label="Cambia password">Password</button>
                     <span class="user-chip" id="currentUser">-</span>
                     <button onclick="app.logout()" class="btn btn-outline btn-small">Esci</button>
                 </div>
@@ -130,6 +132,14 @@
                     <div class="search-box">
                         <label class="sr-only" for="clientSearchInput">Cerca client</label>
                         <input type="text" id="clientSearchInput" placeholder="Cerca client..." oninput="app.filterClients(this.value)" autocomplete="off">
+                    </div>
+                    <div class="dashboard-filter-bar" role="toolbar" aria-label="Filtri salute operativa">
+                        <button type="button" class="filter-chip active" data-filter="all" onclick="app.setDashboardFilter('all')">Tutti</button>
+                        <button type="button" class="filter-chip" data-filter="critical" onclick="app.setDashboardFilter('critical')">Critici</button>
+                        <button type="button" class="filter-chip" data-filter="offline" onclick="app.setDashboardFilter('offline')">Offline</button>
+                        <button type="button" class="filter-chip" data-filter="failed" onclick="app.setDashboardFilter('failed')">Backup falliti</button>
+                        <button type="button" class="filter-chip" data-filter="running" onclick="app.setDashboardFilter('running')">In corso</button>
+                        <button type="button" class="filter-chip" data-filter="no-jobs" onclick="app.setDashboardFilter('no-jobs')">Senza job</button>
                     </div>
                     <div class="panel-state" id="clientsState" aria-live="polite">
                         <div class="state-row" data-state="loading"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div></div>
@@ -163,6 +173,7 @@
                                 <div class="summary-value" id="summaryTotalRuns">-</div>
                             </div>
                         </div>
+                        <div class="onboarding-checklist" id="onboardingChecklist" aria-label="Checklist primo avvio"></div>
                     </section>
 
                     <section class="workspace-grid" aria-label="Job workspace">
@@ -176,8 +187,13 @@
                                     <div class="client-header-actions">
                                         <button id="runAllJobsButton" onclick="app.runAllJobsForClient()" class="btn btn-success btn-small action-group">Esegui Tutti</button>
                                         <button onclick="app.showCreateJobForm()" class="btn btn-primary btn-small action-group">+ Nuovo Job</button>
-                                        <button onclick="app.clearClientLogs()" class="btn btn-warning btn-small action-group" title="Elimina solo lo storico backup">Elimina Log</button>
-                                        <button onclick="app.deregisterClient()" class="btn btn-danger btn-small action-group" title="Deregistra client e tutti i dati">Deregistra</button>
+                                        <details class="danger-menu">
+                                            <summary class="btn btn-outline btn-small action-group">Azioni dati</summary>
+                                            <div class="danger-menu-panel">
+                                                <button onclick="app.clearClientLogs()" class="btn btn-outline btn-small" title="Elimina solo lo storico backup">Elimina log</button>
+                                                <button onclick="app.deregisterClient()" class="btn btn-outline btn-small" title="Deregistra client e tutti i dati">Deregistra client</button>
+                                            </div>
+                                        </details>
                                     </div>
                                 </div>
                                 <div class="client-header-bar">
@@ -198,6 +214,33 @@
                                         <div class="empty-state hidden" id="jobsEmpty">Nessun job configurato.</div>
                                     </div>
                                     <div id="runsTab" class="tab-content hidden" role="tabpanel" aria-labelledby="runsTabButton">
+                                        <div class="run-filter-bar" aria-label="Filtri storico backup">
+                                            <label>
+                                                Periodo
+                                                <select id="runPeriodFilter" onchange="app.setRunFilter('period', this.value)">
+                                                    <option value="all">Tutti</option>
+                                                    <option value="24h">Ultime 24h</option>
+                                                    <option value="7d">Ultimi 7 giorni</option>
+                                                    <option value="30d">Ultimi 30 giorni</option>
+                                                </select>
+                                            </label>
+                                            <label>
+                                                Stato
+                                                <select id="runStatusFilter" onchange="app.setRunFilter('status', this.value)">
+                                                    <option value="all">Tutti</option>
+                                                    <option value="success">Successo</option>
+                                                    <option value="partial">Parziale</option>
+                                                    <option value="failure">Fallito</option>
+                                                    <option value="running">In corso</option>
+                                                </select>
+                                            </label>
+                                            <label>
+                                                Job
+                                                <select id="runJobFilter" onchange="app.setRunFilter('job', this.value)">
+                                                    <option value="all">Tutti</option>
+                                                </select>
+                                            </label>
+                                        </div>
                                         <div id="runsList" class="runs-list card-list">
                                             <div class="loading">Caricamento...</div>
                                         </div>
@@ -224,6 +267,13 @@
                                 </div>
                                 <div id="jobEditorEmpty" class="info-message">Seleziona un job dalla lista o creane uno nuovo.</div>
                                 <form id="jobEditorForm" class="job-form hidden">
+                                    <div class="job-wizard" role="tablist" aria-label="Wizard job">
+                                        <button type="button" class="job-wizard-step active" data-step="client" onclick="app.setJobWizardStep('client')">Client</button>
+                                        <button type="button" class="job-wizard-step" data-step="schedule" onclick="app.setJobWizardStep('schedule')">Pianificazione</button>
+                                        <button type="button" class="job-wizard-step" data-step="mappings" onclick="app.setJobWizardStep('mappings')">Mappature</button>
+                                        <button type="button" class="job-wizard-step" data-step="review" onclick="app.setJobWizardStep('review')">Revisione</button>
+                                    </div>
+                                    <div data-wizard-step="client">
                                     <div class="form-grid">
                                         <div class="form-group">
                                             <label for="jobIdField">Job ID</label>
@@ -238,8 +288,9 @@
                                             <label for="jobEnabledToggle">Job Attivo</label>
                                         </div>
                                     </div>
+                                    </div>
 
-                                    <div class="section" id="scheduleSection">
+                                    <div class="section" id="scheduleSection" data-wizard-step="schedule">
                                         <div class="section-header">
                                             <h4>Pianificazione</h4>
                                         </div>
@@ -265,15 +316,25 @@
                                         </div>
                                     </div>
 
-                                    <div class="section" id="mappingsSection">
+                                    <div class="section" id="mappingsSection" data-wizard-step="mappings">
                                         <div class="section-header">
                                             <h4>Mappature Sorgente/Destinazione</h4>
                                             <button type="button" class="btn btn-outline btn-small" onclick="app.addMapping()">+ Aggiungi</button>
                                         </div>
                                         <div id="mappingsContainer" class="mappings-container"></div>
                                     </div>
+                                    <div class="section" id="reviewSection" data-wizard-step="review">
+                                        <div class="section-header">
+                                            <h4>Revisione</h4>
+                                        </div>
+                                        <div id="jobReviewContent" class="job-review"></div>
+                                    </div>
 
                                     <div id="jobFormError" class="error-message" role="alert" aria-live="assertive"></div>
+                                    <div class="wizard-footer">
+                                        <button type="button" id="jobWizardPrevButton" class="btn btn-outline btn-small" onclick="app.previousJobWizardStep()">Indietro</button>
+                                        <button type="button" id="jobWizardNextButton" class="btn btn-outline btn-small" onclick="app.nextJobWizardStep()">Avanti</button>
+                                    </div>
                                 </form>
                             </div>
                         </div>
@@ -361,6 +422,36 @@
             </div>
             <div class="backup-browser" id="backupsModalContent">
                 <div class="info-message">Seleziona un job per visualizzare i backup disponibili.</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="strongConfirmDialog" class="modal hidden">
+        <div class="modal-backdrop" onclick="app.closeStrongConfirmDialog(false)"></div>
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="strongConfirmTitle" aria-describedby="strongConfirmMessage" tabindex="-1">
+            <h3 id="strongConfirmTitle">Conferma operazione</h3>
+            <div class="dialog-message danger-message">
+                <p id="strongConfirmMessage"></p>
+            </div>
+            <div class="form-group">
+                <label for="strongConfirmInput">Digita <strong id="strongConfirmExpected"></strong> per confermare</label>
+                <input type="text" id="strongConfirmInput" autocomplete="off" oninput="app.updateStrongConfirmButton()">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="app.closeStrongConfirmDialog(false)">Annulla</button>
+                <button type="button" id="strongConfirmButton" class="btn btn-danger" onclick="app.confirmStrongAction()" disabled>Conferma</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="jobPreviewDialog" class="modal hidden">
+        <div class="modal-backdrop" onclick="app.closeJobPreviewDialog(false)"></div>
+        <div class="modal-content wide" role="dialog" aria-modal="true" aria-labelledby="jobPreviewTitle" tabindex="-1">
+            <h3 id="jobPreviewTitle">Revisione job</h3>
+            <div id="jobPreviewContent" class="job-preview"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="app.closeJobPreviewDialog(false)">Annulla</button>
+                <button type="button" id="jobPreviewConfirmButton" class="btn btn-primary" onclick="app.confirmJobPreview()">Conferma</button>
             </div>
         </div>
     </div>

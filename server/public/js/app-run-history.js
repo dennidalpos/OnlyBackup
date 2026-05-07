@@ -5,7 +5,13 @@ OnlyBackupApp.prototype.deleteEditingJob = async function() {
         }
 
         const jobId = this.editingJob.job_id;
-        if (!confirm(`Eliminare il job "${jobId}"?`)) {
+        const confirmed = await this.showStrongConfirm({
+            title: 'Elimina job',
+            message: `Elimina il job ${jobId}. Lo storico backup del client non viene rimosso.`,
+            expectedText: jobId,
+            confirmLabel: 'Elimina job'
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -32,7 +38,13 @@ OnlyBackupApp.prototype.deleteEditingJob = async function() {
 };
 
 OnlyBackupApp.prototype.runJob = async function(jobId) {
-        if (!confirm(`Eseguire il job "${jobId}" adesso?`)) {
+        const job = this.jobs.find(entry => entry.job_id === jobId) || this.editingJob;
+        const confirmed = await this.showJobPreview({
+            title: 'Revisione esecuzione manuale',
+            actionLabel: 'Esegui job',
+            payload: job
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -87,7 +99,14 @@ OnlyBackupApp.prototype.runAllJobsForClient = async function() {
             return;
         }
 
-        if (!confirm(`Eseguire tutti i ${enabledJobs.length} job attivi per ${this.selectedClient}?`)) {
+        const confirmed = await this.showStrongConfirm({
+            title: 'Esegui tutti i job',
+            message: `Avvia ${enabledJobs.length} job attivi per ${this.selectedClient}.`,
+            expectedText: this.selectedClient,
+            confirmLabel: 'Esegui tutti',
+            danger: false
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -144,6 +163,7 @@ OnlyBackupApp.prototype.loadClientRuns = async function() {
                 this.runs = runs
                     .filter(r => r.client_hostname === this.selectedClient)
                     .sort((a, b) => new Date(b.start) - new Date(a.start));
+                this.renderRunFilters();
                 this.renderRunsList();
                 this.updateClientSummary();
                 this.selectedClientRunsLoaded = true;
@@ -156,17 +176,28 @@ OnlyBackupApp.prototype.loadClientRuns = async function() {
 OnlyBackupApp.prototype.renderRunsList = function() {
         const container = document.getElementById('runsList');
         const maxRunsToShow = 10;
+        const filteredRuns = this.getFilteredRuns();
 
         if (this.runs.length === 0) {
             container.innerHTML = '<div class="info-message">Nessuna esecuzione disponibile</div>';
             return;
         }
 
-        const limitedNotice = this.runs.length > maxRunsToShow
-            ? '<div class="info-message">Mostrati ultimi 10 log. Usa "Log completi" per vedere lo storico completo.</div>'
+        if (filteredRuns.length === 0) {
+            container.innerHTML = '<div class="info-message">Nessuna esecuzione corrisponde ai filtri selezionati</div>';
+            return;
+        }
+
+        const limitedNotice = filteredRuns.length > maxRunsToShow
+            ? '<div class="info-message">Mostrati ultimi 10 log filtrati. Usa "Log completi" per vedere lo storico completo del job.</div>'
             : '';
 
-        container.innerHTML = limitedNotice + this.runs.slice(0, maxRunsToShow).map(run => {
+        let previousJobId = null;
+        container.innerHTML = limitedNotice + filteredRuns.slice(0, maxRunsToShow).map(run => {
+            const groupHeader = run.job_id !== previousJobId
+                ? `<div class="run-group-header">Job ${this.escapeHtml(run.job_id || 'Sconosciuto')}</div>`
+                : '';
+            previousJobId = run.job_id;
             const duration = run.end
                 ? `${Math.round((new Date(run.end) - new Date(run.start)) / 1000)}s`
                 : 'In corso...';
@@ -190,6 +221,7 @@ OnlyBackupApp.prototype.renderRunsList = function() {
 
             const hasErrors = run.errors && run.errors.length > 0;
             const errorMsg = hasErrors ? run.errors[0].message : '';
+            const diagnostic = this.buildRunDiagnostic(run);
 
             let totalFiles = 0;
             let copiedFiles = 0;
@@ -329,6 +361,7 @@ OnlyBackupApp.prototype.renderRunsList = function() {
                 : (run.target_path ? `<div class="run-destination-entry">${this.escapeHtml(run.target_path)}</div>` : '');
 
             return `
+                ${groupHeader}
                 <div class="run-card">
                     <div class="run-header">
                         <div>
@@ -360,6 +393,7 @@ OnlyBackupApp.prototype.renderRunsList = function() {
                     ${retentionSection}
                     ${mappingsSection}
                     ${skippedSection}
+                    ${diagnostic}
                 </div>
             `;
         }).join('');
@@ -371,6 +405,90 @@ OnlyBackupApp.prototype.renderRunsList = function() {
             if (state === 'failed') return 'Fallito';
             return state || 'Sconosciuto';
         }
+};
+
+OnlyBackupApp.prototype.renderRunFilters = function() {
+        const jobFilter = document.getElementById('runJobFilter');
+        if (!jobFilter) return;
+
+        const selected = this.runFilters.job || 'all';
+        const jobs = [...new Set(this.runs.map(run => run.job_id).filter(Boolean))].sort();
+        jobFilter.innerHTML = '<option value="all">Tutti</option>' + jobs
+            .map(jobId => `<option value="${this.escapeForAttribute(jobId)}">${this.escapeHtml(jobId)}</option>`)
+            .join('');
+        jobFilter.value = jobs.includes(selected) ? selected : 'all';
+        this.runFilters.job = jobFilter.value;
+};
+
+OnlyBackupApp.prototype.setRunFilter = function(key, value) {
+        this.runFilters[key] = value || 'all';
+        this.renderRunsList();
+};
+
+OnlyBackupApp.prototype.getFilteredRuns = function() {
+        const now = Date.now();
+        const periodMs = {
+            '24h': 24 * 60 * 60 * 1000,
+            '7d': 7 * 24 * 60 * 60 * 1000,
+            '30d': 30 * 24 * 60 * 60 * 1000
+        };
+
+        return this.runs.filter((run) => {
+            if (this.runFilters.job !== 'all' && run.job_id !== this.runFilters.job) {
+                return false;
+            }
+
+            const status = this.deriveRunStatus(run);
+            if (this.runFilters.status !== 'all' && status !== this.runFilters.status) {
+                return false;
+            }
+
+            const windowMs = periodMs[this.runFilters.period];
+            if (windowMs) {
+                const start = new Date(run.start || run.end || 0).getTime();
+                if (!Number.isFinite(start) || now - start > windowMs) {
+                    return false;
+                }
+            }
+
+            return true;
+        }).sort((a, b) => {
+            const byJob = String(a.job_id || '').localeCompare(String(b.job_id || ''));
+            if (byJob !== 0) return byJob;
+            return new Date(b.start || 0) - new Date(a.start || 0);
+        });
+};
+
+OnlyBackupApp.prototype.buildRunDiagnostic = function(run) {
+        const status = this.deriveRunStatus(run);
+        if (!['failure', 'partial'].includes(status)) {
+            return '';
+        }
+
+        const firstMappingError = Array.isArray(run.mappings)
+            ? run.mappings.flatMap(mapping => mapping.errors || []).find(Boolean)
+            : null;
+        const firstError = (Array.isArray(run.errors) && run.errors.find(Boolean)) || firstMappingError;
+        const hasSkipped = Array.isArray(run.skipped_files) && run.skipped_files.length > 0;
+
+        const cause = firstError
+            ? (firstError.message || firstError)
+            : hasSkipped
+                ? 'Uno o piu file non sono stati copiati.'
+                : 'Stato non riuscito senza dettaglio errore nel run.';
+        const nextAction = hasSkipped
+            ? 'Apri i log completi e verifica permessi, file bloccati o path non raggiungibili.'
+            : 'Apri i log completi del job e controlla connettivita agent, credenziali UNC e spazio destinazione.';
+
+        return `
+            <div class="run-diagnostic">
+                <span class="run-info-label">Diagnostica:</span>
+                <div>
+                    <div>Probabile causa: ${this.escapeHtml(cause)}</div>
+                    <div>Prossima azione: ${this.escapeHtml(nextAction)}</div>
+                </div>
+            </div>
+        `;
 };
 
 OnlyBackupApp.prototype.loadRetentionEvents = async function(jobId, runId, mappingIndex) {

@@ -19,12 +19,25 @@
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <div class="email-settings-page">
-        <div class="settings-container">
-            <div class="settings-header">
-                <h1>📧 Configurazione Notifiche Email</h1>
-                <a href="/" class="btn btn-secondary">← Torna alla Dashboard</a>
+    <div class="dashboard-shell">
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-mark"><img src="/assets/brand/onlybackup-mark.svg" alt="" width="36" height="36"></div>
+                <div>
+                    <div class="brand-title">OnlyBackup</div>
+                    <div class="brand-subtitle">Impostazioni email</div>
+                </div>
             </div>
+            <div class="user-info">
+                <a href="/" class="btn btn-outline btn-small" title="Torna alla dashboard">Dashboard</a>
+                <a href="/alerts.html" class="btn btn-outline btn-small" title="Alert di sistema">Alert</a>
+                <a href="/server-settings.html" class="btn btn-outline btn-small" title="Impostazioni server">Impostazioni</a>
+                <a href="/email-settings.html" class="btn btn-outline btn-small" aria-current="page">Email</a>
+            </div>
+        </header>
+
+        <div class="email-settings-page">
+            <div class="settings-container">
 
             <div id="statusMessage" role="status" aria-live="polite"></div>
 

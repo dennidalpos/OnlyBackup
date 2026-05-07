@@ -1,7 +1,7 @@
 # Project Specification
 
 ## Goal
-Fornire un sistema centralizzato di backup e restore per client Windows, composto da un server Node.js con dashboard/API e da un agent Windows eseguibile come servizio o in modalita console.
+Fornire un sistema centralizzato di backup per client Windows, composto da un server Node.js con dashboard/API e da un agent Windows eseguibile come servizio o in modalita console.
 
 ## Scope
 - Avvio del server HTTP con dashboard web e API REST.
@@ -9,7 +9,7 @@ Fornire un sistema centralizzato di backup e restore per client Windows, compost
 - Gestione job di backup pianificati e relativa esecuzione lato server.
 - Registrazione heartbeat degli agent, rilevamento agent offline e generazione alert.
 - Configurazione email, invio notifiche e flusso OAuth per provider supportati.
-- Agent Windows per esecuzione backup/restore e comunicazione con il server.
+- Agent Windows per esecuzione backup e comunicazione con il server.
 - Script operativi PowerShell per installazione servizi e build MSI dell'agent.
 
 ## Non Scope

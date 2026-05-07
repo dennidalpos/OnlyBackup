@@ -78,13 +78,52 @@ function closeDialog(modal, resolve, value) {
     resolve(value);
 }
 
-async function deleteAllLogs() {
-    if (!confirm('Sei sicuro di voler eliminare TUTTI i log di TUTTI i PC?\n\nQuesta operazione e IRREVERSIBILE.\n\nI job non verranno eliminati, solo lo storico delle esecuzioni.')) {
-        return;
-    }
+function showStrongConfirm({ title, message, expectedText, confirmLabel = 'Conferma' }) {
+    return new Promise((resolve) => {
+        const expected = String(expectedText || '');
+        const html = `
+            <div class="dialog-panel">
+                <h3 id="strongSettingsDialogTitle">${escapeHtml(title || 'Conferma operazione')}</h3>
+                <div class="dialog-message danger-message">
+                    <p>${escapeHtml(message || '')}</p>
+                </div>
+                <div class="form-group">
+                    <label for="strongSettingsConfirmInput">Digita <strong>${escapeHtml(expected)}</strong> per confermare</label>
+                    <input type="text" id="strongSettingsConfirmInput" autocomplete="off">
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-cancel btn btn-outline btn-small">Annulla</button>
+                    <button class="btn-confirm btn btn-danger btn-small" disabled>${escapeHtml(confirmLabel)}</button>
+                </div>
+            </div>
+        `;
 
-    const secondConfirm = confirm('ULTIMA CONFERMA: Eliminare tutti i log?\n\nVerranno eliminati tutti i record di backup eseguiti.\nLa configurazione dei job rimarra intatta.');
-    if (!secondConfirm) {
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `<div class="modal-backdrop"></div><div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="strongSettingsDialogTitle" tabindex="-1">${html}</div>`;
+        openDialog(modal);
+
+        const input = modal.querySelector('#strongSettingsConfirmInput');
+        const confirm = modal.querySelector('.btn-confirm');
+        const cancel = () => closeDialog(modal, resolve, false);
+
+        input.addEventListener('input', () => {
+            confirm.disabled = input.value !== expected;
+        });
+        modal.querySelector('.btn-cancel').onclick = cancel;
+        modal.querySelector('.modal-backdrop').onclick = cancel;
+        confirm.onclick = () => closeDialog(modal, resolve, true);
+    });
+}
+
+async function deleteAllLogs() {
+    const confirmed = await showStrongConfirm({
+        title: 'Elimina tutti i log',
+        message: 'Elimina tutti i record di backup eseguiti. I job e la configurazione rimangono intatti.',
+        expectedText: 'ELIMINA LOG',
+        confirmLabel: 'Elimina log'
+    });
+    if (!confirmed) {
         return;
     }
 
@@ -109,7 +148,13 @@ async function deleteAllLogs() {
 }
 
 async function deleteAlertHistory() {
-    if (!confirm('Sei sicuro di voler cancellare lo storico degli alert?\n\nQuesta operazione rimuove sia gli alert risolti che quelli ancora attivi.')) {
+    const confirmed = await showStrongConfirm({
+        title: 'Cancella storico alert',
+        message: 'Rimuove sia gli alert risolti sia quelli ancora attivi.',
+        expectedText: 'CANCELLA ALERT',
+        confirmLabel: 'Cancella alert'
+    });
+    if (!confirmed) {
         return;
     }
 
@@ -367,6 +412,7 @@ function renderAgentBuildStatus(data) {
     }
 
     if (data.status === 'completed') {
+        localStorage.setItem('onlybackup.agentPackageReady', 'true');
         renderAgentPackageStatus(data);
         showMessage('success', 'Pacchetto agent generato');
         return;
@@ -455,6 +501,7 @@ function downloadAgentPackage() {
         showMessage('warning', 'Genera prima il pacchetto agent');
         return;
     }
+    localStorage.setItem('onlybackup.agentPackageReady', 'true');
     window.location.href = '/api/agent/package/download';
 }
 
@@ -506,7 +553,13 @@ async function controlServerService(action) {
         restart: 'riavviare'
     };
 
-    if (!confirm(`Confermi di voler ${labels[action] || 'modificare'} il servizio Windows OnlyBackupServer?`)) {
+    const confirmed = await showStrongConfirm({
+        title: 'Controllo servizio Windows',
+        message: `Confermi di voler ${labels[action] || 'modificare'} il servizio Windows OnlyBackupServer?`,
+        expectedText: 'OnlyBackupServer',
+        confirmLabel: labels[action] || 'Conferma'
+    });
+    if (!confirmed) {
         return;
     }
 
@@ -541,7 +594,13 @@ async function controlServerService(action) {
 }
 
 async function rebootServer() {
-    if (!confirm('Sei sicuro di voler riavviare il server Node.js?\n\nTutti i backup in esecuzione verranno interrotti.\n\nIl server si riavviera automaticamente.')) {
+    const confirmed = await showStrongConfirm({
+        title: 'Riavvia server',
+        message: 'Interrompe le richieste in corso e puo impattare backup attivi. Il server tentera il riavvio automatico.',
+        expectedText: 'RIAVVIA SERVER',
+        confirmLabel: 'Riavvia'
+    });
+    if (!confirmed) {
         return;
     }
 

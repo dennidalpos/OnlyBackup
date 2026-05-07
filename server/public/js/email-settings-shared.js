@@ -62,6 +62,72 @@
         const escapeHtml = typeof options.escapeHtml === 'function' ? options.escapeHtml : defaultEscapeHtml;
         const oauthPopupName = 'onlybackupEmailOAuth';
 
+        function showInlineConfirm({ title, message, confirmLabel = 'Conferma' }) {
+            return new Promise((resolve) => {
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-backdrop"></div>
+                    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="emailConfirmTitle" tabindex="-1">
+                        <h3 id="emailConfirmTitle">${escapeHtml(title)}</h3>
+                        <div class="dialog-message danger-message"><p>${escapeHtml(message)}</p></div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn-cancel btn btn-outline btn-small">Annulla</button>
+                            <button type="button" class="btn-confirm btn btn-danger btn-small">${escapeHtml(confirmLabel)}</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+                const close = (value) => {
+                    if (modal.parentElement) {
+                        document.body.removeChild(modal);
+                    }
+                    resolve(value);
+                };
+
+                modal.querySelector('.btn-cancel').onclick = () => close(false);
+                modal.querySelector('.modal-backdrop').onclick = () => close(false);
+                modal.querySelector('.btn-confirm').onclick = () => close(true);
+                modal.querySelector('.modal-content').focus();
+            });
+        }
+
+        function showInlineInput({ title, label, type = 'text', confirmLabel = 'Conferma' }) {
+            return new Promise((resolve) => {
+                const modal = document.createElement('div');
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-backdrop"></div>
+                    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="emailInputTitle" tabindex="-1">
+                        <h3 id="emailInputTitle">${escapeHtml(title)}</h3>
+                        <div class="form-group">
+                            <label for="emailInputDialogField">${escapeHtml(label)}</label>
+                            <input id="emailInputDialogField" type="${escapeHtml(type)}" autocomplete="off">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn-cancel btn btn-outline btn-small">Annulla</button>
+                            <button type="button" class="btn-confirm btn btn-primary btn-small">${escapeHtml(confirmLabel)}</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+                const input = modal.querySelector('#emailInputDialogField');
+                const close = (value) => {
+                    if (modal.parentElement) {
+                        document.body.removeChild(modal);
+                    }
+                    resolve(value);
+                };
+
+                modal.querySelector('.btn-cancel').onclick = () => close(null);
+                modal.querySelector('.modal-backdrop').onclick = () => close(null);
+                modal.querySelector('.btn-confirm').onclick = () => close(input.value);
+                input.focus();
+            });
+        }
+
         async function loadEmailSettings() {
             try {
                 const response = await fetch('/api/email/settings', {
@@ -361,7 +427,12 @@
         }
 
         async function testEmail() {
-            const recipient = prompt('Inserisci l\'indirizzo email di test:');
+            const recipient = await showInlineInput({
+                title: 'Email di test',
+                label: 'Indirizzo email destinatario',
+                type: 'email',
+                confirmLabel: 'Invia test'
+            });
             if (!recipient) {
                 return;
             }
@@ -379,6 +450,7 @@
                     throw new Error(data.error || 'Errore invio email di test');
                 }
 
+                localStorage.setItem('onlybackup.emailTested', 'true');
                 showMessage('success', 'Email di test inviata con successo. Controlla la casella di posta.');
             } catch (error) {
                 console.error('Errore invio email di test:', error);
@@ -473,7 +545,12 @@
                 return;
             }
 
-            if (!confirm('Vuoi davvero ripristinare il template predefinito? Le modifiche attuali andranno perse.')) {
+            const confirmed = await showInlineConfirm({
+                title: 'Ripristina template',
+                message: 'Le modifiche attuali al template selezionato andranno perse.',
+                confirmLabel: 'Ripristina'
+            });
+            if (!confirmed) {
                 return;
             }
 

@@ -105,6 +105,89 @@ OnlyBackupApp.prototype.renderJobEditor = function() {
                 `;
         }).join('');
 
+        this.renderJobWizardReview();
+        this.setJobWizardStep(this.jobWizardStep || 'client');
+};
+
+OnlyBackupApp.prototype.setJobWizardStep = function(step) {
+        const steps = ['client', 'schedule', 'mappings', 'review'];
+        const nextStep = steps.includes(step) ? step : 'client';
+        this.jobWizardStep = nextStep;
+
+        document.querySelectorAll('.job-wizard-step').forEach((button) => {
+            const selected = button.dataset.step === nextStep;
+            button.classList.toggle('active', selected);
+            button.setAttribute('aria-selected', selected ? 'true' : 'false');
+        });
+
+        document.querySelectorAll('[data-wizard-step]').forEach((section) => {
+            section.hidden = section.getAttribute('data-wizard-step') !== nextStep;
+        });
+
+        const prev = document.getElementById('jobWizardPrevButton');
+        const next = document.getElementById('jobWizardNextButton');
+        if (prev) prev.disabled = nextStep === 'client';
+        if (next) {
+            next.disabled = nextStep === 'review';
+            next.textContent = nextStep === 'mappings' ? 'Revisione' : 'Avanti';
+        }
+
+        if (nextStep === 'review') {
+            this.renderJobWizardReview();
+        }
+};
+
+OnlyBackupApp.prototype.nextJobWizardStep = function() {
+        const steps = ['client', 'schedule', 'mappings', 'review'];
+        const index = steps.indexOf(this.jobWizardStep);
+        this.setJobWizardStep(steps[Math.min(index + 1, steps.length - 1)]);
+};
+
+OnlyBackupApp.prototype.previousJobWizardStep = function() {
+        const steps = ['client', 'schedule', 'mappings', 'review'];
+        const index = steps.indexOf(this.jobWizardStep);
+        this.setJobWizardStep(steps[Math.max(index - 1, 0)]);
+};
+
+OnlyBackupApp.prototype.renderJobWizardReview = function() {
+        const container = document.getElementById('jobReviewContent');
+        if (!container || !this.editingJob) return;
+        const draft = this.buildJobPayloadFromEditor({ validate: false });
+        container.innerHTML = this.renderJobPreview(draft || this.editingJob);
+};
+
+OnlyBackupApp.prototype.renderJobPreview = function(job) {
+        if (!job) {
+            return '<div class="info-message">Nessun job selezionato.</div>';
+        }
+
+        const mappings = Array.isArray(job.mappings) ? job.mappings : [];
+        const days = Array.isArray(job.schedule?.days) ? job.schedule.days : [];
+        const times = Array.isArray(job.schedule?.times) ? job.schedule.times : [];
+        const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+        const schedule = `${days.map(day => dayNames[day]).filter(Boolean).join(', ') || 'Nessun giorno'} @ ${times.join(', ') || 'nessun orario'}`;
+        const uncWithCredentials = mappings.filter(mapping =>
+            /^\\\\/.test(mapping.destination_path || '') && mapping.credentials?.username
+        ).length;
+
+        return `
+            <div class="preview-grid">
+                <div><span class="preview-label">Job</span><strong>${this.escapeHtml(job.job_id || '')}</strong></div>
+                <div><span class="preview-label">Client</span><strong>${this.escapeHtml(job.client_hostname || this.selectedClient || '')}</strong></div>
+                <div><span class="preview-label">Stato</span><strong>${job.enabled === false ? 'Disattivo' : 'Attivo'}</strong></div>
+                <div><span class="preview-label">Pianificazione</span><strong>${this.escapeHtml(schedule)}</strong></div>
+                <div><span class="preview-label">Credenziali UNC</span><strong>${uncWithCredentials > 0 ? `${uncWithCredentials} configurate` : 'Non presenti'}</strong></div>
+            </div>
+            <div class="preview-mappings">
+                ${mappings.map((mapping, index) => `
+                    <div class="preview-mapping">
+                        <div class="preview-mapping-title">Mappatura ${index + 1}: ${this.escapeHtml(mapping.label || 'Senza etichetta')}</div>
+                        <div>${this.escapeHtml(mapping.source_path || 'Sorgente mancante')} -> ${this.escapeHtml(mapping.destination_path || 'Destinazione mancante')}</div>
+                        <div>Modalita: ${this.escapeHtml((mapping.mode || job.mode_default || 'copy').toUpperCase())}${(mapping.mode || job.mode_default || 'copy') === 'copy' ? ` | Retention: ${this.escapeHtml(String(mapping.retention?.max_backups || 5))}` : ''}</div>
+                    </div>
+                `).join('') || '<div class="info-message">Nessuna mappatura configurata.</div>'}
+            </div>
+        `;
 };
 
 OnlyBackupApp.prototype.addScheduleTime = function() {
@@ -158,6 +241,7 @@ OnlyBackupApp.prototype.updateMappingField = function(index, field, value) {
         } else {
             this.editingJob.mappings[index][field] = value;
         }
+        this.renderJobWizardReview();
         this.renderJobsList();
 };
 
@@ -167,6 +251,7 @@ OnlyBackupApp.prototype.updateMappingCredential = function(index, field, value) 
             this.editingJob.mappings[index].credentials = { type: 'nas', username: '', password: '', domain: '' };
         }
         this.editingJob.mappings[index].credentials[field] = value;
+        this.renderJobWizardReview();
         this.renderJobsList();
 };
 
@@ -187,61 +272,29 @@ OnlyBackupApp.prototype.handleSaveJob = async function() {
 
         const saveBtn = document.getElementById('saveJobButton');
         const errorDiv = document.getElementById('jobFormError');
-        const jobId = document.getElementById('jobIdField').value.trim();
 
         this.setButtonLoading(saveBtn, true);
 
-        if (!jobId) {
-            errorDiv.textContent = 'Job ID obbligatorio';
+        const validation = this.validateJobDraft();
+        if (!validation.valid) {
+            errorDiv.textContent = validation.error;
+            this.setJobWizardStep(validation.step || 'review');
             this.setButtonLoading(saveBtn, false);
             return;
         }
 
-        const selectedDays = Array.from(document.querySelectorAll('#scheduleDays input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
-        const scheduleTimes = this.editingJob.schedule?.times || [];
+        const payload = this.buildJobPayloadFromEditor({ validate: true });
+        const jobId = payload.job_id;
+        const confirmed = await this.showJobPreview({
+            title: 'Revisione salvataggio job',
+            actionLabel: 'Salva job',
+            payload
+        });
 
-        if (selectedDays.length === 0) {
-            errorDiv.textContent = 'Seleziona almeno un giorno della settimana';
+        if (!confirmed) {
             this.setButtonLoading(saveBtn, false);
             return;
         }
-
-        if (scheduleTimes.length === 0) {
-            errorDiv.textContent = 'Aggiungi almeno un orario di esecuzione';
-            this.setButtonLoading(saveBtn, false);
-            return;
-        }
-
-        const mappingsValid = this.editingJob.mappings.every(m => m.source_path && m.destination_path);
-        if (!mappingsValid) {
-            errorDiv.textContent = 'Compila tutti i percorsi sorgente e destinazione';
-            this.setButtonLoading(saveBtn, false);
-            return;
-        }
-
-        const payload = {
-            job_id: jobId,
-            client_hostname: this.selectedClient,
-            enabled: document.getElementById('jobEnabledToggle').checked,
-            mode_default: this.editingJob.mode_default || 'copy',
-            schedule: {
-                type: 'daily',
-                days: selectedDays,
-                times: scheduleTimes
-            },
-            mappings: this.editingJob.mappings.map(m => ({
-                label: m.label || '',
-                source_path: m.source_path,
-                destination_path: m.destination_path,
-                mode: m.mode || this.editingJob.mode_default || 'copy',
-                retention: (m.mode || this.editingJob.mode_default || 'copy') === 'copy'
-                    ? { max_backups: m.retention?.max_backups || 5 }
-                    : undefined,
-                credentials: m.credentials?.username
-                    ? m.credentials
-                    : undefined
-            }))
-        };
 
         const existing = this.jobs.find(j => j.job_id === jobId);
         const method = existing ? 'PUT' : 'POST';
@@ -276,4 +329,81 @@ OnlyBackupApp.prototype.handleSaveJob = async function() {
         } finally {
             this.setButtonLoading(saveBtn, false);
         }
+};
+
+OnlyBackupApp.prototype.buildJobPayloadFromEditor = function() {
+        if (!this.editingJob) return null;
+        const selectedDays = Array.from(document.querySelectorAll('#scheduleDays input[type="checkbox"]:checked')).map(cb => parseInt(cb.value, 10));
+        const scheduleTimes = this.editingJob.schedule?.times || [];
+        const jobId = document.getElementById('jobIdField')?.value.trim() || this.editingJob.job_id;
+
+        return {
+            job_id: jobId,
+            client_hostname: this.selectedClient,
+            enabled: document.getElementById('jobEnabledToggle')?.checked ?? true,
+            mode_default: this.editingJob.mode_default || 'copy',
+            schedule: {
+                type: 'daily',
+                days: selectedDays,
+                times: scheduleTimes
+            },
+            mappings: (this.editingJob.mappings || []).map(m => {
+                const mode = m.mode || this.editingJob.mode_default || 'copy';
+                return {
+                    label: m.label || '',
+                    source_path: (m.source_path || '').trim(),
+                    destination_path: (m.destination_path || '').trim(),
+                    mode,
+                    retention: mode === 'copy'
+                        ? { max_backups: m.retention?.max_backups || 5 }
+                        : undefined,
+                    credentials: m.credentials?.username
+                        ? m.credentials
+                        : undefined
+                };
+            })
+        };
+};
+
+OnlyBackupApp.prototype.validateJobDraft = function() {
+        const payload = this.buildJobPayloadFromEditor();
+        if (!payload?.job_id) {
+            return { valid: false, error: 'Job ID obbligatorio', step: 'client' };
+        }
+        if (!payload.schedule.days.length) {
+            return { valid: false, error: 'Seleziona almeno un giorno della settimana', step: 'schedule' };
+        }
+        if (!payload.schedule.times.length) {
+            return { valid: false, error: 'Aggiungi almeno un orario di esecuzione', step: 'schedule' };
+        }
+        if (!payload.mappings.length) {
+            return { valid: false, error: 'Aggiungi almeno una mappatura', step: 'mappings' };
+        }
+
+        for (let index = 0; index < payload.mappings.length; index += 1) {
+            const mapping = payload.mappings[index];
+            if (!mapping.source_path || !mapping.destination_path) {
+                return { valid: false, error: `Compila sorgente e destinazione della mappatura ${index + 1}`, step: 'mappings' };
+            }
+            if (!['copy', 'sync'].includes((mapping.mode || '').toLowerCase())) {
+                return { valid: false, error: `Modalita non valida nella mappatura ${index + 1}`, step: 'mappings' };
+            }
+            if (this.pathsOverlapInUi(mapping.source_path, mapping.destination_path)) {
+                return { valid: false, error: `Sorgente e destinazione si sovrappongono nella mappatura ${index + 1}`, step: 'mappings' };
+            }
+        }
+
+        return { valid: true };
+};
+
+OnlyBackupApp.prototype.pathsOverlapInUi = function(pathA, pathB) {
+        const normalize = (value) => String(value || '')
+            .trim()
+            .replace(/\\/g, '/')
+            .replace(/\/+$/g, '')
+            .toLowerCase();
+        const a = normalize(pathA);
+        const b = normalize(pathB);
+        if (!a || !b) return false;
+        return a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
 };

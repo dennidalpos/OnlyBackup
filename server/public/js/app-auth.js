@@ -6,12 +6,13 @@ OnlyBackupApp.prototype.checkAuthStatus = async function() {
             const data = await response.json();
             this.authenticated = true;
             this.currentUser = data.username;
+            this.mustChangePassword = Boolean(data.mustChangePassword);
 
             if (this.sseEnabled) {
                 this.connectSSE();
             }
 
-            if (data.mustChangePassword) {
+            if (this.mustChangePassword) {
                 this.showScreen('changePasswordScreen');
             } else {
                 this.showDashboard();
@@ -37,13 +38,14 @@ OnlyBackupApp.prototype.handleLogin = async function() {
             body: JSON.stringify({ username, password })
         });
 
-        const data = await response.json();
+            const data = await response.json();
 
         if (response.ok) {
             this.authenticated = true;
             this.currentUser = data.username;
+            this.mustChangePassword = Boolean(data.mustChangePassword);
 
-            if (data.mustChangePassword) {
+            if (this.mustChangePassword) {
                 this.showScreen('changePasswordScreen');
             } else {
                 this.showDashboard();
@@ -84,6 +86,7 @@ OnlyBackupApp.prototype.handleChangePassword = async function() {
         const data = await response.json();
 
         if (response.ok) {
+            this.mustChangePassword = false;
             this.showDashboard();
             this.showToast('success', 'Password aggiornata', 'La password e stata modificata con successo');
         } else {
@@ -149,6 +152,11 @@ OnlyBackupApp.prototype.showDashboard = async function() {
     this.showScreen('mainDashboard');
     document.getElementById('currentUser').textContent = this.currentUser;
     await Promise.all([this.loadClients(), this.loadHeaderStats()]);
+    const requestedClient = new URLSearchParams(window.location.search).get('client');
+    if (requestedClient && this.clients.some((client) => client.hostname === requestedClient)) {
+        await this.selectClient(requestedClient);
+        this.showTab('runs');
+    }
     this.startDashboardPolling();
 };
 

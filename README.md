@@ -4,7 +4,7 @@
 
 # OnlyBackup
 
-OnlyBackup e un sistema centralizzato di backup e restore per ambienti Windows composto da:
+OnlyBackup e un sistema centralizzato di backup per ambienti Windows composto da:
 - un server Node.js con API HTTP e dashboard web statica;
 - un agent Windows in C# eseguibile come servizio o in modalita console;
 - script PowerShell per installazione servizi, packaging MSI e verifiche operative.
@@ -199,6 +199,7 @@ Verifiche disponibili:
 - `scripts\Test-OnlyBackupPrerequisites.ps1 -SelfTest` verifica il percorso automatico di prerequisito assente, messaggio atteso e preflight riuscito.
 - `scripts\Test-OnlyBackupPrerequisites.ps1 -RequireServerServiceTooling` verifica anche la toolchain richiesta per compilare il wrapper Windows Service del server.
 - `npm test` esegue uno smoke test end-to-end del server: bootstrap auth/admin, route alert/email/settings, heartbeat client, CRUD job, esecuzione manuale contro un fake agent, log e backup analyze/delete.
+- `npm run test:ui` esegue lo smoke browser Playwright con server temporaneo e fake agent: login, cambio password iniziale, dashboard, filtri, checklist onboarding, wizard job, preview salvataggio/esecuzione, conferme forti, backup modal e viewport 1366x900/390x844.
 - `scripts\Validate-MsiPackage.ps1` valida metadati e integrita del pacchetto MSI prodotto.
 - `scripts\Test-AgentMsiUpgrade.ps1` verifica la coerenza di un upgrade tra due MSI.
 - `scripts\Test-OnlyBackupAgentInstall.ps1` esegue un controllo rapido di un'installazione Windows dell'agent.
@@ -218,6 +219,7 @@ Asset applicativi, brand kit e riferimenti tecnici: `docs\ASSETS.md`.
 | Run server | `Set-Location .\server; npm start` | Supportato, processo long-running |
 | Dev server | `Set-Location .\server; npm run dev` | Supportato, imposta `NODE_ENV=development` |
 | Test server | `Set-Location .\server; npm test` | Supportato |
+| Test UI browser | `Set-Location .\server; npm run test:ui` | Supportato, usa Playwright locale installato da `npm ci` |
 | Build servizio server | `powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1 -InitialAdminPassword "ChangeMe123!" -BuildService` | Supportato |
 | Build setup server | `powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1 -InitialAdminPassword "ChangeMe123!" -BuildPackage` | Supportato |
 | Build installer Inno server | `powershell -ExecutionPolicy Bypass -File .\scripts\Setup-OnlyBackupServer.ps1 -InitialAdminPassword "ChangeMe123!" -BuildInstaller -InnoCompilerPath "C:\Program Files (x86)\Inno Setup 6"` | Supportato, richiede Inno Setup 6.x |
