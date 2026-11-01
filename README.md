@@ -282,7 +282,7 @@ Lo stato runtime locale sotto `data\` non viene rimosso automaticamente dallo sc
 |-- docs/
 |   |-- PROJECT_SPEC.md
 |   `-- SETUP_UTENTE_FINALE.md
-|-- PROJECT_STATUS.json
+|-- (tracker nel dossier SecondBrain: 02-areas/products/OnlyBackup/tracker.json)
 |-- README.md
 |-- LICENSE
 |-- .gitignore

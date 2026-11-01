@@ -63,7 +63,6 @@ function Test-JsonFilesParse {
     }
 
     $jsonFiles = @(
-        (Join-Path $repoRoot "PROJECT_STATUS.json"),
         (Join-Path $repoRoot "config.json"),
         (Join-Path $serverDir "package.json"),
         (Join-Path $serverDir "package-lock.json")
