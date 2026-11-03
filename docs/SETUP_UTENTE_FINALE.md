@@ -16,7 +16,7 @@ Se Node.js, npm o un prerequisito richiesto mancano, gli script di setup si ferm
 Percorso di esempio:
 
 ```powershell
-Set-Location D:\GITHUB\OnlyBackup
+Set-Location <path-to-OnlyBackup>
 ```
 
 ## Avvio Rapido
