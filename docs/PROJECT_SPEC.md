@@ -1,39 +1,29 @@
-# Project Specification
+# Project specification
 
-## Goal
-Fornire un sistema centralizzato di backup per client Windows, composto da un server Node.js con dashboard/API e da un agent Windows eseguibile come servizio o in modalita console.
+[Italian source](PROJECT_SPEC.it.md)
 
-## Scope
-- Avvio del server HTTP con dashboard web e API REST.
-- Gestione autenticazione, sessioni e configurazione server tramite file.
-- Gestione job di backup pianificati e relativa esecuzione lato server.
-- Registrazione heartbeat degli agent, rilevamento agent offline e generazione alert.
-- Configurazione email, invio notifiche e flusso OAuth per provider supportati.
-- Agent Windows per esecuzione backup e comunicazione con il server.
-- Script operativi PowerShell per installazione servizi e build MSI dell'agent.
+OnlyBackup is a Windows backup coordinator with a Node.js server/dashboard and .NET Framework agent. Implemented areas include HTTP/API startup, file-based users/settings/state, scheduled/manual jobs, heartbeat/offline alerts, email/provider configuration and an agent filesystem/robocopy engine.
 
-## Non Scope
-- Agent Linux o macOS.
-- Storage applicativo basato su database relazionale o servizio cloud gestito.
-- Build/publish self-contained come default.
-- Pipeline CI/CD; non esiste una directory `.github` o un workflow versionato nel repository.
+## Components
 
-## Architecture
-- `server/`: applicazione Node.js basata su Express con entrypoint `server/src/server.js`.
-- `server/src/api/routes.js`: punto di composizione delle API HTTP; le aree operative principali sono distribuite in moduli dedicati sotto `server/src/api/`.
-- `server/src/storage/`: persistenza file-based sotto `dataRoot`, con directory per config, stato, utenti, log e alert.
-- `server/public/`: dashboard HTML/CSS/JS servita come frontend statico, con asset frontend suddivisi in piu file per aree funzionali.
-- `server/public/assets/brand/`: logo, mark, favicon, web manifest icons e immagini social di OnlyBackup.
-- `agent/OnlyBackupAgent/`: agent .NET Framework 4.6.2 eseguibile come servizio Windows o console, con componenti di comunicazione HTTP e motore backup basato su filesystem/robocopy.
-- `server/service-wrapper/`: wrapper .NET Framework 4.6.2 che avvia il server Node.js come servizio Windows, senza NSSM.
-- `scripts/`: automazione operativa Windows per setup server, installazione servizio, package server self-contained, installer Inno opzionale, build MSI agent, validazione pacchetti e utilita di supporto.
-- `tools/wix314-binaries/`: copia versionata della toolchain WiX 3.14 utilizzabile come alternativa all'installazione globale per il packaging MSI.
+| Path | Responsibility |
+|---|---|
+| server/src/server.js | Server startup and composition |
+| server/src/api/ | Area-specific HTTP/API routes |
+| server/src/storage/ | File-based persistence under dataRoot |
+| server/public/ | Dashboard and static browser assets |
+| agent/OnlyBackupAgent/ | .NET Framework 4.6.2 service/console agent |
+| server/service-wrapper/ | Included Windows service wrapper for Node |
+| scripts/ | Setup, service, packaging and validation entrypoints |
+| scripts/support/ | Internal helpers and installer definitions |
+| tools/wix314-binaries/ | Local WiX 3.14 toolchain |
 
-## Constraints
-- Ambiente operativo di riferimento: Windows.
-- Server: Node.js `>= 20.19.0`.
-- Agent: .NET Framework 4.6.2.
-- Packaging MSI: WiX Toolset 3.14, installato nel sistema oppure referenziato tramite `-WixPath`.
-- Configurazione server letta da `config.json` nella root o da `CONFIG_PATH`.
-- Persistenza server su filesystem locale; il repository non mostra un database applicativo dedicato.
-- La strategia di riavvio operativa versionata nel repository e allineata a script PowerShell per ambiente Windows.
+## Constraints and limits
+
+Windows is the reference platform. Node >=20.19.0 runs the server; MSBuild and the .NET Framework targeting pack build agent/wrapper; WiX 3.14 builds the agent MSI. Inno Setup 6 is optional for server EXE generation.
+
+The distributable server package contains dependencies and operational tools but does not bundle the Node runtime. Configuration comes from config.json or CONFIG_PATH. There is no dedicated relational/cloud database and no Linux/macOS agent.
+
+.github community/dependency configuration now exists; older claims that the directory is absent are obsolete. Actions state is a separate remote observation, not implied by having community files. A checksum for installer payload acquisition is not evidence of backup-content hashing or VSS support.
+
+See [operations](OPERATIONS.md) for supported commands and qualification limits. LICENSE and CREDITS govern distribution.
