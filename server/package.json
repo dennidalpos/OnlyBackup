@@ -20,7 +20,7 @@
     "@azure/msal-node": "^7.1.2",
     "bcryptjs": "^3.0.3",
     "chokidar": "^5.0.0",
-    "compression": "^1.8.1",
+    "compression": "^1.8.2",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
     "google-auth-library": "^10.6.2",
