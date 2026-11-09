@@ -17,7 +17,7 @@
   "author": "Danny Perondi",
   "license": "UNLICENSED",
   "dependencies": {
-    "@azure/msal-node": "^7.1.2",
+    "@azure/msal-node": "^7.2.0",
     "bcryptjs": "^3.0.3",
     "chokidar": "^5.0.0",
     "compression": "^1.8.2",
