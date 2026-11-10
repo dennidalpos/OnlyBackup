@@ -1,0 +1,39 @@
+{
+  "name": "onlybackup-server",
+  "version": "1.0.0",
+  "description": "OnlyBackup - Sistema di backup centralizzato per client Windows",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "set NODE_ENV=development&& node src/server.js",
+    "test": "set NODE_ENV=test&& set ONLYBACKUP_INITIAL_ADMIN_PASSWORD=TestOnlyBackup123!&& node ../scripts/support/Test-OnlyBackupServerSmoke.js",
+    "test:ui": "set NODE_ENV=test&& set ONLYBACKUP_INITIAL_ADMIN_PASSWORD=TestOnlyBackup123!&& node ../scripts/support/Test-OnlyBackupUiSmoke.js"
+  },
+  "keywords": [
+    "backup",
+    "windows",
+    "centralizzato"
+  ],
+  "author": "Danny Perondi",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@azure/msal-node": "^7.1.2",
+    "bcryptjs": "^3.0.3",
+    "chokidar": "^5.0.0",
+    "compression": "^1.8.2",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.2.1",
+    "google-auth-library": "^11.3.2",
+    "nodemailer": "^8.0.7",
+    "uuid": "^14.0.0",
+    "winston": "^3.19.0",
+    "winston-daily-rotate-file": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "packageManager": "npm@11.7.0",
+  "devDependencies": {
+    "playwright": "^1.64.1"
+  }
+}

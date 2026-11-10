@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 160" role="img" aria-labelledby="title desc">
+  <title id="title">OnlyBackup logo</title>
+  <desc id="desc">OnlyBackup wordmark with compact OB shield mark.</desc>
+  <defs>
+    <linearGradient id="bg" x1="23" y1="17" x2="137" y2="143" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#60a5fa"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="42" y1="38" x2="118" y2="122" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#141b2d"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="160" rx="0" fill="none"/>
+  <g>
+    <rect x="16" y="16" width="128" height="128" rx="24" fill="#0a0f1c"/>
+    <path d="M80 30 120 46v30c0 25-16 45-40 54-24-9-40-29-40-54V46l40-16Z" fill="url(#bg)"/>
+    <path d="M80 40 110 52v23c0 19-12 34-30 42-18-8-30-23-30-42V52l30-12Z" fill="url(#panel)"/>
+    <path d="M61 74a19 19 0 1 1 0 22V74Zm0 8v6a10 10 0 1 0 0-6Z" fill="#f8fafc"/>
+    <path d="M84 62h19c8 0 14 5 14 12 0 4-2 8-6 10 5 2 8 7 8 13 0 8-7 14-16 14H84V62Zm10 9v10h8c3 0 5-2 5-5s-2-5-5-5h-8Zm0 19v12h9c4 0 6-2 6-6s-2-6-6-6h-9Z" fill="#f8fafc"/>
+  </g>
+  <g font-family="Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif">
+    <text x="176" y="85" fill="#f8fafc" font-size="48" font-weight="700">OnlyBackup</text>
+    <text x="179" y="118" fill="#94a3b8" font-size="22" font-weight="500">Backup e restore centralizzato per Windows</text>
+  </g>
+</svg>

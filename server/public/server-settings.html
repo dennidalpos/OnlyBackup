@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnlyBackup - Impostazioni Server</title>
+    <meta name="description" content="Impostazioni server OnlyBackup per configurazione, agent, manutenzione dati e servizio Windows.">
+    <meta name="theme-color" content="#0a0f1c">
+    <meta property="og:title" content="OnlyBackup - Impostazioni Server">
+    <meta property="og:description" content="Impostazioni server OnlyBackup per configurazione, agent, manutenzione dati e servizio Windows.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="/assets/brand/onlybackup-social-og.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="/assets/brand/onlybackup-social-twitter.png">
+    <link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" href="/assets/brand/favicon-32.png" sizes="32x32">
+    <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="dashboard-shell">
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-mark"><img src="/assets/brand/onlybackup-mark.svg" alt="" width="36" height="36"></div>
+                <div>
+                    <div class="brand-title">OnlyBackup</div>
+                    <div class="brand-subtitle">Impostazioni server</div>
+                </div>
+            </div>
+            <div class="user-info">
+                <a href="/email-settings.html" class="btn btn-outline btn-small" title="Configura notifiche email">Email</a>
+                <a href="/alerts.html" class="btn btn-outline btn-small" title="Alert di sistema">Alert</a>
+                <a href="/" class="btn btn-outline btn-small" title="Torna alla dashboard">Dashboard</a>
+            </div>
+        </header>
+
+        <div class="settings-page">
+            <div id="statusMessage" role="status" aria-live="polite"></div>
+
+            <div class="settings-content">
+                <div class="tabs" role="tablist" aria-label="Impostazioni server">
+                    <button class="tab-btn active" id="systemTabButton" data-tab="system" role="tab" aria-selected="true" aria-controls="systemTab">Sistema</button>
+                    <button class="tab-btn" id="agentTabButton" data-tab="agent" role="tab" aria-selected="false" aria-controls="agentTab" tabindex="-1">Agent</button>
+                    <button class="tab-btn" id="dataTabButton" data-tab="data" role="tab" aria-selected="false" aria-controls="dataTab" tabindex="-1">Dati</button>
+                    <button class="tab-btn" id="serviceTabButton" data-tab="service" role="tab" aria-selected="false" aria-controls="serviceTab" tabindex="-1">Servizio</button>
+                </div>
+
+                <div id="systemTab" class="tab-content active" role="tabpanel" aria-labelledby="systemTabButton">
+                    <div class="settings-grid">
+                        <section class="form-section">
+                            <h4>Import/Export Configurazione</h4>
+                            <p class="section-note">Esporta o importa job, utenti, client e configurazione email in un file JSON.</p>
+                            <div class="action-row">
+                                <button type="button" class="btn btn-primary" onclick="exportConfig()">Esporta Configurazione</button>
+                                <button type="button" class="btn btn-outline" onclick="importConfig()">Importa Configurazione</button>
+                            </div>
+                        </section>
+
+                        <section class="form-section">
+                            <h4>Ritenzione Log</h4>
+                            <p class="section-note">Imposta per quanto tempo mantenere i log salvati sul server.</p>
+                            <div class="form-group">
+                                <label for="logRetentionDays">Conservazione log</label>
+                                <select id="logRetentionDays">
+                                    <option value="30">1 mese</option>
+                                    <option value="180">6 mesi</option>
+                                    <option value="365">12 mesi</option>
+                                    <option value="0">Non cancellare log</option>
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="saveLogRetention()">Salva Ritenzione Log</button>
+                        </section>
+                    </div>
+                </div>
+
+                <div id="agentTab" class="tab-content" role="tabpanel" aria-labelledby="agentTabButton" hidden>
+                    <section class="form-section">
+                        <h4>Pacchetto Agent</h4>
+                        <p class="section-note">Genera il pacchetto MSI dell'agent con l'indirizzo del server raggiungibile dai client.</p>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="agentServerHost">Indirizzo server</label>
+                                <input type="text" id="agentServerHost" list="agentServerHostCandidates" placeholder="192.168.1.10">
+                                <datalist id="agentServerHostCandidates"></datalist>
+                                <small id="agentServerHostHint" aria-live="polite">Caricamento indirizzo suggerito...</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="agentServerPort">Porta</label>
+                                <input type="number" id="agentServerPort" min="1" max="65535" step="1" value="8080">
+                            </div>
+                        </div>
+                        <div id="agentPackageStatus" class="info-box" role="status" aria-live="polite">
+                            <p>Stato pacchetto non caricato.</p>
+                        </div>
+                        <div class="action-row">
+                            <button type="button" id="agentPackageBuildButton" class="btn btn-primary" onclick="buildAgentPackage()">Genera Agent</button>
+                            <button type="button" id="agentPackageDownloadButton" class="btn btn-outline" onclick="downloadAgentPackage()" disabled>Scarica MSI</button>
+                            <button type="button" class="btn btn-outline" onclick="loadAgentPackageOptions()">Aggiorna Stato</button>
+                        </div>
+                    </section>
+                </div>
+
+                <div id="dataTab" class="tab-content" role="tabpanel" aria-labelledby="dataTabButton" hidden>
+                    <div class="settings-grid">
+                        <section class="form-section danger-section">
+                            <h4>Storico Alert</h4>
+                            <p class="section-note">Cancella lo storico degli alert risolti e attivi. Gli alert futuri continueranno ad arrivare.</p>
+                            <button type="button" class="btn btn-danger" onclick="deleteAlertHistory()">Cancella Storico Alert</button>
+                        </section>
+
+                        <section class="form-section danger-section">
+                            <h4>Log Backup</h4>
+                            <p class="section-note">Elimina tutti i log di backup salvati. I job e la loro configurazione non verranno eliminati.</p>
+                            <button type="button" class="btn btn-danger" onclick="deleteAllLogs()">Elimina Tutti i Log</button>
+                        </section>
+                    </div>
+                </div>
+
+                <div id="serviceTab" class="tab-content" role="tabpanel" aria-labelledby="serviceTabButton" hidden>
+                    <div class="settings-grid">
+                        <section class="form-section">
+                            <h4>Servizio Windows</h4>
+                            <p class="section-note">Controlla lo stato del servizio Windows OnlyBackup Server installato sul sistema.</p>
+                            <div id="serverServiceStatus" class="info-box" role="status" aria-live="polite">
+                                <p>Stato servizio non caricato.</p>
+                            </div>
+                            <div class="action-row">
+                                <button type="button" class="btn btn-outline" onclick="loadServerServiceStatus()">Aggiorna Stato</button>
+                                <button type="button" class="btn btn-primary" onclick="controlServerService('start')">Avvia Servizio</button>
+                                <button type="button" class="btn btn-outline" onclick="controlServerService('restart')">Riavvia Servizio</button>
+                                <button type="button" class="btn btn-danger" onclick="controlServerService('stop')">Arresta Servizio</button>
+                            </div>
+                        </section>
+
+                        <section class="form-section danger-section">
+                            <h4>Riavvio Server</h4>
+                            <div class="info-box warning-box">
+                                <p><strong>Attenzione:</strong> il riavvio del server interrompe tutti i backup in esecuzione.</p>
+                            </div>
+                            <button type="button" class="btn btn-danger" onclick="rebootServer()">Riavvia Server</button>
+                        </section>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/server-settings.js"></script>
+</body>
+</html>

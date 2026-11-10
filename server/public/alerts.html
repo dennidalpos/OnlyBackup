@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnlyBackup - Alert di Sistema</title>
+    <meta name="description" content="Alert di sistema OnlyBackup per backup, agent e notifiche operative.">
+    <meta name="theme-color" content="#0a0f1c">
+    <meta property="og:title" content="OnlyBackup - Alert di Sistema">
+    <meta property="og:description" content="Alert di sistema OnlyBackup per backup, agent e notifiche operative.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="/assets/brand/onlybackup-social-og.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="/assets/brand/onlybackup-social-twitter.png">
+    <link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" href="/assets/brand/favicon-32.png" sizes="32x32">
+    <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="dashboard-shell">
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-mark"><img src="/assets/brand/onlybackup-mark.svg" alt="" width="36" height="36"></div>
+                <div>
+                    <div class="brand-title">OnlyBackup</div>
+                    <div class="brand-subtitle">Centro controllo</div>
+                </div>
+            </div>
+            <div class="user-info">
+                <span id="alertCount" class="badge" aria-live="polite"></span>
+                <a href="/" class="btn btn-outline btn-small" title="Torna alla dashboard">Dashboard</a>
+                <a href="/server-settings.html" class="btn btn-outline btn-small" title="Impostazioni server">Impostazioni</a>
+                <a href="/email-settings.html" class="btn btn-outline btn-small" title="Impostazioni email">Email</a>
+            </div>
+        </header>
+
+        <div class="settings-container" style="padding: 20px; margin: 0 auto;">
+            <div id="statusMessage" role="status" aria-live="polite"></div>
+
+            <div class="settings-content">
+                <div class="tabs" role="tablist" aria-label="Alert">
+                    <button class="tab-btn active" id="activeTabButton" data-tab="active" role="tab" aria-selected="true" aria-controls="activeTab">Alert Attivi</button>
+                    <button class="tab-btn" id="historyTabButton" data-tab="history" role="tab" aria-selected="false" aria-controls="historyTab" tabindex="-1">Storico</button>
+                </div>
+
+                <!-- Tab Alert Attivi -->
+                <div id="activeTab" class="tab-content active" role="tabpanel" aria-labelledby="activeTabButton">
+                    <div id="activeAlertsContainer" role="status" aria-live="polite">
+                        <div class="loading-spinner">Caricamento...</div>
+                    </div>
+                </div>
+
+                <!-- Tab Storico -->
+                <div id="historyTab" class="tab-content" role="tabpanel" aria-labelledby="historyTabButton" hidden>
+                    <div id="historyAlertsContainer" role="status" aria-live="polite">
+                        <div class="loading-spinner">Caricamento...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/alerts.js"></script>
+</body>
+</html>

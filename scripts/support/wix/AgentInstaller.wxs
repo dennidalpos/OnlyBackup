@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension"
+     xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension">
+
+  <?define ProductName = "OnlyBackup Agent" ?>
+  <?define ProductVersion = "1.0.3.0" ?>
+  <?define Manufacturer = "OnlyBackup" ?>
+  <?define ProductCode = "*" ?>
+  <?define UpgradeCode = "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE" ?>
+
+  <Product Id="$(var.ProductCode)"
+           Name="$(var.ProductName)"
+           Language="1033"
+           Version="$(var.ProductVersion)"
+           Manufacturer="$(var.Manufacturer)"
+           UpgradeCode="$(var.UpgradeCode)">
+
+    <Package InstallerVersion="200"
+             Compressed="yes"
+             InstallScope="perMachine"
+             Description="OnlyBackup Agent - Sistema di backup/restore centralizzato"
+             Comments="Installazione OnlyBackup Agent per Windows"
+             Manufacturer="$(var.Manufacturer)" />
+
+    <Icon Id="OnlyBackupAgentIcon" SourceFile="$(var.ProjectDir)\Assets\OnlyBackupAgent.ico" />
+    <Property Id="ARPPRODUCTICON" Value="OnlyBackupAgentIcon" />
+
+    <Property Id="NETFRAMEWORK462">
+      <RegistrySearch Id="NetFramework462Release"
+                      Root="HKLM"
+                      Key="SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full"
+                      Name="Release"
+                      Type="raw"
+                      Win64="yes" />
+    </Property>
+
+    <Property Id="ROBOCOPYEXE">
+      <DirectorySearch Id="SearchRobocopySystemFolder"
+                       Path="[SystemFolder]"
+                       Depth="0">
+        <FileSearch Id="SearchRobocopyExe"
+                    Name="robocopy.exe" />
+      </DirectorySearch>
+    </Property>
+
+    <!-- MajorUpgrade: gestisce upgrade automatico da versioni precedenti -->
+    <MajorUpgrade DowngradeErrorMessage="Una versione più recente di $(var.ProductName) è già installata. Disinstallare prima di procedere."
+                  AllowSameVersionUpgrades="no"
+                  Schedule="afterInstallInitialize"
+                  AllowDowngrades="no"
+                  MigrateFeatures="yes"
+                  IgnoreRemoveFailure="yes" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Validazioni pre-installazione -->
+    <Condition Message="OnlyBackup Agent richiede privilegi di amministratore per l'installazione.">
+      Privileged
+    </Condition>
+
+    <Condition Message="OnlyBackup Agent richiede Windows 7/Server 2008 R2 o superiore.">
+      <![CDATA[Installed OR (VersionNT >= 601)]]>
+    </Condition>
+
+    <Condition Message="Prerequisito mancante/non compatibile: Robocopy. Versione minima/supportata: robocopy.exe incluso in Windows 10/11 aggiornato. Motivo: OnlyBackup Agent usa robocopy.exe per eseguire copie backup affidabili. Azione richiesta: usa un client Windows 10/11 aggiornato o ripara i componenti Windows se robocopy.exe manca da System32. Verifica: Get-Command robocopy.exe">
+      <![CDATA[Installed OR ROBOCOPYEXE]]>
+    </Condition>
+
+    <Feature Id="ProductFeature" Title="OnlyBackup Agent" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <!-- ServerComponents rimossi: non necessari per agent-only MSI -->
+      <ComponentRef Id="ServiceComponent" />
+    </Feature>
+
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectDir)\License.rtf" Overridable="yes" />
+
+    <Property Id="SERVERHOST" Value="$(var.ServerHost)" />
+    <Property Id="SERVERPORT" Value="$(var.ServerPort)" />
+
+    <UI>
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
+
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+      <Property Id="WixUI_Mode" Value="Minimal" />
+
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+
+      <Dialog Id="AgentWelcomeEulaDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="15" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Contratto di licenza" />
+        <Control Id="Description" Type="Text" X="25" Y="23" Width="320" Height="15" Transparent="yes" NoPrefix="yes" Text="Leggi e accetta il contratto prima di installare [ProductName]." />
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="LicenseText" Type="ScrollableText" X="20" Y="60" Width="330" Height="125" Sunken="yes" TabSkip="no">
+          <Text SourceFile="$(var.ProjectDir)\License.rtf" />
+        </Control>
+        <Control Id="LicenseAcceptedCheckBox" Type="CheckBox" X="20" Y="195" Width="330" Height="18" CheckBoxValue="1" Property="LicenseAccepted" Text="Accetto i termini del contratto di licenza" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="Installa" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WixUICancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+      </Dialog>
+
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
+      <Publish Dialog="AgentWelcomeEulaDlg" Control="Next" Event="SpawnWaitDialog" Value="WaitForCostingDlg" Order="1">LicenseAccepted = "1"</Publish>
+      <Publish Dialog="AgentWelcomeEulaDlg" Control="Next" Event="EndDialog" Value="Return" Order="2">LicenseAccepted = "1" AND OutOfDiskSpace &lt;&gt; 1</Publish>
+      <Publish Dialog="AgentWelcomeEulaDlg" Control="Next" Event="SpawnDialog" Value="OutOfRbDiskDlg" Order="3">LicenseAccepted = "1" AND OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND (PROMPTROLLBACKCOST="P" OR NOT PROMPTROLLBACKCOST)</Publish>
+      <Publish Dialog="AgentWelcomeEulaDlg" Control="Next" Event="EndDialog" Value="Return" Order="4">LicenseAccepted = "1" AND OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST="D"</Publish>
+      <Publish Dialog="AgentWelcomeEulaDlg" Control="Next" Event="EnableRollback" Value="False" Order="5">LicenseAccepted = "1" AND OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 0 AND PROMPTROLLBACKCOST="D"</Publish>
+      <Publish Dialog="AgentWelcomeEulaDlg" Control="Next" Event="SpawnDialog" Value="OutOfDiskDlg" Order="6">LicenseAccepted = "1" AND ((OutOfDiskSpace = 1 AND OutOfNoRbDiskSpace = 1) OR (OutOfDiskSpace = 1 AND PROMPTROLLBACKCOST="F"))</Publish>
+
+      <UIRef Id="WixUI_Common" />
+    </UI>
+
+    <Binary Id="NetFx462Installer" SourceFile="$(var.NetFxInstaller)" />
+    <CustomAction Id="InstallNetFx462"
+                  BinaryKey="NetFx462Installer"
+                  ExeCommand="/passive /norestart"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check" />
+
+    <!-- Custom Action per stop servizio più robusto con timeout -->
+    <CustomAction Id="StopServiceBeforeUpgrade"
+                  Directory="TARGETDIR"
+                  ExeCommand="cmd.exe /c &quot;sc.exe stop OnlyBackupAgent &amp;&amp; timeout /t 5 /nobreak &gt;nul 2&gt;&amp;1&quot;"
+                  Execute="immediate"
+                  Return="ignore"
+                  Impersonate="no" />
+
+    <!-- Custom Action per cleanup registry dinamico di vecchie installazioni -->
+    <CustomAction Id="CleanupOrphanedRegistry"
+                  Directory="TARGETDIR"
+                  ExeCommand="cmd.exe /c &quot;reg delete HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{9C9E5F2A-88E9-4A79-9E8E-5F1EAF9B64A8} /f 2&gt;nul &amp; reg delete HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{7DA33E82-31DD-41F8-896C-59BA2C392F84} /f 2&gt;nul&quot;"
+                  Execute="immediate"
+                  Return="ignore"
+                  Impersonate="no" />
+
+
+    <InstallExecuteSequence>
+      <!-- Stop servizio prima della validazione (solo durante upgrade) -->
+      <Custom Action="StopServiceBeforeUpgrade" Before="InstallValidate">
+        UPGRADINGPRODUCTCODE OR WIX_UPGRADE_DETECTED
+      </Custom>
+
+      <!-- Cleanup registry dopo stop servizio (solo durante upgrade) -->
+      <Custom Action="CleanupOrphanedRegistry" After="StopServiceBeforeUpgrade">
+        UPGRADINGPRODUCTCODE
+      </Custom>
+
+      <!-- RemoveExistingProducts è gestito automaticamente da MajorUpgrade Schedule="afterInstallFinalize" -->
+
+      <!-- .NET Framework install solo su prima installazione -->
+      <Custom Action="InstallNetFx462" After="InstallInitialize">
+        NOT Installed AND (NOT NETFRAMEWORK462 OR NETFRAMEWORK462 &lt; 394802)
+      </Custom>
+    </InstallExecuteSequence>
+
+    <InstallUISequence>
+      <Show Dialog="AgentWelcomeEulaDlg" Before="CostFinalize">NOT Installed</Show>
+      <Show Dialog="ResumeDlg" Before="CostFinalize">Installed AND (RESUME OR Preselected)</Show>
+    </InstallUISequence>
+
+  </Product>
+
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="ManufacturerFolder" Name="OnlyBackup">
+          <Directory Id="INSTALLFOLDER" Name="Agent" />
+        </Directory>
+      </Directory>
+    </Directory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="AgentConfig" Guid="22222222-2222-2222-2222-222222222222">
+        <File Id="AgentConfigFile"
+              Source="$(var.BinDir)\OnlyBackupAgent.exe.config"
+              KeyPath="yes" />
+
+        <util:XmlFile Id="UpdateServerHost"
+                      Action="setValue"
+                      ElementPath="/configuration/appSettings/add[\[]@key='ServerHost'[\]]/@value"
+                      Value="[SERVERHOST]"
+                      File="[INSTALLFOLDER]OnlyBackupAgent.exe.config" />
+
+        <util:XmlFile Id="UpdateServerPort"
+                      Action="setValue"
+                      ElementPath="/configuration/appSettings/add[\[]@key='ServerPort'[\]]/@value"
+                      Value="[SERVERPORT]"
+                      File="[INSTALLFOLDER]OnlyBackupAgent.exe.config" />
+      </Component>
+
+      <Component Id="RegistryCleanup" Guid="140C84DB-F8ED-4F4C-A797-67A841DBFD2B">
+        <CreateFolder Directory="INSTALLFOLDER" />
+        <RegistryValue Root="HKLM"
+                       Key="SOFTWARE\OnlyBackupInstaller"
+                       Name="CleanupMarker"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+        <RemoveRegistryKey Root="HKLM"
+                           Key="SOFTWARE\OnlyBackup"
+                           Action="removeOnInstall" />
+        <RemoveRegistryKey Root="HKLM"
+                           Key="SOFTWARE\WOW6432Node\OnlyBackup"
+                           Action="removeOnInstall" />
+      </Component>
+
+    </ComponentGroup>
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="ServiceComponent" Guid="44444444-4444-4444-4444-444444444444" Permanent="no">
+        <File Id="ServiceExecutable"
+              Source="$(var.BinDir)\OnlyBackupAgent.exe"
+              KeyPath="yes" />
+
+        <ServiceInstall Id="ServiceInstaller"
+                        Type="ownProcess"
+                        Name="OnlyBackupAgent"
+                        DisplayName="OnlyBackup Agent"
+                        Description="Agente per il sistema di backup/restore centralizzato OnlyBackup"
+                        Start="auto"
+                        Account="LocalSystem"
+                        ErrorControl="normal"
+                        Vital="yes" />
+
+        <ServiceControl Id="ServiceControl"
+                        Name="OnlyBackupAgent"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
+
+        <fire:FirewallException Id="AgentFirewall"
+                                Name="OnlyBackup Agent"
+                                Port="8081"
+                                Protocol="tcp"
+                                Scope="any"
+                                IgnoreFailure="yes" />
+
+        <!-- Rimozione cartelle install se vuote -->
+        <RemoveFolder Id="RemoveINSTALLFOLDER" Directory="INSTALLFOLDER" On="uninstall" />
+        <RemoveFolder Id="RemoveManufacturerFolder" Directory="ManufacturerFolder" On="uninstall" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+</Wix>

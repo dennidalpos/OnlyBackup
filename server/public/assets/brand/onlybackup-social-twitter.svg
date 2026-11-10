@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">OnlyBackup Twitter/X card image</title>
+  <desc id="desc">Wide social preview image for OnlyBackup Twitter/X cards.</desc>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="1200" y2="675" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0a0f1c"/>
+      <stop offset="0.58" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#141b2d"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="148" y1="100" x2="310" y2="280" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#60a5fa"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="675" fill="url(#page)"/>
+  <path d="M1034 0h166v675H910c106-132 146-324 124-675Z" fill="#0f1627" opacity=".85"/>
+  <g transform="translate(96 110)">
+    <rect width="184" height="184" rx="34" fill="#0a0f1c"/>
+    <path d="M92 20 150 43v44c0 36-23 66-58 79-35-13-58-43-58-79V43l58-23Z" fill="url(#accent)"/>
+    <path d="M92 35 136 53v34c0 28-18 50-44 62-26-12-44-34-44-62V53l44-18Z" fill="#141b2d"/>
+    <text x="92" y="113" text-anchor="middle" fill="#f8fafc" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="54" font-weight="800">OB</text>
+  </g>
+  <g font-family="Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif">
+    <text x="96" y="392" fill="#f8fafc" font-size="78" font-weight="750">OnlyBackup</text>
+    <text x="101" y="452" fill="#cbd5e1" font-size="34" font-weight="500">Backup e restore centralizzato per client Windows</text>
+    <text x="101" y="508" fill="#94a3b8" font-size="26" font-weight="500">Server Node.js, dashboard operativa e agent Windows</text>
+  </g>
+  <g fill="none" stroke="#334155" stroke-width="2">
+    <rect x="826" y="150" width="258" height="340" rx="18"/>
+    <path d="M858 206h194M858 260h152M858 314h194M858 368h126M858 422h170"/>
+  </g>
+  <path d="M842 150h226c9 0 16 7 16 16v42H826v-42c0-9 7-16 16-16Z" fill="#141b2d"/>
+  <circle cx="862" cy="180" r="8" fill="#22c55e"/>
+  <circle cx="888" cy="180" r="8" fill="#fbbf24"/>
+  <circle cx="914" cy="180" r="8" fill="#f87171"/>
+</svg>

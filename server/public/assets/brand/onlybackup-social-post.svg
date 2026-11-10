@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
+  <title id="title">OnlyBackup social post image</title>
+  <desc id="desc">Square social image for OnlyBackup announcements.</desc>
+  <rect width="1200" height="1200" fill="#0a0f1c"/>
+  <rect x="92" y="92" width="1016" height="1016" rx="56" fill="#141b2d" stroke="#334155" stroke-width="2"/>
+  <rect x="454" y="190" width="292" height="292" rx="56" fill="#0f172a"/>
+  <path d="M600 222 694 260v72c0 59-38 106-94 128-56-22-94-69-94-128v-72l94-38Z" fill="#60a5fa"/>
+  <path d="M600 250 672 278v55c0 45-29 81-72 99-43-18-72-54-72-99v-55l72-28Z" fill="#141b2d"/>
+  <text x="600" y="362" text-anchor="middle" fill="#f8fafc" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="82" font-weight="800">OB</text>
+  <text x="600" y="620" text-anchor="middle" fill="#f8fafc" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="92" font-weight="760">OnlyBackup</text>
+  <text x="600" y="700" text-anchor="middle" fill="#cbd5e1" font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="42" font-weight="500">Backup centralizzato per Windows</text>
+  <g font-family="Segoe UI, Roboto, Arial, sans-serif" font-size="30" font-weight="600">
+    <text x="274" y="860" fill="#93c5fd">Dashboard operativa</text>
+    <text x="274" y="926" fill="#86efac">Agent Windows</text>
+    <text x="274" y="992" fill="#fcd34d">MSI e setup PowerShell</text>
+  </g>
+</svg>

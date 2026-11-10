@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnlyBackup - Dashboard</title>
+    <meta name="description" content="OnlyBackup - sistema centralizzato di backup per client Windows.">
+    <meta name="theme-color" content="#0a0f1c">
+    <meta property="og:title" content="OnlyBackup">
+    <meta property="og:description" content="Sistema centralizzato di backup per client Windows.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="/assets/brand/onlybackup-social-og.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="OnlyBackup">
+    <meta name="twitter:description" content="Sistema centralizzato di backup per client Windows.">
+    <meta name="twitter:image" content="/assets/brand/onlybackup-social-twitter.png">
+    <link rel="icon" href="/assets/brand/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" href="/assets/brand/favicon-32.png" sizes="32x32">
+    <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+    <div id="loadingScreen" class="screen">
+        <div class="loading-container">
+            <div class="loading-card">
+                <div class="loading-mark"><img src="/assets/brand/onlybackup-mark.svg" alt="" width="64" height="64"></div>
+                <div class="loading-title">OnlyBackup</div>
+                <div class="loading-subtitle">Verifica sessione in corso...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loginScreen" class="screen hidden">
+        <div class="login-container">
+            <div class="login-box">
+                <h1>OnlyBackup</h1>
+                <p class="subtitle">Sistema di Backup Centralizzato</p>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username" required autofocus autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" name="password" required autocomplete="current-password">
+                    </div>
+                    <div id="loginError" class="error-message" role="alert" aria-live="assertive"></div>
+                    <button type="submit" class="btn btn-primary">Accedi</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="changePasswordScreen" class="screen hidden">
+        <div class="login-container">
+            <div class="login-box">
+                <h2>Cambio password</h2>
+                <p class="subtitle">Modifica la password predefinita per continuare.</p>
+                <form id="changePasswordForm">
+                    <div class="form-group">
+                        <label for="oldPassword">Password attuale</label>
+                        <input type="password" id="oldPassword" name="oldPassword" required autocomplete="current-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">Nuova password</label>
+                        <input type="password" id="newPassword" name="newPassword" required autocomplete="new-password" minlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Conferma password</label>
+                        <input type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password">
+                    </div>
+                    <div id="changePasswordError" class="error-message" role="alert" aria-live="assertive"></div>
+                    <button type="submit" class="btn btn-primary">Cambia password</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="mainDashboard" class="screen hidden">
+        <div class="dashboard-shell">
+            <header class="topbar">
+                <div class="brand">
+                    <div class="brand-mark"><img src="/assets/brand/onlybackup-mark.svg" alt="" width="36" height="36"></div>
+                    <div>
+                        <div class="brand-title">OnlyBackup</div>
+                        <div class="brand-subtitle">Centro controllo</div>
+                    </div>
+                </div>
+                <div class="topbar-stats" aria-label="Stato sistema">
+                    <div class="stat-pill">
+                        <span class="pill-label">Client</span>
+                        <span class="pill-value online" id="headerClientsOnline">-</span>
+                        <span class="pill-sep">/</span>
+                        <span class="pill-value offline" id="headerClientsOffline">-</span>
+                    </div>
+                    <div class="stat-pill">
+                        <span class="pill-label">Backup 24h</span>
+                        <span class="pill-value success" id="headerBackupsOk">-</span>
+                        <span class="pill-sep">/</span>
+                        <span class="pill-value failure" id="headerBackupsFailed">-</span>
+                    </div>
+                    <div class="stat-pill stat-pill-wide">
+                        <span class="pill-label">Stato client</span>
+                        <span class="pill-statuses" id="headerBackupStatusList">Caricamento...</span>
+                    </div>
+                </div>
+                <div class="user-info">
+                    <a href="/" class="btn btn-outline btn-small" aria-current="page">Dashboard</a>
+                    <a href="/alerts.html" class="btn btn-outline btn-small" title="Alert di sistema">Alert</a>
+                    <a href="/server-settings.html" class="btn btn-outline btn-small" title="Impostazioni server">Impostazioni</a>
+                    <a href="/email-settings.html" class="btn btn-outline btn-small" title="Impostazioni email">Email</a>
+                    <button onclick="app.resetPassword()" class="btn btn-outline btn-small" title="Cambia password" aria-label="Cambia password">Password</button>
+                    <span class="user-chip" id="currentUser">-</span>
+                    <button onclick="app.logout()" class="btn btn-outline btn-small">Esci</button>
+                </div>
+            </header>
+
+            <div class="dashboard-layout">
+                <aside class="layout-panel sidebar-panel">
+                    <div class="panel-header">
+                        <div>
+                            <p class="eyebrow">Agent</p>
+                            <h2>Client</h2>
+                        </div>
+                        <div class="panel-actions">
+                            <button onclick="app.refreshClients()" class="btn btn-icon" title="Aggiorna lista client" aria-label="Aggiorna lista client">&#8635;</button>
+                        </div>
+                    </div>
+                    <div class="search-box">
+                        <label class="sr-only" for="clientSearchInput">Cerca client</label>
+                        <input type="text" id="clientSearchInput" placeholder="Cerca client..." oninput="app.filterClients(this.value)" autocomplete="off">
+                    </div>
+                    <div class="dashboard-filter-bar" role="toolbar" aria-label="Filtri salute operativa">
+                        <button type="button" class="filter-chip active" data-filter="all" onclick="app.setDashboardFilter('all')">Tutti</button>
+                        <button type="button" class="filter-chip" data-filter="critical" onclick="app.setDashboardFilter('critical')">Critici</button>
+                        <button type="button" class="filter-chip" data-filter="offline" onclick="app.setDashboardFilter('offline')">Offline</button>
+                        <button type="button" class="filter-chip" data-filter="failed" onclick="app.setDashboardFilter('failed')">Backup falliti</button>
+                        <button type="button" class="filter-chip" data-filter="running" onclick="app.setDashboardFilter('running')">In corso</button>
+                        <button type="button" class="filter-chip" data-filter="no-jobs" onclick="app.setDashboardFilter('no-jobs')">Senza job</button>
+                    </div>
+                    <div class="panel-state" id="clientsState" aria-live="polite">
+                        <div class="state-row" data-state="loading"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line"></div></div>
+                        <div class="state-row hidden" data-state="empty">Nessun agent registrato.</div>
+                        <div class="state-row hidden" data-state="error">Impossibile recuperare la lista client.</div>
+                    </div>
+                    <div id="clientsList" class="card-list clients-list" aria-live="polite">
+                        <div class="loading">Caricamento...</div>
+                    </div>
+                </aside>
+
+                <main class="layout-panel main-panel">
+                    <section class="section-row">
+                        <div class="section-heading">
+                            <div>
+                                <p class="eyebrow">Panoramica</p>
+                                <h2 class="section-title">Job & Storico</h2>
+                            </div>
+                        </div>
+                        <div class="summary-grid" id="clientSummary">
+                            <div class="summary-card">
+                                <div class="summary-label">Job Attivi</div>
+                                <div class="summary-value" id="summaryActiveJobs">-</div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-label">Ultimo Backup</div>
+                                <div class="summary-value" id="summaryLastBackup">-</div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-label">Totale Esecuzioni</div>
+                                <div class="summary-value" id="summaryTotalRuns">-</div>
+                            </div>
+                        </div>
+                        <div class="onboarding-checklist" id="onboardingChecklist" aria-label="Checklist primo avvio"></div>
+                    </section>
+
+                    <section class="workspace-grid" aria-label="Job workspace">
+                        <div class="workspace-left">
+                            <div class="workspace-card">
+                                <div class="workspace-card-header">
+                                    <div class="workspace-card-title">
+                                        <p class="eyebrow">Gestione</p>
+                                        <h3>Job & Storico</h3>
+                                    </div>
+                                    <div class="client-header-actions">
+                                        <button id="runAllJobsButton" onclick="app.runAllJobsForClient()" class="btn btn-success btn-small action-group">Esegui Tutti</button>
+                                        <button onclick="app.showCreateJobForm()" class="btn btn-primary btn-small action-group">+ Nuovo Job</button>
+                                        <details class="danger-menu">
+                                            <summary class="btn btn-outline btn-small action-group">Azioni dati</summary>
+                                            <div class="danger-menu-panel">
+                                                <button onclick="app.clearClientLogs()" class="btn btn-outline btn-small" title="Elimina solo lo storico backup">Elimina log</button>
+                                                <button onclick="app.deregisterClient()" class="btn btn-outline btn-small" title="Deregistra client e tutti i dati">Deregistra client</button>
+                                            </div>
+                                        </details>
+                                    </div>
+                                </div>
+                                <div class="client-header-bar">
+                                    <div class="client-header-info">
+                                        <span class="client-header-name truncate" id="selectedClientName">Seleziona un client</span>
+                                        <span class="client-header-status" id="clientHeaderStatus"></span>
+                                    </div>
+                                </div>
+                                <div class="tabs" role="tablist" aria-label="Job e storico">
+                                    <button class="tab-btn active" id="jobsTabButton" role="tab" aria-selected="true" aria-controls="jobsTab" onclick="app.showTab('jobs')">Job</button>
+                                    <button class="tab-btn" id="runsTabButton" role="tab" aria-selected="false" aria-controls="runsTab" tabindex="-1" onclick="app.showTab('runs')">Storico</button>
+                                </div>
+                                <div class="tab-panels">
+                                    <div id="jobsTab" class="tab-content" role="tabpanel" aria-labelledby="jobsTabButton">
+                                        <div id="jobsList" class="jobs-list card-list">
+                                            <div class="loading">Caricamento...</div>
+                                        </div>
+                                        <div class="empty-state hidden" id="jobsEmpty">Nessun job configurato.</div>
+                                    </div>
+                                    <div id="runsTab" class="tab-content hidden" role="tabpanel" aria-labelledby="runsTabButton">
+                                        <div class="run-filter-bar" aria-label="Filtri storico backup">
+                                            <label>
+                                                Periodo
+                                                <select id="runPeriodFilter" onchange="app.setRunFilter('period', this.value)">
+                                                    <option value="all">Tutti</option>
+                                                    <option value="24h">Ultime 24h</option>
+                                                    <option value="7d">Ultimi 7 giorni</option>
+                                                    <option value="30d">Ultimi 30 giorni</option>
+                                                </select>
+                                            </label>
+                                            <label>
+                                                Stato
+                                                <select id="runStatusFilter" onchange="app.setRunFilter('status', this.value)">
+                                                    <option value="all">Tutti</option>
+                                                    <option value="success">Successo</option>
+                                                    <option value="partial">Parziale</option>
+                                                    <option value="failure">Fallito</option>
+                                                    <option value="running">In corso</option>
+                                                </select>
+                                            </label>
+                                            <label>
+                                                Job
+                                                <select id="runJobFilter" onchange="app.setRunFilter('job', this.value)">
+                                                    <option value="all">Tutti</option>
+                                                </select>
+                                            </label>
+                                        </div>
+                                        <div id="runsList" class="runs-list card-list">
+                                            <div class="loading">Caricamento...</div>
+                                        </div>
+                                        <div class="empty-state hidden" id="runsEmpty">Nessuna esecuzione recente.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="workspace-right">
+                            <div class="job-editor-panel">
+                                <div class="panel-header">
+                                    <div>
+                                        <p class="eyebrow">Editor</p>
+                                        <h3>Job</h3>
+                                    </div>
+                                    <div class="header-actions">
+                                        <button class="btn btn-outline btn-small action-group hidden" id="cancelJobBtn" onclick="app.cancelEditJob()">Annulla</button>
+                                        <button class="btn btn-outline btn-small action-group" onclick="app.openBackupsList()">Backup presenti</button>
+                                        <button id="saveJobButton" class="btn btn-primary btn-small action-group" onclick="app.handleSaveJob()">Salva</button>
+                                        <button class="btn btn-success btn-small action-group" onclick="app.runEditingJob()">Esegui</button>
+                                        <button class="btn btn-danger btn-small action-group" onclick="app.deleteEditingJob()">Elimina</button>
+                                    </div>
+                                </div>
+                                <div id="jobEditorEmpty" class="info-message">Seleziona un job dalla lista o creane uno nuovo.</div>
+                                <form id="jobEditorForm" class="job-form hidden">
+                                    <div class="job-wizard" role="tablist" aria-label="Wizard job">
+                                        <button type="button" class="job-wizard-step active" data-step="client" onclick="app.setJobWizardStep('client')">Client</button>
+                                        <button type="button" class="job-wizard-step" data-step="schedule" onclick="app.setJobWizardStep('schedule')">Pianificazione</button>
+                                        <button type="button" class="job-wizard-step" data-step="mappings" onclick="app.setJobWizardStep('mappings')">Mappature</button>
+                                        <button type="button" class="job-wizard-step" data-step="review" onclick="app.setJobWizardStep('review')">Revisione</button>
+                                    </div>
+                                    <div data-wizard-step="client">
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label for="jobIdField">Job ID</label>
+                                            <input type="text" id="jobIdField" required placeholder="es. BACKUP-DOCS">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Client</label>
+                                            <div class="static-field" id="jobClientName"></div>
+                                        </div>
+                                        <div class="form-group checkbox-inline">
+                                            <input type="checkbox" id="jobEnabledToggle" checked>
+                                            <label for="jobEnabledToggle">Job Attivo</label>
+                                        </div>
+                                    </div>
+                                    </div>
+
+                                    <div class="section" id="scheduleSection" data-wizard-step="schedule">
+                                        <div class="section-header">
+                                            <h4>Pianificazione</h4>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Giorni della settimana</label>
+                                            <div class="weekdays-grid" id="scheduleDays">
+                                                <label class="weekday-check"><input type="checkbox" value="1"><span>Lun</span></label>
+                                                <label class="weekday-check"><input type="checkbox" value="2"><span>Mar</span></label>
+                                                <label class="weekday-check"><input type="checkbox" value="3"><span>Mer</span></label>
+                                                <label class="weekday-check"><input type="checkbox" value="4"><span>Gio</span></label>
+                                                <label class="weekday-check"><input type="checkbox" value="5"><span>Ven</span></label>
+                                                <label class="weekday-check"><input type="checkbox" value="6"><span>Sab</span></label>
+                                                <label class="weekday-check"><input type="checkbox" value="0"><span>Dom</span></label>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Orari di esecuzione</label>
+                                            <div class="time-list" id="scheduleTimes"></div>
+                                            <div class="time-adder">
+                                                <input type="time" id="newScheduleTime" value="02:00">
+                                                <button type="button" class="btn btn-outline btn-small" onclick="app.addScheduleTime()">+ Aggiungi</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="section" id="mappingsSection" data-wizard-step="mappings">
+                                        <div class="section-header">
+                                            <h4>Mappature Sorgente/Destinazione</h4>
+                                            <button type="button" class="btn btn-outline btn-small" onclick="app.addMapping()">+ Aggiungi</button>
+                                        </div>
+                                        <div id="mappingsContainer" class="mappings-container"></div>
+                                    </div>
+                                    <div class="section" id="reviewSection" data-wizard-step="review">
+                                        <div class="section-header">
+                                            <h4>Revisione</h4>
+                                        </div>
+                                        <div id="jobReviewContent" class="job-review"></div>
+                                    </div>
+
+                                    <div id="jobFormError" class="error-message" role="alert" aria-live="assertive"></div>
+                                    <div class="wizard-footer">
+                                        <button type="button" id="jobWizardPrevButton" class="btn btn-outline btn-small" onclick="app.previousJobWizardStep()">Indietro</button>
+                                        <button type="button" id="jobWizardNextButton" class="btn btn-outline btn-small" onclick="app.nextJobWizardStep()">Avanti</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </section>
+                </main>
+
+            </div>
+            <footer class="footer-status">
+                <div class="status-item">
+                    <span class="status-dot" id="connectionStatus"></span>
+                    <div class="status-copy">
+                        <span class="status-label">Connessione</span>
+                        <span class="status-caption" id="connectionStatusText">Verifica backend...</span>
+                    </div>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <div id="deregisterDialog" class="modal hidden">
+        <div class="modal-backdrop" onclick="app.closeDeregisterDialog()"></div>
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="deregisterDialogTitle" aria-describedby="deregisterMessage" tabindex="-1">
+            <h3 id="deregisterDialogTitle">Deregistra PC</h3>
+            <div class="dialog-message">
+                <p id="deregisterMessage"></p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="app.closeDeregisterDialog()">Annulla</button>
+                <button type="button" class="btn btn-danger" onclick="app.confirmDeregisterClient()">Deregistra</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="clearLogsDialog" class="modal hidden">
+        <div class="modal-backdrop" onclick="app.closeClearLogsDialog()"></div>
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="clearLogsDialogTitle" aria-describedby="clearLogsMessage" tabindex="-1">
+            <h3 id="clearLogsDialogTitle">Elimina Storico Backup</h3>
+            <div class="dialog-message">
+                <p id="clearLogsMessage"></p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="app.closeClearLogsDialog()">Annulla</button>
+                <button type="button" class="btn btn-danger" onclick="app.confirmClearClientLogs()">Elimina Log</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="filesystemModal" class="modal hidden">
+        <div class="modal-backdrop" onclick="app.closeFilesystemModal()"></div>
+        <div class="modal-content wide" role="dialog" aria-modal="true" aria-labelledby="filesystemModalTitle" tabindex="-1">
+            <h3 id="filesystemModalTitle">Sfoglia Filesystem</h3>
+            <div class="fs-nav-bar">
+                <button type="button" class="btn btn-outline btn-small" onclick="app.navigateFilesystemUp()" id="fsBtnUp">&#8593; Indietro</button>
+                <div class="fs-current-path" id="fsCurrentPath">/</div>
+            </div>
+            <div id="fsEntries" class="filesystem-list" aria-live="polite"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="app.closeFilesystemModal()">Annulla</button>
+                <button type="button" class="btn btn-primary" onclick="app.selectCurrentPath()" id="fsSelectBtn">Seleziona</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="logViewerModal" class="modal hidden">
+        <div class="modal-backdrop" onclick="app.closeLogViewer()"></div>
+        <div class="modal-content wide" role="dialog" aria-modal="true" aria-labelledby="logViewerModalTitle" tabindex="-1">
+            <div class="modal-header">
+                <h3 id="logViewerModalTitle">Log Completi</h3>
+                <button type="button" class="btn btn-outline btn-small" onclick="app.closeLogViewer()">Chiudi</button>
+            </div>
+            <div class="log-viewer" id="logViewerContent">
+                <div class="skeleton skeleton-line"></div>
+                <div class="skeleton skeleton-line"></div>
+                <div class="skeleton skeleton-line"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="backupsModal" class="modal hidden">
+        <div class="modal-backdrop" onclick="app.closeBackupsModal()"></div>
+        <div class="modal-content wide" role="dialog" aria-modal="true" aria-labelledby="backupsModalTitle" tabindex="-1">
+            <div class="modal-header">
+                <h3 id="backupsModalTitle">Backup presenti</h3>
+                <button type="button" class="btn btn-outline btn-small" onclick="app.closeBackupsModal()">Chiudi</button>
+            </div>
+            <div class="backup-browser" id="backupsModalContent">
+                <div class="info-message">Seleziona un job per visualizzare i backup disponibili.</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="strongConfirmDialog" class="modal hidden">
+        <div class="modal-backdrop" onclick="app.closeStrongConfirmDialog(false)"></div>
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="strongConfirmTitle" aria-describedby="strongConfirmMessage" tabindex="-1">
+            <h3 id="strongConfirmTitle">Conferma operazione</h3>
+            <div class="dialog-message danger-message">
+                <p id="strongConfirmMessage"></p>
+            </div>
+            <div class="form-group">
+                <label for="strongConfirmInput">Digita <strong id="strongConfirmExpected"></strong> per confermare</label>
+                <input type="text" id="strongConfirmInput" autocomplete="off" oninput="app.updateStrongConfirmButton()">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="app.closeStrongConfirmDialog(false)">Annulla</button>
+                <button type="button" id="strongConfirmButton" class="btn btn-danger" onclick="app.confirmStrongAction()" disabled>Conferma</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="jobPreviewDialog" class="modal hidden">
+        <div class="modal-backdrop" onclick="app.closeJobPreviewDialog(false)"></div>
+        <div class="modal-content wide" role="dialog" aria-modal="true" aria-labelledby="jobPreviewTitle" tabindex="-1">
+            <h3 id="jobPreviewTitle">Revisione job</h3>
+            <div id="jobPreviewContent" class="job-preview"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="app.closeJobPreviewDialog(false)">Annulla</button>
+                <button type="button" id="jobPreviewConfirmButton" class="btn btn-primary" onclick="app.confirmJobPreview()">Conferma</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script src="/js/app-auth.js"></script>
+    <script src="/js/app-client-management.js"></script>
+    <script src="/js/app-job-listing.js"></script>
+    <script src="/js/app-job-editor.js"></script>
+    <script src="/js/app-run-history.js"></script>
+    <script src="/js/app-bootstrap.js"></script>
+</body>
+</html>
